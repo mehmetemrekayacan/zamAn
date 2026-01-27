@@ -33,7 +33,7 @@ export interface SessionScoreDetail extends ScoreBreakdown {
 const MODE_COEFFICIENTS: Record<Mode, number> = {
   serbest: 0.8,
   gerisayim: 1.2,
-  pomodoro: 1.1,
+  ders60mola15: 1.15,
   deneme: 1.3,
 }
 
@@ -258,5 +258,69 @@ export function getAverageScore(sessions: SessionRecord[]): number {
   if (sessions.length === 0) return 0
   const total = sessions.reduce((sum, s) => sum + s.puan, 0)
   return Math.round(total / sessions.length)
+}
+
+/** Ünvan eşikleri: ilköğretim matematik öğretmenliği sınav yolculuğuna göre */
+export const UNVAN_ESIKLERI: {
+  puan: number
+  unvan: string
+  profilEmoji: string
+  temaClass: string
+  aciklama: string
+}[] = [
+  { puan: 0, unvan: 'İlk Adım', profilEmoji: '🌱', temaClass: 'tier-caylak', aciklama: 'Sınav yolculuğunun başlangıcı' },
+  { puan: 500, unvan: 'Sınav Adayı', profilEmoji: '📖', temaClass: 'tier-ady', aciklama: 'KPSS ve alan sınavlarına adım adım hazırlanıyorsun' },
+  { puan: 1500, unvan: 'Öğretmen Adayı', profilEmoji: '📐', temaClass: 'tier-gozcu', aciklama: 'İlköğretim matematik öğretmenliği yolunda ilerliyorsun' },
+  { puan: 3000, unvan: 'Matematik Uzmanı', profilEmoji: '⭐', temaClass: 'tier-uzman', aciklama: 'Alan bilgisi ve öğretim becerisi güçleniyor' },
+  { puan: 6000, unvan: 'İlköğretim Matematikçi', profilEmoji: '🏆', temaClass: 'tier-kahraman', aciklama: 'Hedef mesleğe çok yakınsın!' },
+  { puan: 10000, unvan: 'Usta Öğretmen', profilEmoji: '👑', temaClass: 'tier-efsane', aciklama: 'İlköğretim matematiğinde usta seviye' },
+]
+
+export interface UnvanBilgisi {
+  unvan: string
+  toplamPuan: number
+  sonrakiUnvan: string | null
+  sonrakiPuan: number | null
+  ilerlemeYuzde: number | null
+  profilEmoji: string
+  temaClass: string
+  /** İleride açılacak tüm üst seviyeler (motivasyon listesi) */
+  ileridekiler: { puan: number; unvan: string; profilEmoji: string; temaClass: string; aciklama: string }[]
+}
+
+/**
+ * Toplam kariyer puanına göre mevcut ünvan ve bir sonrakine yakınlık
+ */
+export function getUnvan(toplamPuan: number): UnvanBilgisi {
+  const esikler = UNVAN_ESIKLERI
+  let mevcut = esikler[0]
+  let sonraki: (typeof esikler)[0] | null = null
+  for (let i = 0; i < esikler.length; i++) {
+    if (toplamPuan >= esikler[i].puan) mevcut = esikler[i]
+    if (esikler[i].puan > toplamPuan && !sonraki) sonraki = esikler[i]
+  }
+  let ilerlemeYuzde: number | null = null
+  if (sonraki) {
+    const aralik = sonraki.puan - mevcut.puan
+    const gidilen = toplamPuan - mevcut.puan
+    ilerlemeYuzde = aralik > 0 ? Math.min(100, Math.round((gidilen / aralik) * 100)) : 100
+  }
+  const ileridekiler = esikler.filter((e) => e.puan > toplamPuan)
+  return {
+    unvan: mevcut.unvan,
+    toplamPuan,
+    sonrakiUnvan: sonraki?.unvan ?? null,
+    sonrakiPuan: sonraki?.puan ?? null,
+    ilerlemeYuzde,
+    profilEmoji: mevcut.profilEmoji,
+    temaClass: mevcut.temaClass,
+    ileridekiler: ileridekiler.map((e) => ({
+      puan: e.puan,
+      unvan: e.unvan,
+      profilEmoji: e.profilEmoji,
+      temaClass: e.temaClass,
+      aciklama: e.aciklama,
+    })),
+  }
 }
 

@@ -1,0 +1,56 @@
+import type { SessionRecord } from '../types'
+
+export type RozetId =
+  | 'ilk_seans'
+  | 'ilk_5_saatlik_gun'
+  | 'ilk_1000_puan'
+  | 'seri_3'
+  | 'seri_7'
+  | 'seri_14'
+  | 'deneme_5'
+  | 'deneme_10'
+  | 'hedef_gun_5'
+  | 'hedef_gun_15'
+  | 'hedef_150_saat'
+
+export interface Rozet {
+  id: RozetId
+  ad: string
+  emoji: string
+  aciklama: string
+  kazanildi: boolean
+}
+
+interface SummaryForRozet {
+  gunluk5SaatGunSayisi: number
+  streak: number
+  toplamKariyerPuan: number
+  monthMinutes: number
+  sessions: SessionRecord[]
+}
+
+export function getRozetler(summary: SummaryForRozet): Rozet[] {
+  const { gunluk5SaatGunSayisi, streak, toplamKariyerPuan, monthMinutes, sessions } = summary
+  const denemeSayisi = sessions.filter((s) => s.mod === 'deneme').length
+  const gunlukDkByDate: Record<string, number> = {}
+  sessions.forEach((s) => {
+    const d = s.tarihISO.split('T')[0]
+    gunlukDkByDate[d] = (gunlukDkByDate[d] ?? 0) + (s.sureGercek ?? 0)
+  })
+  const besSaatlikGunSayisi = Object.values(gunlukDkByDate).filter((dk) => dk >= 300).length
+
+  const list: Rozet[] = [
+    { id: 'ilk_seans', ad: 'İlk Seans', emoji: '🎯', aciklama: 'İlk seansını tamamladın', kazanildi: sessions.length >= 1 },
+    { id: 'ilk_5_saatlik_gun', ad: 'İlk 5 Saatlik Gün', emoji: '📚', aciklama: 'Bir günde 5+ saat çalıştın', kazanildi: besSaatlikGunSayisi >= 1 },
+    { id: 'ilk_1000_puan', ad: 'İlk 1000 Puan', emoji: '⭐', aciklama: '1000 kariyer puanına ulaştın', kazanildi: toplamKariyerPuan >= 1000 },
+    { id: 'seri_3', ad: '3 Gün Seri', emoji: '🔥', aciklama: '3 ardışık gün çalıştın', kazanildi: streak >= 3 },
+    { id: 'seri_7', ad: '7 Gün Seri', emoji: '🔥🔥', aciklama: '7 ardışık gün çalıştın', kazanildi: streak >= 7 },
+    { id: 'seri_14', ad: '14 Gün Seri', emoji: '🔥🔥🔥', aciklama: '14 ardışık gün çalıştın', kazanildi: streak >= 14 },
+    { id: 'deneme_5', ad: '5 Deneme', emoji: '📋', aciklama: '5 deneme sınavı tamamladın', kazanildi: denemeSayisi >= 5 },
+    { id: 'deneme_10', ad: '10 Deneme', emoji: '📋📋', aciklama: '10 deneme sınavı tamamladın', kazanildi: denemeSayisi >= 10 },
+    { id: 'hedef_gun_5', ad: '5 Hedef Gün', emoji: '🎯', aciklama: 'Ayda 5 gün 5+ saat çalıştın', kazanildi: gunluk5SaatGunSayisi >= 5 },
+    { id: 'hedef_gun_15', ad: '15 Hedef Gün', emoji: '🏅', aciklama: 'Ayda 15 gün 5+ saat çalıştın', kazanildi: gunluk5SaatGunSayisi >= 15 },
+    { id: 'hedef_150_saat', ad: '150 Saat', emoji: '👑', aciklama: 'Ayda 150 saat çalıştın', kazanildi: monthMinutes >= 150 * 60 },
+  ]
+  return list
+}

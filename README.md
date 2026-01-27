@@ -1,3 +1,16 @@
+# Zaman Ölçer
+
+Deneme / çalışma süreçleri için kronometre, zamanlayıcı, Pomodoro ve deneme sınavı modları. PWA + offline-first.
+
+## Windows & Android’de kullanım
+
+**Bilgisayar (Windows):** Tarayıcıda veya PWA olarak kullanılabilir.  
+**Android:** APK üretip telefona yüklenebilir (Play Store gerekmez).
+
+Adım adım anlatım için ** [KULLANIM.md](./KULLANIM.md)** dosyasına bak.
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

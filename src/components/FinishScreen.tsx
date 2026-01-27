@@ -1,10 +1,10 @@
-import type { Mode } from '../types'
+import type { Mode, RuhHali } from '../types'
 import type { ScoreBreakdown } from '../lib/scoring'
 
 const modes = [
   { id: 'serbest' as const, title: 'Kronometre' },
   { id: 'gerisayim' as const, title: 'Zamanlayıcı' },
-  { id: 'pomodoro' as const, title: 'Pomodoro' },
+  { id: 'ders60mola15' as const, title: '60 dk ders / 15 dk mola' },
   { id: 'deneme' as const, title: 'Deneme Sınavı' },
 ]
 
@@ -38,10 +38,17 @@ export interface FinishScreenProps {
   pauses: number
   sessionNote: string
   onSessionNoteChange: (value: string) => void
+  sessionRuhHali?: RuhHali | null
+  onRuhHaliChange?: (value: RuhHali | null) => void
   onSave: () => void
   onCancel: () => void
 }
 
+const RUH_HALI_OPTS: { value: RuhHali; label: string; emoji: string }[] = [
+  { value: 'iyi', label: 'İyi', emoji: '😊' },
+  { value: 'normal', label: 'Normal', emoji: '😐' },
+  { value: 'yorucu', label: 'Yorucu', emoji: '😤' },
+]
 export function FinishScreen({
   score,
   mode,
@@ -49,6 +56,8 @@ export function FinishScreen({
   pauses,
   sessionNote,
   onSessionNoteChange,
+  sessionRuhHali,
+  onRuhHaliChange,
   onSave,
   onCancel,
 }: FinishScreenProps) {
@@ -106,6 +115,25 @@ export function FinishScreen({
           </div>
         </div>
 
+        {onRuhHaliChange && (
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-text-primary">Bu seans nasıldı? (opsiyonel)</label>
+            <div className="flex gap-2 flex-wrap">
+              {RUH_HALI_OPTS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => onRuhHaliChange(sessionRuhHali === o.value ? null : o.value)}
+                  className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    sessionRuhHali === o.value ? 'border-accent-amber/60 bg-accent-amber/20 text-text-primary' : 'border-text-primary/10 bg-surface-700/50 text-text-muted hover:border-accent-amber/40'
+                  }`}
+                >
+                  {o.emoji} {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-text-primary">Seans Notu (opsiyonel)</label>
           <textarea
@@ -120,13 +148,13 @@ export function FinishScreen({
         <div className="flex gap-3">
           <button
             onClick={onSave}
-            className="flex-1 rounded-full bg-accent-blue px-6 py-3 font-semibold text-surface-900 shadow-lg shadow-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/40"
+            className="flex-1 rounded-full bg-accent-blue px-6 py-3 font-semibold text-surface-900 shadow-lg shadow-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/40 active:scale-[0.98] transition"
           >
             Kaydet ve Devam Et
           </button>
           <button
             onClick={onCancel}
-            className="rounded-full border border-text-primary/10 px-6 py-3 font-semibold text-text-primary hover:border-accent-blue/60"
+            className="rounded-full border border-text-primary/10 px-6 py-3 font-semibold text-text-primary hover:border-accent-blue/60 active:scale-[0.98] transition"
           >
             İptal
           </button>
