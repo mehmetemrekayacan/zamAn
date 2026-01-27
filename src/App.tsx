@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
+import { useMemo, useState, useEffect, useCallback, useRef, lazy, Suspense, memo } from 'react'
 import { formatDuration } from './lib/time'
 import { MODE_DEFAULTS, useTimerStore } from './store/timer'
 import { useSessionsStore } from './store/sessions'
@@ -9,12 +9,13 @@ import { getSelam, getSinavKalanGun } from './lib/selam'
 import { getRandomMolaFikri } from './lib/molaFikirleri'
 import { getRozetler } from './lib/rozetler'
 import { getTahmin150Saat, getSaatDagilimi } from './lib/tahmin'
-import { FinishScreen } from './components/FinishScreen'
-import { SettingsModal } from './components/SettingsModal'
 import { StatCard } from './components/StatCard'
 import { Toast } from './components/Toast'
 import { Confetti } from './components/Confetti'
 import type { ModeConfig, SessionRecord } from './types'
+
+const FinishScreen = lazy(() => import('./components/FinishScreen').then((m) => ({ default: m.FinishScreen })))
+const SettingsModal = lazy(() => import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal })))
 
 const clonePreset = (config: ModeConfig): ModeConfig => {
   if (config.mode === 'deneme') {
@@ -405,7 +406,8 @@ function App() {
     return (
       <>
         <Confetti active={showConfetti} onDone={() => setShowConfetti(false)} />
-        <FinishScreen
+        <Suspense fallback={<div className="min-h-screen bg-surface-900 flex items-center justify-center" aria-hidden>Yükleniyor…</div>}>
+          <FinishScreen
         score={lastSessionScore}
         mode={mode}
         elapsedMs={elapsedMs}
@@ -423,6 +425,7 @@ function App() {
           reset()
         }}
       />
+        </Suspense>
         {toast && <Toast message={toast.message} visible onDismiss={() => setToast(null)} type={toast.type} />}
       </>
     )
@@ -434,8 +437,8 @@ function App() {
   const seriAlev = summary.streak >= 14 ? '🔥🔥🔥' : summary.streak >= 7 ? '🔥🔥' : summary.streak >= 3 ? '🔥' : ''
 
   return (
-    <div className="min-h-screen bg-surface-900 text-text-primary">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-10 pt-10">
+    <div className="min-h-screen min-h-[100dvh] bg-surface-900 text-text-primary">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:gap-6 px-3 sm:px-4 pb-6 sm:pb-10 pt-[max(1rem,env(safe-area-inset-top))] sm:pt-10">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-widest text-text-muted">Zaman Ölçer</p>
@@ -473,16 +476,18 @@ function App() {
                 )}
               </div>
             </button>
-            <div className="flex gap-3">
-              <span className="rounded-full bg-text-primary/5 px-3 py-1 border border-text-primary/10">PWA hazır taslak</span>
-              <span className="rounded-full bg-text-primary/5 px-3 py-1 border border-text-primary/10">Offline-first</span>
+            <div className="hidden sm:flex gap-2">
+              <span className="rounded-full bg-text-primary/5 px-2 py-1 text-xs border border-text-primary/10">PWA</span>
+              <span className="rounded-full bg-text-primary/5 px-2 py-1 text-xs border border-text-primary/10">Offline</span>
             </div>
             <button
+              type="button"
               onClick={() => setShowSettings(!showSettings)}
-              className="rounded-full bg-accent-blue/10 hover:bg-accent-blue/20 p-2 border border-accent-blue/30 hover:border-accent-blue/60 transition text-accent-blue"
+              className="rounded-full bg-accent-blue/10 hover:bg-accent-blue/20 active:bg-accent-blue/30 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center border border-accent-blue/30 hover:border-accent-blue/60 transition text-accent-blue touch-manipulation"
               title="Ayarlar"
+              aria-label="Ayarlar"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -526,14 +531,16 @@ function App() {
               )}
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <button
-                  className="rounded-full bg-accent-blue px-5 py-2.5 text-sm font-semibold text-surface-900 shadow-lg shadow-cyan-500/30 active:scale-[0.97] transition"
+                  type="button"
+                  className="rounded-full bg-accent-blue px-5 py-3 min-h-[44px] text-sm font-semibold text-surface-900 shadow-lg shadow-cyan-500/30 active:scale-[0.97] transition touch-manipulation"
                   onClick={primaryAction}
                 >
                   {primaryLabel}
                 </button>
                 {!denemeMolada && (
                   <button
-                    className="rounded-full border border-text-primary/10 px-5 py-2.5 text-sm text-text-primary active:scale-[0.97] transition"
+                    type="button"
+                    className="rounded-full border border-text-primary/10 px-5 py-3 min-h-[44px] text-sm text-text-primary active:scale-[0.97] transition touch-manipulation"
                     onClick={() => reset()}
                   >
                     Reset
@@ -566,7 +573,7 @@ function App() {
                       setModeConfig(clonePreset(MODE_DEFAULTS[mode.id]))
                     }
                   }}
-                  className={`group rounded-card border px-3 py-3 text-left transition hover:-translate-y-[1px] hover:border-accent-blue/60 hover:shadow-lg hover:shadow-accent-blue/10 ${
+                  className={`group rounded-card border px-3 py-3 min-h-[44px] text-left transition touch-manipulation hover:-translate-y-[1px] hover:border-accent-blue/60 hover:shadow-lg hover:shadow-accent-blue/10 active:bg-text-primary/5 ${
                     modeConfig.mode === mode.id
                       ? 'border-accent-blue/70 bg-text-primary/5'
                       : 'border-text-primary/10 bg-text-primary/0'
@@ -1078,7 +1085,11 @@ function App() {
             </div>
           </div>
         )}
-        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+        {showSettings && (
+          <Suspense fallback={null}>
+            <SettingsModal onClose={() => setShowSettings(false)} />
+          </Suspense>
+        )}
         {showMotivasyon && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setShowMotivasyon(false)}>
             <div
@@ -1140,7 +1151,7 @@ function App() {
   )
 }
 
-function SectionList({
+const SectionList = memo(function SectionList({
   modeConfig,
   currentSectionIndex,
   jumpToSection,
@@ -1162,10 +1173,11 @@ function SectionList({
           <button
             key={b.ad + idx}
             onClick={() => jumpToSection(idx)}
-            className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
+            type="button"
+            className={`w-full rounded-lg border px-3 py-2.5 min-h-[44px] text-left text-sm transition touch-manipulation ${
               idx === activeIdx 
                 ? 'border-accent-amber/60 bg-accent-amber/10 text-text-primary font-semibold' 
-                : 'border-text-primary/5 bg-text-primary/0 text-text-muted hover:border-accent-blue/40 hover:bg-text-primary/5'
+                : 'border-text-primary/5 bg-text-primary/0 text-text-muted hover:border-accent-blue/40 hover:bg-text-primary/5 active:bg-text-primary/10'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -1177,6 +1189,6 @@ function SectionList({
       </div>
     </div>
   )
-}
+})
 
 export default App

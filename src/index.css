@@ -23,16 +23,29 @@
   background-color: #0b1220;
 }
 
+html {
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.06), transparent 28%),
     radial-gradient(circle at 80% 10%, rgba(245, 158, 11, 0.08), transparent 32%),
     #0b1220;
+  overflow-x: hidden;
+  touch-action: manipulation;
 }
 
 * {
   outline-offset: 2px;
+}
+
+.touch-manipulation {
+  touch-action: manipulation;
 }
 
 /* Light Theme */

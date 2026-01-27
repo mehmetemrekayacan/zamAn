@@ -1,10 +1,12 @@
+import { memo } from 'react'
+
 export interface StatCardProps {
   label: string
   value: string
   hint: string
 }
 
-export function StatCard({ label, value, hint }: StatCardProps) {
+export const StatCard = memo(function StatCard({ label, value, hint }: StatCardProps) {
   return (
     <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-accent-blue/5">
       <p className="text-xs uppercase tracking-widest text-text-muted">{label}</p>
@@ -12,4 +14,4 @@ export function StatCard({ label, value, hint }: StatCardProps) {
       <p className="text-sm text-text-muted">{hint}</p>
     </div>
   )
-}
+})

@@ -1,3 +1,8 @@
+/**
+ * IndexedDB: Tüm seans kayıtları burada kalıcı tutulur.
+ * Uygulama kapatılsa da, sayfa yenilense de veriler silinmez.
+ * Sadece kullanıcı “Tüm verileri temizle” (Ayarlar) derse silinir.
+ */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Mode, SessionRecord } from '../types'
 

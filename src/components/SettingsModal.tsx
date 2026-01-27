@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { clearAllSessions } from '../lib/db'
 import { useSettingsStore } from '../store/settings'
 import type { VurguRengi } from '../store/settings'
 
@@ -16,6 +18,20 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const sinavTarihi = useSettingsStore((s) => s.sinavTarihi ?? null)
   const vurguRengi = useSettingsStore((s) => s.vurguRengi ?? 'mavi')
   const setSetting = useSettingsStore((s) => s.setSetting)
+  const [temizleniyor, setTemizleniyor] = useState(false)
+
+  const handleTumVerileriTemizle = async () => {
+    if (!window.confirm('Tüm seanslar ve deneme ayarları silinecek. Deneme bölümleri AGS 110 dk, ÖABT 90 dk olarak sıfırlanacak. Emin misin?')) return
+    setTemizleniyor(true)
+    try {
+      await clearAllSessions()
+      localStorage.removeItem('deneme-config')
+      localStorage.removeItem('timer-storage') // persist edilen modeConfig (eski bölümler burada kalıyordu)
+      window.location.reload()
+    } finally {
+      setTemizleniyor(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -232,6 +248,21 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 💡 Tuş kodlarını görmek için: Browser DevTools → Console üzerinde <code className="bg-surface-700 px-1 py-0.5 rounded">event.code</code> yazın
               </p>
             </div>
+          </div>
+
+          <div className="space-y-2 pt-3 border-t border-text-primary/10">
+            <h3 className="text-base font-semibold text-text-primary">Veri</h3>
+            <p className="text-xs text-text-muted">
+              Tüm seansları ve deneme ayarlarını siler. Deneme bölümleri <strong>AGS 110 dk</strong>, <strong>ÖABT 90 dk</strong> olarak sıfırlanır.
+            </p>
+            <button
+              type="button"
+              onClick={handleTumVerileriTemizle}
+              disabled={temizleniyor}
+              className="w-full rounded-lg border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 px-3 py-2 text-sm font-medium text-red-400 transition disabled:opacity-50"
+            >
+              {temizleniyor ? 'Temizleniyor…' : 'Tüm verileri temizle'}
+            </button>
           </div>
         </div>
 
