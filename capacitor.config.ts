@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.zamanolcer.app',
-  appName: 'Zaman Ölçer',
+  appName: 'zamAn',
   webDir: 'dist',
 };
 

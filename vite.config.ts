@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: mode === 'android' ? './' : '/',
+  base: (mode === 'android' || mode === 'electron') ? './' : '/',
   build: {
     rollupOptions: {
       output: {
@@ -30,8 +30,8 @@ export default defineConfig(({ mode }) => ({
       registerType: 'prompt',
       includeAssets: ['icon-192x192.png', 'icon-512x512.png'],
       manifest: {
-        name: 'Zaman Ölçer',
-        short_name: 'Zaman',
+        name: 'zamAn',
+        short_name: 'zamAn',
         start_url: '/',
         display: 'standalone',
         background_color: '#0b1220',

@@ -11,10 +11,26 @@ export interface NotificationOptions {
 }
 
 /**
- * Trigger vibration pattern (mobile devices)
- * @param pattern - Vibration pattern in milliseconds [vibrate, pause, vibrate...]
+ * Trigger vibration (mobile: Capacitor Haptics, web: Vibration API).
+ * Android'de WebView'daki navigator.vibrate bazen çalışmaz; native Haptics kullanırız.
  */
-export const triggerVibration = (pattern: number[] = [200, 100, 200, 100, 300]): void => {
+export const triggerVibration = async (pattern: number[] = [200, 100, 200, 100, 300]): Promise<void> => {
+  try {
+    // @ts-ignore - Capacitor run-time dependency, build’te olmayabilir
+    const { Capacitor } = await import('@capacitor/core')
+    if (Capacitor?.isNativePlatform?.()) {
+      const { Haptics } = await import('@capacitor/haptics')
+      // Android’de pattern için ardışık titreşim (toplam ~900ms)
+      await Haptics.vibrate({ duration: pattern[0] ?? 200 })
+      if (pattern.length > 2) {
+        await new Promise((r) => setTimeout(r, (pattern[1] ?? 100) + 50))
+        await Haptics.vibrate({ duration: pattern[2] ?? 200 })
+      }
+      return
+    }
+  } catch {
+    // Capacitor/Haptics yok veya hata → Web API dene
+  }
   if ('vibrate' in navigator) {
     try {
       navigator.vibrate(pattern)
@@ -30,7 +46,7 @@ export const triggerVibration = (pattern: number[] = [200, 100, 200, 100, 300]):
  */
 export const playNotificationSound = (frequency: number = 800, duration: number = 500): void => {
   try {
-    // @ts-expect-error - webkitAudioContext for Safari compatibility
+    // @ts-ignore - webkitAudioContext for Safari compatibility
     const audioContext = new (window.AudioContext || window.webkitAudioContext)()
     const oscillator = audioContext.createOscillator()
     const gainNode = audioContext.createGain()
@@ -56,7 +72,7 @@ export const playNotificationSound = (frequency: number = 800, duration: number 
  */
 export const playSuccessSound = (): void => {
   try {
-    // @ts-expect-error - webkitAudioContext for Safari compatibility
+    // @ts-ignore - webkitAudioContext for Safari compatibility
     const audioContext = new (window.AudioContext || window.webkitAudioContext)()
     const now = audioContext.currentTime
     const duration = 0.1
@@ -147,7 +163,7 @@ export const notifySessionComplete = (options: NotificationOptions = {}): void =
   }
 
   if (enableVibration) {
-    triggerVibration()
+    void triggerVibration()
   }
 
   if (enableBrowserNotification) {

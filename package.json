@@ -1,39 +1,82 @@
 {
   "name": "zaman_olcer",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Deneme / çalışma süre takip uygulaması — Windows ve Android için indirilebilir.",
+  "author": "zamAn",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:android": "tsc -b && vite build --mode android",
+    "build:win": "tsc -b && vite build --mode electron",
     "lint": "eslint .",
     "preview": "vite preview",
     "cap:sync": "cap sync",
     "cap:open:android": "cap open android",
     "android": "npm run build:android && cap sync && cap open android",
-    "apk": "npm run build:android && cap sync"
+    "apk": "npm run build:android && cap sync",
+    "apk:build": "npm run apk && node scripts/build-apk.cjs",
+    "apk:debug": "npm run apk && node scripts/build-apk.cjs",
+    "apk:release": "npm run apk && cross-env APK_MODE=release node scripts/build-apk.cjs",
+    "icons": "node scripts/prepare-assets.cjs && npx @capacitor/assets generate --iconBackgroundColor '#0b1220' --iconBackgroundColorDark '#0b1220' --splashBackgroundColor '#0b1220' --splashBackgroundColorDark '#0b1220'",
+    "win": "node scripts/generate-win-icon.cjs && npm run build:win && electron-builder --win",
+    "win:dir": "node scripts/generate-win-icon.cjs && npm run build:win && electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.zamanolcer.app",
+    "productName": "zamAn",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "extraResources": [
+      { "from": "build/icon.ico", "to": "icon.ico" }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "zamAn"
+    }
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
     "@capacitor/core": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@supabase/supabase-js": "^2.93.1",
     "idb": "^8.0.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0",
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
-    "@capacitor/cli": "^7.0.0",
     "globals": "^16.5.0",
+    "png-to-ico": "^3.0.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.14",
     "typescript": "~5.9.3",

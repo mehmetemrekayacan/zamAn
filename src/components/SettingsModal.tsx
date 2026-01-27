@@ -1,5 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { clearAllSessions } from '../lib/db'
+import {
+  getCurrentUser,
+  isCloudSyncEnabled,
+  pullCloud,
+  pushCloud,
+  signIn,
+  signOut,
+  signUp,
+} from '../lib/cloudSync'
+import { exportData, exportFileName, importFromFile } from '../lib/sync'
 import { useSettingsStore } from '../store/settings'
 import type { VurguRengi } from '../store/settings'
 
@@ -19,6 +29,76 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const vurguRengi = useSettingsStore((s) => s.vurguRengi ?? 'mavi')
   const setSetting = useSettingsStore((s) => s.setSetting)
   const [temizleniyor, setTemizleniyor] = useState(false)
+  const [disaAktariyor, setDisaAktariyor] = useState(false)
+  const [iceAktariyor, setIceAktariyor] = useState(false)
+  const [iceAktarHata, setIceAktarHata] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [cloudUser, setCloudUser] = useState<Awaited<ReturnType<typeof getCurrentUser>>>(null)
+  const [cloudEmail, setCloudEmail] = useState('')
+  const [cloudPassword, setCloudPassword] = useState('')
+  const [cloudIsim, setCloudIsim] = useState('')
+  const [cloudLoading, setCloudLoading] = useState(false)
+  const [cloudError, setCloudError] = useState<string | null>(null)
+  const [cloudPushPullMsg, setCloudPushPullMsg] = useState<string | null>(null)
+  const cloudEnabled = isCloudSyncEnabled()
+
+  useEffect(() => {
+    if (cloudEnabled) void getCurrentUser().then(setCloudUser)
+  }, [cloudEnabled])
+
+  const handleKayit = async () => {
+    setCloudLoading(true)
+    setCloudError(null)
+    const r = await signUp(cloudEmail, cloudPassword, cloudIsim)
+    setCloudLoading(false)
+    if (r.ok) {
+      setCloudUser(r.user)
+      setCloudPassword('')
+    } else setCloudError(r.error)
+  }
+
+  const handleGiris = async () => {
+    setCloudLoading(true)
+    setCloudError(null)
+    const r = await signIn(cloudEmail, cloudPassword)
+    setCloudLoading(false)
+    if (r.ok) {
+      setCloudUser(r.user)
+      setCloudPassword('')
+    } else setCloudError(r.error)
+  }
+
+  const handleCikis = async () => {
+    await signOut()
+    setCloudUser(null)
+    setCloudEmail('')
+    setCloudPassword('')
+    setCloudIsim('')
+    setCloudError(null)
+  }
+
+  const handleBulutaKaydet = async () => {
+    setCloudLoading(true)
+    setCloudError(null)
+    setCloudPushPullMsg(null)
+    const r = await pushCloud()
+    setCloudLoading(false)
+    if (r.ok) setCloudPushPullMsg('Buluta kaydedildi.')
+    else setCloudError(r.error)
+  }
+
+  const handleBuluttanCek = async () => {
+    setCloudLoading(true)
+    setCloudError(null)
+    setCloudPushPullMsg(null)
+    const r = await pullCloud()
+    setCloudLoading(false)
+    if (r.ok) {
+      setCloudPushPullMsg('Buluttan çekildi.')
+      window.location.reload()
+    } else setCloudError(r.error)
+  }
 
   const handleTumVerileriTemizle = async () => {
     if (!window.confirm('Tüm seanslar ve deneme ayarları silinecek. Deneme bölümleri AGS 110 dk, ÖABT 90 dk olarak sıfırlanacak. Emin misin?')) return
@@ -30,6 +110,37 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       window.location.reload()
     } finally {
       setTemizleniyor(false)
+    }
+  }
+
+  const handleDisaAktar = async () => {
+    setDisaAktariyor(true)
+    setIceAktarHata(null)
+    try {
+      const blob = await exportData()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = exportFileName()
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setDisaAktariyor(false)
+    }
+  }
+
+  const handleIceAktar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setIceAktariyor(true)
+    setIceAktarHata(null)
+    const result = await importFromFile(file)
+    setIceAktariyor(false)
+    if (result.ok) {
+      window.location.reload()
+    } else {
+      setIceAktarHata(result.error)
     }
   }
 
@@ -250,9 +361,123 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             </div>
           </div>
 
+          {cloudEnabled && (
+            <div className="space-y-2 pt-3 border-t border-text-primary/10">
+              <h3 className="text-base font-semibold text-text-primary">Hesap (online senkron)</h3>
+              {cloudUser ? (
+                <>
+                  <p className="text-sm text-text-primary">
+                    Merhaba, {cloudUser.displayName || cloudUser.email}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleBulutaKaydet}
+                      disabled={cloudLoading}
+                      className="flex-1 rounded-lg border border-accent-blue/50 bg-accent-blue/10 hover:bg-accent-blue/20 px-3 py-2 text-sm font-medium text-accent-blue transition disabled:opacity-50"
+                    >
+                      {cloudLoading ? '…' : 'Buluta kaydet'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBuluttanCek}
+                      disabled={cloudLoading}
+                      className="flex-1 rounded-lg border border-accent-green/50 bg-accent-green/10 hover:bg-accent-green/20 px-3 py-2 text-sm font-medium text-accent-green transition disabled:opacity-50"
+                    >
+                      {cloudLoading ? '…' : 'Buluttan çek'}
+                    </button>
+                  </div>
+                  {cloudPushPullMsg && <p className="text-xs text-accent-green">{cloudPushPullMsg}</p>}
+                  <button
+                    type="button"
+                    onClick={handleCikis}
+                    className="w-full rounded-lg border border-text-primary/20 bg-surface-700/50 px-3 py-2 text-sm font-medium text-text-muted hover:text-text-primary transition"
+                  >
+                    Çıkış yap
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-text-muted">İsim / e-posta ve şifreyle kayıt ol veya giriş yap. Veriler aynı hesaba her cihazda sync olur.</p>
+                  <input
+                    type="text"
+                    placeholder="İsim (kayıt için)"
+                    value={cloudIsim}
+                    onChange={(e) => setCloudIsim(e.target.value)}
+                    className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-accent-blue/50 focus:outline-none"
+                  />
+                  <input
+                    type="email"
+                    placeholder="E-posta"
+                    value={cloudEmail}
+                    onChange={(e) => setCloudEmail(e.target.value)}
+                    className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-accent-blue/50 focus:outline-none"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Şifre"
+                    value={cloudPassword}
+                    onChange={(e) => setCloudPassword(e.target.value)}
+                    className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-accent-blue/50 focus:outline-none"
+                  />
+                  {cloudError && <p className="text-xs text-red-400">{cloudError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleKayit}
+                      disabled={cloudLoading}
+                      className="flex-1 rounded-lg border border-accent-blue/50 bg-accent-blue/10 hover:bg-accent-blue/20 px-3 py-2 text-sm font-medium text-accent-blue transition disabled:opacity-50"
+                    >
+                      {cloudLoading ? '…' : 'Kayıt ol'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGiris}
+                      disabled={cloudLoading}
+                      className="flex-1 rounded-lg border border-accent-green/50 bg-accent-green/10 hover:bg-accent-green/20 px-3 py-2 text-sm font-medium text-accent-green transition disabled:opacity-50"
+                    >
+                      {cloudLoading ? '…' : 'Giriş yap'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2 pt-3 border-t border-text-primary/10">
             <h3 className="text-base font-semibold text-text-primary">Veri</h3>
             <p className="text-xs text-text-muted">
+              Windows ve telefon arasında senkron için: buradan dışa aktar, diğer cihazda içe aktar.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleDisaAktar}
+                disabled={disaAktariyor}
+                className="flex-1 rounded-lg border border-accent-blue/50 bg-accent-blue/10 hover:bg-accent-blue/20 px-3 py-2 text-sm font-medium text-accent-blue transition disabled:opacity-50"
+              >
+                {disaAktariyor ? '…' : 'Dışa aktar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={iceAktariyor}
+                className="flex-1 rounded-lg border border-accent-green/50 bg-accent-green/10 hover:bg-accent-green/20 px-3 py-2 text-sm font-medium text-accent-green transition disabled:opacity-50"
+              >
+                {iceAktariyor ? '…' : 'İçe aktar'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleIceAktar}
+              />
+            </div>
+            {iceAktarHata && (
+              <p className="text-xs text-red-400">{iceAktarHata}</p>
+            )}
+            <p className="text-xs text-text-muted mt-2">
               Tüm seansları ve deneme ayarlarını siler. Deneme bölümleri <strong>AGS 110 dk</strong>, <strong>ÖABT 90 dk</strong> olarak sıfırlanır.
             </p>
             <button

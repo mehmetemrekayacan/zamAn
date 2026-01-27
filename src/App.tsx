@@ -441,7 +441,7 @@ function App() {
       <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:gap-6 px-3 sm:px-4 pb-6 sm:pb-10 pt-[max(1rem,env(safe-area-inset-top))] sm:pt-10">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-widest text-text-muted">Zaman Ölçer</p>
+            <p className="text-sm uppercase tracking-widest text-text-muted">zamAn</p>
             <h1 className="font-display text-3xl font-semibold text-text-primary">{selam}</h1>
             <p className="text-sm text-text-muted mt-0.5">Deneme / Çalışma Süreçleri</p>
           </div>
