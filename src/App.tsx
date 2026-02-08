@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef, lazy, Suspense, memo } from 'react'
-import { formatDuration } from './lib/time'
+import { formatDuration, formatSeconds, getLocalDateString } from './lib/time'
 import { MODE_DEFAULTS, useTimerStore } from './store/timer'
 import { useSessionsStore } from './store/sessions'
 import { useSettingsStore } from './store/settings'
@@ -87,8 +87,8 @@ function App() {
   const vurguRengi = useSettingsStore((s) => s.vurguRengi ?? 'mavi')
 
   const todaySessions = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
-    return sessions.filter((s) => s.tarihISO.startsWith(today))
+    const today = getLocalDateString()
+    return sessions.filter((s) => getLocalDateString(new Date(s.tarihISO)) === today)
   }, [sessions])
 
   useEffect(() => {
@@ -107,7 +107,7 @@ function App() {
     dersCycle,
     molaToplamMs,
     denemeBreakStartTs,
-    denemeMolalarDakika,
+    denemeMolalarSaniye,
     pauses,
     start,
     pause,
@@ -116,6 +116,7 @@ function App() {
     setModeConfig,
     jumpToSection,
     advanceFromDenemeBreak,
+    finishEarly,
   } = useTimerStore()
 
   useEffect(() => {
@@ -149,30 +150,50 @@ function App() {
     return () => document.documentElement.removeAttribute('data-tier')
   }, [unvanTemaClass])
 
+  // 60 dk ders / 15 dk mola modunda: ders süresi bitip molaya geçerken ses / titreşim
+  const prevWorkBreakPhaseRef = useRef(workBreakPhase)
+  useEffect(() => {
+    const prev = prevWorkBreakPhaseRef.current
+    if (mode === 'ders60mola15' && prev === 'work' && workBreakPhase === 'break') {
+      const settings = useSettingsStore.getState()
+      import('./lib/notifications').then(({ notifySessionComplete }) => {
+        notifySessionComplete({
+          enableSound: settings.sessizMod ? false : settings.sesAçık,
+          enableVibration: settings.titreşimAçık,
+          enableBrowserNotification: settings.bildirimİzni === 'granted',
+          title: 'Ders süresi bitti',
+          body: '60 dk ders tamamlandı, mola başladı.',
+        })
+      })
+    }
+    prevWorkBreakPhaseRef.current = workBreakPhase
+  }, [mode, workBreakPhase])
+
   useEffect(() => {
     document.documentElement.setAttribute('data-vurgu', vurguRengi)
   }, [vurguRengi])
 
   useEffect(() => {
     if (status === 'finished' && !showFinishScreen) {
-      if (!onceConfettiRef.current) {
+      const tamamlandi = plannedMs == null || elapsedMs >= plannedMs
+      if (tamamlandi && !onceConfettiRef.current) {
         setShowConfetti(true)
         onceConfettiRef.current = true
       }
-      const elapsedMinutes = Math.round(elapsedMs / 1000 / 60)
-      const plannedMinutes = plannedMs != null ? Math.round(plannedMs / 1000 / 60) : undefined
+      const elapsedSeconds = Math.round(elapsedMs / 1000)
+      const plannedSeconds = plannedMs != null ? Math.round(plannedMs / 1000) : undefined
       
       // Calculate today's streak for bonus
       const sessionsState = useSessionsStore.getState()
-      const today = new Date().toISOString().split('T')[0]
       let streakDays = 1
       
       // Check previous days for streak
-      let checkDate = new Date(today)
+      let checkDate = new Date()
+      checkDate.setHours(0, 0, 0, 0)
       for (let i = 1; i <= 60; i++) {
         checkDate.setDate(checkDate.getDate() - 1)
-        const checkDateStr = checkDate.toISOString().split('T')[0]
-        const hasSessions = sessionsState.sessions.some(s => s.tarihISO.startsWith(checkDateStr))
+        const checkDateStr = getLocalDateString(checkDate)
+        const hasSessions = sessionsState.sessions.some(s => getLocalDateString(new Date(s.tarihISO)) === checkDateStr)
         if (hasSessions) {
           streakDays++
         } else {
@@ -180,7 +201,7 @@ function App() {
         }
       }
       
-      const score = calculateScore(elapsedMinutes, mode, pauses, plannedMinutes, streakDays)
+      const score = calculateScore(elapsedSeconds, mode, pauses, plannedSeconds, streakDays)
       setLastSessionScore(score)
       setShowFinishScreen(true)
       
@@ -200,26 +221,45 @@ function App() {
   const saveSession = async () => {
     if (!lastSessionScore) return
 
+    const sureGercekSn = Math.round(elapsedMs / 1000)
+
+    const surePlanSn =
+      mode === 'ders60mola15' && modeConfig?.mode === 'ders60mola15'
+        ? Math.round(((modeConfig.calismaMs ?? 0) + (modeConfig.molaMs ?? 0)) / 1000)
+        : plannedMs != null
+          ? Math.round(plannedMs / 1000)
+          : undefined
+
     const session: SessionRecord = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       mod: mode,
-      surePlan: plannedMs != null ? Math.round(plannedMs / 1000 / 60) : undefined,
-      sureGercek: Math.round(elapsedMs / 1000 / 60),
+      createdAt: new Date().toISOString(),
+      surePlan: surePlanSn,
+      sureGercek: sureGercekSn,
       puan: lastSessionScore.totalScore,
       tarihISO: new Date().toISOString(),
       not: sessionNote || undefined,
       duraklatmaSayisi: pauses,
-      erkenBitirmeSuresi:
-        plannedMs != null ? Math.max(0, Math.round(plannedMs / 1000 / 60) - Math.round(elapsedMs / 1000 / 60)) : undefined,
+      erkenBitirmeSuresi: surePlanSn != null ? Math.max(0, surePlanSn - sureGercekSn) : undefined,
       odakSkoru: lastSessionScore.totalScore,
-      molaDakika: mode === 'ders60mola15' && molaToplamMs != null ? Math.round(molaToplamMs / 60000) : undefined,
-      denemeMolalarDakika: mode === 'deneme' && denemeMolalarDakika?.length ? [...denemeMolalarDakika] : undefined,
+      molaSaniye: mode === 'ders60mola15' && molaToplamMs != null ? Math.round(molaToplamMs / 1000) : undefined,
+      denemeMolalarSaniye: mode === 'deneme' && denemeMolalarSaniye?.length ? [...denemeMolalarSaniye] : undefined,
       ruhHali: sessionRuhHali ?? undefined,
     }
 
     try {
       const toplamÖnce = sessions.reduce((a, s) => a + (s.puan ?? 0), 0)
       await addSession(session)
+      await new Promise((r) => setTimeout(r, 50))
+      await loadSessions()
+      const stateAfter = useSessionsStore.getState()
+      if (!stateAfter.sessions.some((s) => s.id === session.id)) {
+        useSessionsStore.setState({
+          sessions: [session, ...stateAfter.sessions].sort(
+            (a, b) => new Date(b.tarihISO).getTime() - new Date(a.tarihISO).getTime()
+          ),
+        })
+      }
       onceConfettiRef.current = false
       const toplamSonra = toplamÖnce + lastSessionScore.totalScore
       const unvanÖnce = getUnvan(toplamÖnce).unvan
@@ -228,7 +268,7 @@ function App() {
         setShowLevelUp({ unvan: unvanSonra.unvan, emoji: unvanSonra.profilEmoji })
       }
       const bugunToplam = todaySessions.reduce((a, s) => a + (s.sureGercek ?? 0), 0) + session.sureGercek
-      if (bugunToplam >= 300) {
+      if (bugunToplam >= 18000) {
         setToast({ message: 'Harikasın! 5 saatlik günü tamamladın 🎉', type: 'celebration' })
       }
       setShowFinishScreen(false)
@@ -248,8 +288,8 @@ function App() {
     const id = setInterval(() => setMolaTick((t) => t + 1), 1000)
     return () => clearInterval(id)
   }, [denemeMolada])
-  const molaDk = useMemo(
-    () => (denemeMolada && denemeBreakStartTs != null ? Math.round((performance.now() - denemeBreakStartTs) / 60000) : 0),
+  const molaElapsedMs = useMemo(
+    () => (denemeMolada && denemeBreakStartTs != null ? Math.max(0, performance.now() - denemeBreakStartTs) : 0),
     [denemeMolada, denemeBreakStartTs, molaTick]
   )
 
@@ -299,15 +339,14 @@ function App() {
   }, [kısayollar, primaryAction, reset, mode, setModeConfig, savedDenemeConfig, showSettings])
 
   const summary = useMemo(() => {
-    // Today's stats
-    const totalMinutes = todaySessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)
+    // Today's stats (saniye) - sessions kullan (mock dahil)
+    const totalSeconds = todaySessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)
     const todaySessions_count = todaySessions.length
     const todayScore = todaySessions.reduce((acc, s) => acc + (s.puan || 0), 0)
     
     // Calculate streak (consecutive days with sessions)
-    const today = new Date().toISOString().split('T')[0]
     let streakDays = 0
-    let checkDate = new Date(today)
+    let checkDate = new Date()
     
     // Check if today has sessions
     if (todaySessions.length > 0) {
@@ -315,8 +354,8 @@ function App() {
       // Check previous days (max 60 gün)
       for (let i = 1; i <= 60; i++) {
         checkDate.setDate(checkDate.getDate() - 1)
-        const checkDateStr = checkDate.toISOString().split('T')[0]
-        const hasSessions = sessions.some(s => s.tarihISO.startsWith(checkDateStr))
+        const checkDateStr = getLocalDateString(checkDate)
+        const hasSessions = sessions.some(s => getLocalDateString(new Date(s.tarihISO)) === checkDateStr)
         if (hasSessions) {
           streakDays++
         } else {
@@ -325,39 +364,41 @@ function App() {
       }
     }
     
-    // This week stats
+    // This week stats (saniye)
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
     const weekSessions = sessions.filter(s => new Date(s.tarihISO) >= weekAgo)
-    const weekMinutes = weekSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)
+    const weekSeconds = weekSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)
     
-    // This month stats
+    // This month stats (saniye)
     const monthAgo = new Date()
     monthAgo.setDate(monthAgo.getDate() - 30)
     const monthSessions = sessions.filter(s => new Date(s.tarihISO) >= monthAgo)
-    const monthMinutes = monthSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)
+    const monthSeconds = monthSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)
     const avgScoreMonth = monthSessions.length > 0 
       ? Math.round(monthSessions.reduce((acc, s) => acc + (s.puan || 0), 0) / monthSessions.length)
       : 0
 
-    // Bu ay günde 5+ saat (300 dk) çalışılan gün sayısı
+    // Bu ay günde 5+ saat (18000 sn) çalışılan gün sayısı
     const HEDEF_SAAT_GUN = 5
-    const HEDEF_DK = HEDEF_SAAT_GUN * 60
-    const gunlukDakikaByDate: Record<string, number> = {}
+    const HEDEF_SANIYE = HEDEF_SAAT_GUN * 3600
+    const gunlukSaniyeByDate: Record<string, number> = {}
     monthSessions.forEach((s) => {
-      const dateStr = s.tarihISO.split('T')[0]
-      gunlukDakikaByDate[dateStr] = (gunlukDakikaByDate[dateStr] ?? 0) + (s.sureGercek || 0)
+      const dateStr = getLocalDateString(new Date(s.tarihISO))
+      gunlukSaniyeByDate[dateStr] = (gunlukSaniyeByDate[dateStr] ?? 0) + (s.sureGercek || 0)
     })
-    const gunluk5SaatGunSayisi = Object.values(gunlukDakikaByDate).filter((dk) => dk >= HEDEF_DK).length
+    const gunluk5SaatGunSayisi = Object.values(gunlukSaniyeByDate).filter((sn) => sn >= HEDEF_SANIYE).length
 
-    // Son 30 gün, günde toplam dakika (grafik için; en soldaki = 30 gün önce)
-    const gunlukSon30Gun: { date: string; dakika: number }[] = []
-    const baslangic = new Date(today)
+    // Son 30 gün, günde toplam saniye (grafik için) — yerel tarih, son sütun = bugün
+    const gunlukSon30Gun: { date: string; saniye: number }[] = []
+    const bugun = new Date()
+    const y = bugun.getFullYear()
+    const m = bugun.getMonth()
+    const gun = bugun.getDate()
     for (let i = 29; i >= 0; i--) {
-      const d = new Date(baslangic)
-      d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split('T')[0]
-      gunlukSon30Gun.push({ date: dateStr, dakika: gunlukDakikaByDate[dateStr] ?? 0 })
+      const d = new Date(y, m, gun - i)
+      const dateStr = getLocalDateString(d)
+      gunlukSon30Gun.push({ date: dateStr, saniye: gunlukSaniyeByDate[dateStr] ?? 0 })
     }
 
     // Last 5 sessions
@@ -368,13 +409,13 @@ function App() {
     const unvanBilgisi = getUnvan(toplamKariyerPuan)
 
     return {
-      todayMinutes: totalMinutes,
+      todaySeconds: totalSeconds,
       todayScore,
       todaySessions: todaySessions_count,
       streak: streakDays,
-      weekMinutes,
+      weekSeconds,
       weekSessions: weekSessions.length,
-      monthMinutes,
+      monthSeconds,
       monthSessions: monthSessions.length,
       avgScoreMonth,
       gunluk5SaatGunSayisi,
@@ -395,10 +436,10 @@ function App() {
         gunluk5SaatGunSayisi: summary.gunluk5SaatGunSayisi,
         streak: summary.streak,
         toplamKariyerPuan: summary.toplamKariyerPuan,
-        monthMinutes: summary.monthMinutes,
-        sessions,
+        monthSeconds: summary.monthSeconds,
+        sessions: sessions,
       }),
-    [summary.gunluk5SaatGunSayisi, summary.streak, summary.toplamKariyerPuan, summary.monthMinutes, sessions]
+    [summary.gunluk5SaatGunSayisi, summary.streak, summary.toplamKariyerPuan, summary.monthSeconds, sessions]
   )
   const saatDagilimi = useMemo(() => getSaatDagilimi(sessions), [sessions])
 
@@ -433,7 +474,7 @@ function App() {
 
   const selam = getSelam(kullaniciAdi)
   const sinavKalan = getSinavKalanGun(sinavTarihi)
-  const tahminMetni = getTahmin150Saat(summary.monthMinutes)
+  const tahminMetni = getTahmin150Saat(summary.monthSeconds)
   const seriAlev = summary.streak >= 14 ? '🔥🔥🔥' : summary.streak >= 7 ? '🔥🔥' : summary.streak >= 3 ? '🔥' : ''
 
   return (
@@ -476,7 +517,7 @@ function App() {
                 )}
               </div>
             </button>
-            <div className="hidden sm:flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <span className="rounded-full bg-text-primary/5 px-2 py-1 text-xs border border-text-primary/10">PWA</span>
               <span className="rounded-full bg-text-primary/5 px-2 py-1 text-xs border border-text-primary/10">Offline</span>
             </div>
@@ -509,7 +550,7 @@ function App() {
                 )}
                 {mode === 'ders60mola15' && !denemeMolada && (
                   <span className="rounded-full bg-accent-amber/20 px-2 py-1 text-[11px] font-semibold text-accent-amber">
-                    {workBreakPhase === 'break' ? 'Mola' : 'Ders'} • Tur {((dersCycle ?? 0) + 1).toString()}
+                    {workBreakPhase === 'break' ? 'Mola' : 'Ders'} • Tur {(workBreakPhase === 'break' ? (dersCycle ?? 0) : (dersCycle ?? 0) + 1).toString()}
                   </span>
                 )}
               </div>
@@ -517,7 +558,7 @@ function App() {
             </div>
             <div className="flex flex-col items-center gap-4 py-4">
               <div className="font-display text-6xl sm:text-7xl tracking-tight text-text-primary">
-                {denemeMolada ? formatDuration(molaDk * 60000) : formatDuration(timeToDisplay)}
+                {denemeMolada ? formatDuration(molaElapsedMs) : formatDuration(timeToDisplay)}
               </div>
               {denemeMolada && (
                 <p className="text-center text-sm text-text-muted">
@@ -537,6 +578,15 @@ function App() {
                 >
                   {primaryLabel}
                 </button>
+                {(status === 'running' || status === 'paused') && (
+                  <button
+                    type="button"
+                    className="rounded-full bg-accent-amber/20 border border-accent-amber/50 px-5 py-3 min-h-[44px] text-sm font-semibold text-accent-amber hover:bg-accent-amber/30 active:scale-[0.97] transition touch-manipulation"
+                    onClick={finishEarly}
+                  >
+                    Bitir
+                  </button>
+                )}
                 {!denemeMolada && (
                   <button
                     type="button"
@@ -802,8 +852,8 @@ function App() {
         <section className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard label="Bugün" value={`${summary.todayMinutes} dk`} hint={`${summary.todaySessions} seans`} />
-              <StatCard label="Bu Hafta" value={`${summary.weekMinutes} dk`} hint={`${summary.weekSessions} seans`} />
+              <StatCard label="Bugün" value={formatSeconds(summary.todaySeconds)} hint={`${summary.todaySessions} seans`} />
+              <StatCard label="Bu Hafta" value={formatSeconds(summary.weekSeconds)} hint={`${summary.weekSessions} seans`} />
               <StatCard label="Seri" value={`${seriAlev} ${summary.streak} gün`} hint="Ardışık gün" />
               <StatCard label="5+ saat gün" value={`${summary.gunluk5SaatGunSayisi}`} hint="Bu ay günde ≥5 saat" />
             </section>
@@ -832,7 +882,7 @@ function App() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm flex-wrap">
-                          <span className="text-text-primary font-semibold">{session.sureGercek} dk</span>
+                          <span className="text-text-primary font-semibold">{formatSeconds(session.sureGercek)}</span>
                           <span className="rounded-full bg-accent-blue/20 px-2 py-0.5 text-xs font-semibold text-accent-blue">
                             +{session.puan} puan
                           </span>
@@ -866,7 +916,7 @@ function App() {
               <dl className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-text-muted">Toplam Süre</span>
-                  <span className="font-semibold text-text-primary">{summary.monthMinutes} dakika</span>
+                  <span className="font-semibold text-text-primary">{formatSeconds(summary.monthSeconds)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-text-muted">Tamamlanan Seans</span>
@@ -879,10 +929,29 @@ function App() {
                 <div className="flex items-center justify-between pt-2 border-t border-text-primary/10">
                   <span className="text-sm text-text-muted">Günlük Ort.</span>
                   <span className="font-semibold text-accent-blue">
-                    {summary.monthSessions > 0 ? Math.round(summary.monthMinutes / summary.monthSessions) : 0} dk
+                    {summary.monthSessions > 0 ? formatSeconds(Math.round(summary.monthSeconds / summary.monthSessions)) : '0 sn'}
                   </span>
                 </div>
               </dl>
+            </div>
+
+            {/* Rozetler */}
+            <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-amber-500/5">
+              <h3 className="font-display text-lg text-text-primary mb-3">Rozetlerim</h3>
+              <div className="flex flex-wrap gap-2">
+                {rozetler.map((r) => (
+                  <div
+                    key={r.id}
+                    className={`rounded-lg border px-2 py-1.5 text-xs flex items-center gap-1.5 ${
+                      r.kazanildi ? 'border-accent-amber/40 bg-accent-amber/10 text-text-primary' : 'border-text-primary/10 bg-surface-700/30 text-text-muted opacity-60'
+                    }`}
+                    title={r.aciklama}
+                  >
+                    <span>{r.emoji}</span>
+                    <span className="font-medium">{r.ad}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -898,15 +967,47 @@ function App() {
             <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-blue-500/5">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-display text-lg text-text-primary">Bugünkü hedef</h3>
-                <span className="text-xs font-semibold text-text-primary">{summary.todayMinutes} / 300 dk</span>
+                <span className="text-xs font-semibold text-text-primary">{formatSeconds(summary.todaySeconds)} / 5 saat</span>
               </div>
-              <div className={`h-2 rounded-full bg-surface-700 overflow-hidden transition ${summary.todayMinutes >= 300 ? 'ring-2 ring-emerald-400/50' : ''}`}>
+              <div className={`h-2 rounded-full bg-surface-700 overflow-hidden transition ${summary.todaySeconds >= 18000 ? 'ring-2 ring-emerald-400/50' : ''}`}>
                 <div
-                  className={`h-full transition ${summary.todayMinutes >= 300 ? 'bg-emerald-500' : 'bg-gradient-to-r from-accent-blue to-accent-cyan'}`}
-                  style={{ width: `${Math.min(100, (summary.todayMinutes / 300) * 100)}%` }}
+                  className={`h-full transition ${summary.todaySeconds >= 18000 ? 'bg-emerald-500' : 'bg-gradient-to-r from-accent-blue to-accent-cyan'}`}
+                  style={{ width: `${Math.min(100, (summary.todaySeconds / 18000) * 100)}%` }}
                 />
               </div>
-              {summary.todayMinutes >= 300 && <p className="text-xs text-emerald-400 mt-1 font-medium">🎉 5 saat tamamlandı!</p>}
+              {summary.todaySeconds >= 18000 && <p className="text-xs text-emerald-400 mt-1 font-medium">🎉 5 saat tamamlandı!</p>}
+            </div>
+            {/* En verimli saatler — günlük çalışmanın üstünde */}
+            <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-cyan-500/5">
+              <h3 className="font-display text-lg text-text-primary mb-2">En verimli saatler</h3>
+              <div className="flex items-end gap-0.5 h-16" style={{ minHeight: 64 }}>
+                {saatDagilimi.map((sn, i) => {
+                  const CONTAINER_H = 64
+                  const maxSn = Math.max(...saatDagilimi, 1)
+                  const barPx = (sn / maxSn) * CONTAINER_H
+                  const barHeight = Math.max(6, barPx)
+                  return (
+                    <div
+                      key={i}
+                      className="flex-1 min-w-0 flex flex-col items-center"
+                      title={`${i}:00–${i + 1}:00 — ${formatSeconds(sn)}`}
+                    >
+                      <div
+                        className="w-full rounded-t bg-accent-cyan hover:bg-accent-cyan/90 transition shrink-0"
+                        style={{ height: barHeight }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-2 flex justify-between text-[10px] text-text-muted px-0.5">
+                <span>0</span>
+                <span>6</span>
+                <span>12</span>
+                <span>18</span>
+                <span>24</span>
+              </div>
+              <p className="text-[10px] text-text-muted mt-1">Saat (en çok hangi saatte çalışıyorsun)</p>
             </div>
             {/* Günlük çalışma grafiği: hedef çizgisi, hedefi aşan günler farklı renk */}
             <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-cyan-500/5">
@@ -914,45 +1015,69 @@ function App() {
                 <h3 className="font-display text-lg text-text-primary">Günlük çalışma</h3>
                 <span className="text-xs text-text-muted">Hedef: 5 sa</span>
               </div>
-              <div className="relative h-32 flex items-end gap-0.5">
-                {(() => {
-                  const HEDEF_DK = 300
-                  const veri = summary.gunlukSon30Gun
-                  const maxDk = Math.max(HEDEF_DK, ...veri.map((d) => d.dakika), 1)
-                  const hedefYuzde = (HEDEF_DK / maxDk) * 100
-                  return (
-                    <>
-                      <div
-                        className="absolute left-0 right-0 border-t-2 border-dashed border-accent-amber/70 z-10"
-                        style={{ bottom: `${hedefYuzde}%` }}
-                        title="Hedef: 5 saat"
-                      />
-                      {veri.map((d) => {
-                        const yuzde = (d.dakika / maxDk) * 100
-                        const hedefiGecti = d.dakika >= HEDEF_DK
-                        return (
+              <div className="flex gap-2">
+                {/* Y ekseni: saat */}
+                <div className="flex flex-col justify-between py-1 text-[10px] text-text-muted shrink-0">
+                  <span>5 sa</span>
+                  <span>4 sa</span>
+                  <span>2 sa</span>
+                  <span>0</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="relative h-32 flex items-end gap-0.5" style={{ minHeight: 128 }}>
+                    {(() => {
+                      const HEDEF_SN = 18000
+                      const CONTAINER_H = 128
+                      const veri = summary.gunlukSon30Gun
+                      const maxSn = Math.max(HEDEF_SN, ...veri.map((d) => d.saniye), 1)
+                      const hedefPx = maxSn > 0 ? (HEDEF_SN / maxSn) * CONTAINER_H : 0
+                      return (
+                        <>
                           <div
-                            key={d.date}
-                            className="flex-1 min-w-0 rounded-t transition-all hover:opacity-90"
-                            style={{ height: `${Math.max(2, yuzde)}%` }}
-                            title={`${d.date}: ${d.dakika} dk`}
-                          >
-                            <div
-                              className={`h-full w-full rounded-t ${
-                                hedefiGecti ? 'bg-accent-cyan/80' : 'bg-text-primary/20'
-                              }`}
-                            />
-                          </div>
-                        )
-                      })}
-                    </>
-                  )
-                })()}
-              </div>
-              <div className="mt-2 flex justify-between text-[10px] text-text-muted">
-                <span>30 gün önce</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-accent-amber/70" /> 5 sa</span>
-                <span>Bugün</span>
+                            className="absolute left-0 right-0 border-t-2 border-dashed border-accent-amber/70 z-10"
+                            style={{ bottom: hedefPx }}
+                            title="Hedef: 5 saat"
+                          />
+                          {veri.map((d) => {
+                            const barPx = maxSn > 0 ? (d.saniye / maxSn) * CONTAINER_H : 0
+                            const barHeight = Math.max(8, barPx)
+                            const hedefiGecti = d.saniye >= HEDEF_SN
+                            return (
+                              <div
+                                key={d.date}
+                                className="flex-1 min-w-0 flex flex-col justify-end min-h-0"
+                                title={`${d.date}: ${formatSeconds(d.saniye)}`}
+                              >
+                                <div
+                                  className={`w-full rounded-t transition-all hover:opacity-90 ${
+                                    hedefiGecti ? 'bg-accent-cyan' : 'bg-text-primary/40'
+                                  }`}
+                                  style={{ height: barHeight }}
+                                />
+                              </div>
+                            )
+                          })}
+                        </>
+                      )
+                    })()}
+                  </div>
+                  {/* X ekseni: günler */}
+                  <div className="mt-2 flex justify-between text-[10px] text-text-muted">
+                    {(() => {
+                      const veri = summary.gunlukSon30Gun
+                      const ilk = veri[0]
+                      const son = veri[veri.length - 1]
+                      const orta = veri[Math.floor(veri.length / 2)]
+                      return (
+                        <>
+                          <span>{ilk ? new Date(ilk.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : ''}</span>
+                          <span>{orta ? new Date(orta.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : ''}</span>
+                          <span className="font-medium text-text-primary">{son ? new Date(son.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) + ' (Bugün)' : ''}</span>
+                        </>
+                      )
+                    })()}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-blue-500/5">
@@ -963,7 +1088,7 @@ function App() {
               <dl className="mt-4 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Toplam Süre</span>
-                  <span className="font-semibold text-accent-blue">{summary.todayMinutes} dk</span>
+                  <span className="font-semibold text-accent-blue">{formatSeconds(summary.todaySeconds)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Toplam Puan</span>
@@ -1000,34 +1125,15 @@ function App() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs text-text-muted">Süre Hedefi</span>
-                    <span className="text-xs font-semibold text-text-primary">{Math.round(summary.monthMinutes / 60)} / 150 saat</span>
+                    <span className="text-xs font-semibold text-text-primary">{Math.round(summary.monthSeconds / 3600)} / 150 saat</span>
                   </div>
                   <div className="h-2 rounded-full bg-surface-700 overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-accent-amber to-accent-red transition-all"
-                      style={{ width: `${Math.min(((summary.monthMinutes / 60) / 150) * 100, 100)}%` }}
+                      style={{ width: `${Math.min(((summary.monthSeconds / 3600) / 150) * 100, 100)}%` }}
                     />
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Rozetler */}
-            <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-amber-500/5">
-              <h3 className="font-display text-lg text-text-primary mb-3">Rozetlerim</h3>
-              <div className="flex flex-wrap gap-2">
-                {rozetler.map((r) => (
-                  <div
-                    key={r.id}
-                    className={`rounded-lg border px-2 py-1.5 text-xs flex items-center gap-1.5 ${
-                      r.kazanildi ? 'border-accent-amber/40 bg-accent-amber/10 text-text-primary' : 'border-text-primary/10 bg-surface-700/30 text-text-muted opacity-60'
-                    }`}
-                    title={r.aciklama}
-                  >
-                    <span>{r.emoji}</span>
-                    <span className="font-medium">{r.ad}</span>
-                  </div>
-                ))}
               </div>
             </div>
 
@@ -1036,26 +1142,6 @@ function App() {
                 <p className="text-sm text-text-primary font-medium">💡 {tahminMetni}</p>
               </div>
             )}
-
-            {/* En verimli saatler (küçük grafik) */}
-            <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-cyan-500/5">
-              <h3 className="font-display text-lg text-text-primary mb-2">En verimli saatler</h3>
-              <div className="flex items-end gap-0.5 h-16">
-                {saatDagilimi.map((dk, i) => {
-                  const maxDk = Math.max(...saatDagilimi, 1)
-                  const h = (dk / maxDk) * 100
-                  return (
-                    <div
-                      key={i}
-                      className="flex-1 min-w-0 rounded-t bg-accent-cyan/50 hover:bg-accent-cyan/70 transition"
-                      style={{ height: `${Math.max(4, h)}%` }}
-                      title={`${i}:00–${i + 1}:00 — ${dk} dk`}
-                    />
-                  )
-                })}
-              </div>
-              <p className="text-[10px] text-text-muted mt-1">0–24 saat (en çok hangi saatte çalışıyorsun)</p>
-            </div>
 
             <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-green-500/5">
               <h3 className="font-display text-lg text-text-primary">Ayarlar (özet)</h3>

@@ -3,6 +3,21 @@ const fs = require('fs');
 const path = require('path');
 
 if (!process.env.JAVA_HOME) {
+  if (process.platform === 'win32') {
+    const candidates = [
+      path.join(process.env['ProgramFiles'] || 'C:\\Program Files', 'Android', 'Android Studio', 'jbr'),
+      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Android', 'Android Studio', 'jbr'),
+    ];
+    for (const dir of candidates) {
+      if (fs.existsSync(dir) && fs.existsSync(path.join(dir, 'bin', 'java.exe'))) {
+        process.env.JAVA_HOME = dir;
+        console.log('JAVA_HOME otomatik ayarlandi: ' + dir);
+        break;
+      }
+    }
+  }
+}
+if (!process.env.JAVA_HOME) {
   console.error('');
   console.error('HATA: JAVA_HOME tanımlı değil.');
   console.error('');

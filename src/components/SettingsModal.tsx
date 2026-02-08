@@ -101,12 +101,13 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   }
 
   const handleTumVerileriTemizle = async () => {
-    if (!window.confirm('Tüm seanslar ve deneme ayarları silinecek. Deneme bölümleri AGS 110 dk, ÖABT 90 dk olarak sıfırlanacak. Emin misin?')) return
+    if (!window.confirm('Tüm seanslar, zamanlayıcı durumu ve deneme ayarları silinecek. Tema ve ses ayarları korunur. Emin misin?')) return
     setTemizleniyor(true)
     try {
       await clearAllSessions()
       localStorage.removeItem('deneme-config')
-      localStorage.removeItem('timer-storage') // persist edilen modeConfig (eski bölümler burada kalıyordu)
+      localStorage.removeItem('timer-storage')
+      localStorage.removeItem('zaman-ders60-pause-state')
       window.location.reload()
     } finally {
       setTemizleniyor(false)
@@ -478,7 +479,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <p className="text-xs text-red-400">{iceAktarHata}</p>
             )}
             <p className="text-xs text-text-muted mt-2">
-              Tüm seansları ve deneme ayarlarını siler. Deneme bölümleri <strong>AGS 110 dk</strong>, <strong>ÖABT 90 dk</strong> olarak sıfırlanır.
+              Tüm seansları, zamanlayıcı durumunu (tur, mola vb.) ve deneme bölüm ayarlarını siler. Deneme modu varsayılana (<strong>AGS 110 dk</strong>, <strong>ÖABT 90 dk</strong>) döner. Tema ve ses ayarları korunur.
             </p>
             <button
               type="button"

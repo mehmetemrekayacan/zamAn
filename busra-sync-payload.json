@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "exportedAt": "2026-01-28T11:39:48.573Z",
+  "sessions": [
+    {
+      "id": "2026-01-28-set1-60-15",
+      "mod": "ders60mola15",
+      "surePlan": 75,
+      "sureGercek": 75,
+      "puan": 106,
+      "tarihISO": "2026-01-28T09:00:00.000Z",
+      "duraklatmaSayisi": 0,
+      "molaDakika": 15
+    },
+    {
+      "id": "2026-01-28-set2-60-15",
+      "mod": "ders60mola15",
+      "surePlan": 75,
+      "sureGercek": 75,
+      "puan": 106,
+      "tarihISO": "2026-01-28T11:15:00.000Z",
+      "duraklatmaSayisi": 0,
+      "molaDakika": 15
+    },
+    {
+      "id": "2026-01-30-set3-60-15",
+      "mod": "ders60mola15",
+      "surePlan": 75,
+      "sureGercek": 75,
+      "puan": 106,
+      "tarihISO": "2026-01-30T13:15:00.000Z",
+      "duraklatmaSayisi": 0,
+      "molaDakika": 15
+    }
+  ],
+  "denemeConfig": "{\"mode\":\"deneme\",\"bolumler\":[{\"ad\":\"AGS\",\"surePlanMs\":6600000},{\"ad\":\"ÖABT\",\"surePlanMs\":5400000},{\"ad\":\"asdf\",\"surePlanMs\":1800000}],\"currentSectionIndex\":0}",
+  "timerStorage": "{\"state\":{\"modeConfig\":{\"mode\":\"ders60mola15\",\"calismaMs\":3600000,\"molaMs\":900000}},\"version\":0}",
+  "settingsStorage": "{\"state\":{\"sesAçık\":true,\"titreşimAçık\":true,\"sessizMod\":false,\"tema\":\"dark\",\"bildirimİzni\":\"default\",\"kısayollar\":{\"startStop\":\"Space\",\"reset\":\"KeyR\",\"modGeçiş\":\"KeyM\"},\"kullaniciAdi\":\"büşra\",\"sinavTarihi\":null,\"vurguRengi\":\"mavi\"},\"version\":0}"
+}

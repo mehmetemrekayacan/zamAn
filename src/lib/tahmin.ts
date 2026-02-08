@@ -1,13 +1,13 @@
 /** "Bu tempoda X günde 150 saate ulaşırsın" benzeri tahmin */
-export function getTahmin150Saat(monthMinutes: number): string | null {
-  if (monthMinutes <= 0) return null
-  const hedefDk = 150 * 60
-  const kalanDk = Math.max(0, hedefDk - monthMinutes)
+export function getTahmin150Saat(monthSeconds: number): string | null {
+  if (monthSeconds <= 0) return null
+  const hedefSn = 150 * 3600
+  const kalanSn = Math.max(0, hedefSn - monthSeconds)
   const ayBasindanBugune = new Date().getDate()
   if (ayBasindanBugune <= 0) return null
-  const gunlukOrt = monthMinutes / ayBasindanBugune
+  const gunlukOrt = monthSeconds / ayBasindanBugune
   if (gunlukOrt <= 0) return null
-  const tahminiGun = Math.ceil(kalanDk / gunlukOrt)
+  const tahminiGun = Math.ceil(kalanSn / gunlukOrt)
   if (tahminiGun <= 0) return 'Bu ay 150 saate ulaştın! 🎉'
   return `Bu tempoda yaklaşık ${tahminiGun} günde 150 saate ulaşırsın.`
 }

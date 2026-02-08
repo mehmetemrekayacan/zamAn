@@ -1,5 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const { APP_URL } = require('../app-config.cjs');
 
 function getIconPath() {
   if (app.isPackaged) {
@@ -26,7 +27,12 @@ function createWindow() {
     autoHideMenuBar: true,
   });
 
-  win.loadFile(path.join(__dirname, '../dist/index.html'));
+  // Paketlenmiş (production) sürümde remote URL'den yükle → deploy sonrası otomatik güncelleme
+  if (app.isPackaged) {
+    win.loadURL(APP_URL);
+  } else {
+    win.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
 }
 
 app.whenReady().then(createWindow);

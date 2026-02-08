@@ -22,12 +22,14 @@ export type TimerSnapshot = {
   currentSectionIndex?: number
   /** ders60mola15: şu an ders mi mola mı */
   workBreakPhase?: WorkBreakPhase
-  /** ders60mola15: kaçıncı ders bloğu (0-based) */
+  /** ders60mola15: kaçıncı ders bloğu (0-based), günlük sıfırlanır */
   dersCycle?: number
+  /** ders60mola15: tur bilgisinin ait olduğu gün (YYYY-MM-DD) */
+  dersCycleDate?: string | null
   /** ders60mola15: bu oturumda toplam mola süresi (ms) */
   molaToplamMs?: number
-  /** deneme: bölümler arası mola süreleri (dakika) */
-  denemeMolalarDakika?: number[]
+  /** deneme: bölümler arası mola süreleri (saniye) */
+  denemeMolalarSaniye?: number[]
   /** deneme: bölüm arası moladayken mola başlangıç zamanı (ms). Doluysa “Mola – Devam” gösterilir. */
   denemeBreakStartTs?: number | null
   pauses: number
@@ -41,16 +43,21 @@ export type RuhHali = 'iyi' | 'normal' | 'yorucu'
 export type SessionRecord = {
   id: string
   mod: Mode
+  /** Planlanan süre (saniye) */
   surePlan?: number
+  /** Gerçekleşen süre (saniye) */
   sureGercek: number
   puan: number
   tarihISO: string
   not?: string
   duraklatmaSayisi: number
+  /** Erken bitirmede kalan süre (saniye) */
   erkenBitirmeSuresi?: number
   odakSkoru?: number
-  molaDakika?: number
-  denemeMolalarDakika?: number[]
+  /** ders60mola15: toplam mola süresi (saniye) */
+  molaSaniye?: number
+  /** deneme: bölümler arası mola süreleri (saniye) */
+  denemeMolalarSaniye?: number[]
   bolumler?: { ad: string; surePlan?: number; sureGercek: number }[]
   platform?: { cihaz?: string; userAgentHash?: string }
   createdAt?: string

@@ -1,4 +1,5 @@
 import type { SessionRecord, Mode } from '../types'
+import { getLocalDateString } from './time'
 
 /**
  * Puan Hesaplama Sistemi
@@ -23,8 +24,8 @@ export interface ScoreBreakdown {
 
 export interface SessionScoreDetail extends ScoreBreakdown {
   mode: string
-  elapsedMinutes: number
-  plannedMinutes?: number
+  elapsedSeconds: number
+  plannedSeconds?: number
   pauses: number
   consistency: number // 0-100 (Oransal başarı)
 }
@@ -38,11 +39,11 @@ const MODE_COEFFICIENTS: Record<Mode, number> = {
 }
 
 /**
- * Temel puan hesapla (dakika × mode katsayısı)
+ * Temel puan hesapla (saniye/60 × mode katsayısı — 1 dakika = 1 puan baz)
  */
-export function calculateBaseScore(elapsedMinutes: number, mode: Mode): number {
+export function calculateBaseScore(elapsedSeconds: number, mode: Mode): number {
   const coefficient = MODE_COEFFICIENTS[mode] ?? 1.0
-  return Math.floor(elapsedMinutes * coefficient)
+  return Math.floor((elapsedSeconds / 60) * coefficient)
 }
 
 /**
@@ -62,12 +63,12 @@ export function calculatePausePenalty(pauses: number): number {
  * Erken bitirme bonusu hesapla (max 20)
  */
 export function calculateEarlyCompletionBonus(
-  elapsedMinutes: number,
-  plannedMinutes?: number
+  elapsedSeconds: number,
+  plannedSeconds?: number
 ): number {
-  if (!plannedMinutes || elapsedMinutes >= plannedMinutes) return 0
-  const saved = plannedMinutes - elapsedMinutes
-  return Math.min(Math.floor(saved), 20)
+  if (!plannedSeconds || elapsedSeconds >= plannedSeconds) return 0
+  const savedMinutes = (plannedSeconds - elapsedSeconds) / 60
+  return Math.min(Math.floor(savedMinutes), 20)
 }
 
 /**
@@ -96,34 +97,38 @@ export function calculateStreakBonus(streakDays: number): number {
  * Planlanan süreyle gerçek süreyi karşılaştır
  */
 export function calculateConsistency(
-  elapsedMinutes: number,
-  plannedMinutes?: number
+  elapsedSeconds: number,
+  plannedSeconds?: number
 ): number {
-  if (!plannedMinutes) return 100 // Plansız ise mükemmel
-  const ratio = (elapsedMinutes / plannedMinutes) * 100
+  if (!plannedSeconds) return 100 // Plansız ise mükemmel
+  const ratio = (elapsedSeconds / plannedSeconds) * 100
   return Math.min(Math.round(ratio), 100)
 }
 
+/** Minimum süre (sn): odak ve seri bonusları sadece bu süreden sonra uygulanır. 3 sn'de 20 puan vermeyi önler. */
+const MIN_ELAPSED_FOR_BONUSES = 60
+
 /**
  * Tam puan hesaplama (tüm faktörler)
- * @param elapsedMinutes Geçen dakika
+ * @param elapsedSeconds Geçen süre (saniye)
  * @param mode Seans modu
  * @param pauses Duraklatma sayısı
- * @param plannedMinutes Planlanan dakika (opsiyonel)
+ * @param plannedSeconds Planlanan süre saniye (opsiyonel)
  * @param streakDays Ardışık gün sayısı (opsiyonel)
  */
 export function calculateScore(
-  elapsedMinutes: number,
+  elapsedSeconds: number,
   mode: Mode,
   pauses: number,
-  plannedMinutes?: number,
+  plannedSeconds?: number,
   streakDays: number = 0
 ): ScoreBreakdown {
-  const baseScore = calculateBaseScore(elapsedMinutes, mode)
+  const baseScore = calculateBaseScore(elapsedSeconds, mode)
   const pausePenalty = calculatePausePenalty(pauses)
-  const earlyCompletionBonus = calculateEarlyCompletionBonus(elapsedMinutes, plannedMinutes)
-  const focusBonus = calculateFocusBonus(pauses)
-  const streakBonus = calculateStreakBonus(streakDays)
+  const earlyCompletionBonus = calculateEarlyCompletionBonus(elapsedSeconds, plannedSeconds)
+  const bonusesApply = elapsedSeconds >= MIN_ELAPSED_FOR_BONUSES
+  const focusBonus = bonusesApply ? calculateFocusBonus(pauses) : 0
+  const streakBonus = bonusesApply ? calculateStreakBonus(streakDays) : 0
 
   const totalScore = Math.max(0, baseScore - pausePenalty + earlyCompletionBonus + focusBonus + streakBonus)
 
@@ -141,20 +146,20 @@ export function calculateScore(
  * Detaylı seans puanı hesapla
  */
 export function calculateSessionScoreDetail(
-  elapsedMinutes: number,
+  elapsedSeconds: number,
   mode: Mode,
   pauses: number,
-  plannedMinutes?: number,
+  plannedSeconds?: number,
   streakDays: number = 0
 ): SessionScoreDetail {
-  const score = calculateScore(elapsedMinutes, mode, pauses, plannedMinutes, streakDays)
-  const consistency = calculateConsistency(elapsedMinutes, plannedMinutes)
+  const score = calculateScore(elapsedSeconds, mode, pauses, plannedSeconds, streakDays)
+  const consistency = calculateConsistency(elapsedSeconds, plannedSeconds)
 
   return {
     ...score,
     mode,
-    elapsedMinutes,
-    plannedMinutes,
+    elapsedSeconds,
+    plannedSeconds,
     pauses,
     consistency,
   }
@@ -166,21 +171,22 @@ export function calculateSessionScoreDetail(
 export function calculateTodayStreakBonus(sessions: SessionRecord[]): number {
   if (sessions.length === 0) return 0
 
-  const today = new Date().toISOString().split('T')[0]
-  const todaySessions = sessions.filter(s => s.tarihISO.startsWith(today))
+  const today = getLocalDateString()
+  const todaySessions = sessions.filter(s => getLocalDateString(new Date(s.tarihISO)) === today)
 
   // Bugün seans var mı?
   if (todaySessions.length === 0) return 0
 
   // Seri sayıp geçmiş günleri kontrol et
   let streak = 1
-  let checkDate = new Date(today)
+  let checkDate = new Date()
+  checkDate.setHours(0, 0, 0, 0)
 
   // Geri doğru git ve her gün kontrol et
   for (let i = 1; i <= 365; i++) {
     checkDate.setDate(checkDate.getDate() - 1)
-    const checkDateStr = checkDate.toISOString().split('T')[0]
-    const hasSessions = sessions.some(s => s.tarihISO.startsWith(checkDateStr))
+    const checkDateStr = getLocalDateString(checkDate)
+    const hasSessions = sessions.some(s => getLocalDateString(new Date(s.tarihISO)) === checkDateStr)
 
     if (hasSessions) {
       streak++
@@ -193,12 +199,12 @@ export function calculateTodayStreakBonus(sessions: SessionRecord[]): number {
 }
 
 /**
- * Toplam bugün dakikası hesapla
+ * Toplam bugün saniyesi hesapla
  */
-export function getTotalTodayMinutes(sessions: SessionRecord[]): number {
-  const today = new Date().toISOString().split('T')[0]
+export function getTotalTodaySeconds(sessions: SessionRecord[]): number {
+  const today = getLocalDateString()
   return sessions
-    .filter(s => s.tarihISO.startsWith(today))
+    .filter(s => getLocalDateString(new Date(s.tarihISO)) === today)
     .reduce((sum, s) => sum + (s.sureGercek || 0), 0)
 }
 
@@ -206,9 +212,9 @@ export function getTotalTodayMinutes(sessions: SessionRecord[]): number {
  * Toplam bugün puanı hesapla
  */
 export function getTotalTodayScore(sessions: SessionRecord[]): number {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalDateString()
   return sessions
-    .filter(s => s.tarihISO.startsWith(today))
+    .filter(s => getLocalDateString(new Date(s.tarihISO)) === today)
     .reduce((sum, s) => sum + s.puan, 0)
 }
 
@@ -216,14 +222,14 @@ export function getTotalTodayScore(sessions: SessionRecord[]): number {
  * Moda göre istatistik hesapla
  */
 export function getModeStatistics(sessions: SessionRecord[]) {
-  const stats: Record<string, { count: number; totalMinutes: number; totalScore: number; avgScore: number }> = {}
+  const stats: Record<string, { count: number; totalSeconds: number; totalScore: number; avgScore: number }> = {}
 
   sessions.forEach(s => {
     if (!stats[s.mod]) {
-      stats[s.mod] = { count: 0, totalMinutes: 0, totalScore: 0, avgScore: 0 }
+      stats[s.mod] = { count: 0, totalSeconds: 0, totalScore: 0, avgScore: 0 }
     }
     stats[s.mod].count++
-    stats[s.mod].totalMinutes += s.sureGercek || 0
+    stats[s.mod].totalSeconds += s.sureGercek || 0
     stats[s.mod].totalScore += s.puan
   })
 
@@ -260,7 +266,7 @@ export function getAverageScore(sessions: SessionRecord[]): number {
   return Math.round(total / sessions.length)
 }
 
-/** Ünvan eşikleri: ilköğretim matematik öğretmenliği sınav yolculuğuna göre */
+/** Ünvan eşikleri: ~120 gün düzenli çalışma (5h/gün, 1 deneme) son ünvana ulaştırır. Sınavdan ~40 gün önce. */
 export const UNVAN_ESIKLERI: {
   puan: number
   unvan: string
@@ -269,11 +275,11 @@ export const UNVAN_ESIKLERI: {
   aciklama: string
 }[] = [
   { puan: 0, unvan: 'İlk Adım', profilEmoji: '🌱', temaClass: 'tier-caylak', aciklama: 'Sınav yolculuğunun başlangıcı' },
-  { puan: 500, unvan: 'Sınav Adayı', profilEmoji: '📖', temaClass: 'tier-ady', aciklama: 'KPSS ve alan sınavlarına adım adım hazırlanıyorsun' },
-  { puan: 1500, unvan: 'Öğretmen Adayı', profilEmoji: '📐', temaClass: 'tier-gozcu', aciklama: 'İlköğretim matematik öğretmenliği yolunda ilerliyorsun' },
-  { puan: 3000, unvan: 'Matematik Uzmanı', profilEmoji: '⭐', temaClass: 'tier-uzman', aciklama: 'Alan bilgisi ve öğretim becerisi güçleniyor' },
-  { puan: 6000, unvan: 'İlköğretim Matematikçi', profilEmoji: '🏆', temaClass: 'tier-kahraman', aciklama: 'Hedef mesleğe çok yakınsın!' },
-  { puan: 10000, unvan: 'Usta Öğretmen', profilEmoji: '👑', temaClass: 'tier-efsane', aciklama: 'İlköğretim matematiğinde usta seviye' },
+  { puan: 2500, unvan: 'Sınav Adayı', profilEmoji: '📖', temaClass: 'tier-ady', aciklama: 'KPSS ve alan sınavlarına adım adım hazırlanıyorsun' },
+  { puan: 7500, unvan: 'Öğretmen Adayı', profilEmoji: '📐', temaClass: 'tier-gozcu', aciklama: 'İlköğretim matematik öğretmenliği yolunda ilerliyorsun' },
+  { puan: 15000, unvan: 'Matematik Uzmanı', profilEmoji: '⭐', temaClass: 'tier-uzman', aciklama: 'Alan bilgisi ve öğretim becerisi güçleniyor' },
+  { puan: 30000, unvan: 'İlköğretim Matematikçi', profilEmoji: '🏆', temaClass: 'tier-kahraman', aciklama: 'Hedef mesleğe çok yakınsın!' },
+  { puan: 45000, unvan: 'Usta Öğretmen', profilEmoji: '👑', temaClass: 'tier-efsane', aciklama: 'İlköğretim matematiğinde usta seviye' },
 ]
 
 export interface UnvanBilgisi {

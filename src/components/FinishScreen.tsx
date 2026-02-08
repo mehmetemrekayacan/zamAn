@@ -1,5 +1,6 @@
 import type { Mode, RuhHali } from '../types'
 import type { ScoreBreakdown } from '../lib/scoring'
+import { formatSeconds } from '../lib/time'
 
 const modes = [
   { id: 'serbest' as const, title: 'Kronometre' },
@@ -100,7 +101,7 @@ export function FinishScreen({
             </div>
             <div>
               <p className="text-xs text-text-muted">Geçen Süre</p>
-              <p className="font-semibold text-text-primary">{Math.round(elapsedMs / 1000 / 60)} dakika</p>
+              <p className="font-semibold text-text-primary">{formatSeconds(Math.round(elapsedMs / 1000))}</p>
             </div>
             <div>
               <p className="text-xs text-text-muted">Duraklatma Sayısı</p>

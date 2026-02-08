@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { SessionRecord, Mode } from '../types'
 import { saveSession as dbSaveSession, listSessions, deleteSession as dbDeleteSession } from '../lib/db'
+import { getLocalDateString } from '../lib/time'
 
 export interface SessionsState {
   sessions: SessionRecord[]
@@ -21,7 +22,8 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     set({ loading: true })
     try {
       const sessions = await listSessions()
-      set({ sessions: sessions.sort((a, b) => new Date(b.tarihISO).getTime() - new Date(a.tarihISO).getTime()) })
+      const sortTs = (s: SessionRecord) => (s.createdAt ?? s.tarihISO)
+      set({ sessions: sessions.sort((a, b) => new Date(sortTs(b)).getTime() - new Date(sortTs(a)).getTime()) })
     } catch (error) {
       console.error('Failed to load sessions:', error)
     } finally {
@@ -33,9 +35,10 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     try {
       await dbSaveSession(session)
       const state = get()
+      const sortTs = (s: SessionRecord) => (s.createdAt ?? s.tarihISO)
       set({
         sessions: [session, ...state.sessions].sort(
-          (a, b) => new Date(b.tarihISO).getTime() - new Date(a.tarihISO).getTime(),
+          (a, b) => new Date(sortTs(b)).getTime() - new Date(sortTs(a)).getTime(),
         ),
       })
     } catch (error) {
@@ -59,8 +62,8 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   },
 
   getTodaySessions: () => {
-    const today = new Date().toISOString().split('T')[0]
-    return get().sessions.filter((s) => s.tarihISO.startsWith(today))
+    const today = getLocalDateString()
+    return get().sessions.filter((s) => getLocalDateString(new Date(s.tarihISO)) === today)
   },
 
   getSessionsByMode: (mode) => {
