@@ -18,12 +18,12 @@ Uygulama artık **remote URL** modunda çalışıyor. Yani:
 `app-config.cjs` dosyasında `APP_URL` değişkenini **Vercel'deki gerçek URL'inizle** değiştirin:
 
 ```js
-const APP_URL = 'https://zaman-olcer.vercel.app'  // veya kendi domain: https://zaman.siteniz.com
+const APP_URL = 'https://zam-an.vercel.app'  // veya kendi domain: https://zaman.siteniz.com
 ```
 
 Veya ortam değişkeni ile:
 ```bash
-set ZAMAN_APP_URL=https://zaman-olcer.vercel.app
+set ZAMAN_APP_URL=https://zam-an.vercel.app
 npm run win
 ```
 

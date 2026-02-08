@@ -14,7 +14,7 @@ Sevgiline hem bilgisayardan hem telefondan kullandırabilmen için iki yol var:
    - **Netlify:** https://netlify.com → “Import from Git” → repo’yu seç → Deploy.
 
 2. **Bilgisayarında kullanım**
-   - Deploy sonrası verilen linki (örn. `https://zaman-olcer.vercel.app`) aç.
+   - Deploy sonrası verilen linki (örn. `https://zam-an.vercel.app`) aç.
    - Chrome/Edge’de adres çubuğundaki “Uygulama olarak yükle” / “Install” ikonuna tıkla.
    - Böylece masaüstünden veya Başlat menüsünden “Zaman Ölçer” gibi kısayolla açılır, tam ekran uygulama gibi davranır.
 

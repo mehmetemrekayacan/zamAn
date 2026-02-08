@@ -22,7 +22,7 @@
 
 5. **Deploy** tıklayın
 
-6. Deploy bitince URL'i kopyalayın (örn: `https://zaman-olcer-xxx.vercel.app` veya `https://zaman-olcer.vercel.app`)
+6. Deploy bitince URL'i kopyalayın (örn: `https://zam-an.vercel.app`)
 
 ### Seçenek B: Vercel CLI ile
 
@@ -47,12 +47,11 @@
 Vercel'den aldığınız URL'i `app-config.cjs` dosyasına yazın:
 
 ```js
-const APP_URL = 'https://zaman-olcer.vercel.app'  // ← Kendi URL'inizi yazın
+const APP_URL = 'https://zam-an.vercel.app'  // ← Kendi URL'inizi yazın
 ```
 
 Örnek URL'ler:
-- `https://zaman-olcer.vercel.app`
-- `https://zaman-olcer-yourname.vercel.app`
+- `https://zam-an.vercel.app`
 
 ---
 
