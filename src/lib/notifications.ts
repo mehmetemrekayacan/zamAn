@@ -68,39 +68,34 @@ export const playNotificationSound = (frequency: number = 800, duration: number 
 }
 
 /**
- * Play multi-tone notification (success sound)
+ * Play multi-tone success sound (daha uzun, arka planda da duyulabilir)
+ * 3 yükselen ton: 800Hz → 1000Hz → 1200Hz, her biri ~250ms
  */
-export const playSuccessSound = (): void => {
+export const playSuccessSound = async (): Promise<void> => {
   try {
     // @ts-ignore - webkitAudioContext for Safari compatibility
     const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume()
+    }
     const now = audioContext.currentTime
-    const duration = 0.1
-    const gap = 0.05
+    const duration = 0.25
+    const gap = 0.08
+    const tones = [800, 1000, 1200]
 
-    // First beep (higher frequency)
-    const osc1 = audioContext.createOscillator()
-    const gain1 = audioContext.createGain()
-    osc1.connect(gain1)
-    gain1.connect(audioContext.destination)
-    osc1.frequency.value = 800
-    osc1.type = 'sine'
-    gain1.gain.setValueAtTime(0.3, now)
-    gain1.gain.exponentialRampToValueAtTime(0.01, now + duration)
-    osc1.start(now)
-    osc1.stop(now + duration)
-
-    // Second beep (even higher frequency)
-    const osc2 = audioContext.createOscillator()
-    const gain2 = audioContext.createGain()
-    osc2.connect(gain2)
-    gain2.connect(audioContext.destination)
-    osc2.frequency.value = 1200
-    osc2.type = 'sine'
-    gain2.gain.setValueAtTime(0.3, now + duration + gap)
-    gain2.gain.exponentialRampToValueAtTime(0.01, now + duration + gap + duration)
-    osc2.start(now + duration + gap)
-    osc2.stop(now + duration + gap + duration)
+    for (let i = 0; i < tones.length; i++) {
+      const osc = audioContext.createOscillator()
+      const gain = audioContext.createGain()
+      osc.connect(gain)
+      gain.connect(audioContext.destination)
+      osc.frequency.value = tones[i]
+      osc.type = 'sine'
+      const start = now + i * (duration + gap)
+      gain.gain.setValueAtTime(0.35, start)
+      gain.gain.exponentialRampToValueAtTime(0.01, start + duration)
+      osc.start(start)
+      osc.stop(start + duration)
+    }
   } catch (error) {
     console.warn('Success sound not available:', error)
   }
@@ -148,8 +143,22 @@ export const showBrowserNotification = (
   }
 }
 
+let pendingSound = false
+
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'visible' && pendingSound) {
+    pendingSound = false
+    void playSuccessSound()
+  }
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', onVisibilityChange)
+}
+
 /**
  * Trigger all notification methods
+ * Ses: Arka plandaysa, kullanıcı geri döndüğünde çalar
  */
 export const notifySessionComplete = (options: NotificationOptions = {}): void => {
   const {
@@ -159,7 +168,11 @@ export const notifySessionComplete = (options: NotificationOptions = {}): void =
   } = options
 
   if (enableSound) {
-    playSuccessSound()
+    if (document.visibilityState === 'visible') {
+      void playSuccessSound()
+    } else {
+      pendingSound = true
+    }
   }
 
   if (enableVibration) {

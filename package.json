@@ -21,7 +21,7 @@
     "apk": "npm run build:android && cap sync",
     "apk:build": "npm run apk && node scripts/build-apk.cjs",
     "apk:debug": "npm run apk && node scripts/build-apk.cjs",
-    "apk:release": "cross-env APK_MODE=release CAPACITOR_REMOTE=1 npm run apk && node scripts/build-apk.cjs",
+    "apk:release": "npx cross-env APK_MODE=release CAPACITOR_REMOTE=1 npm run apk && node scripts/build-apk.cjs",
     "icons": "node scripts/prepare-assets.cjs && npx @capacitor/assets generate --iconBackgroundColor '#0b1220' --iconBackgroundColorDark '#0b1220' --splashBackgroundColor '#0b1220' --splashBackgroundColorDark '#0b1220'",
     "win": "node scripts/generate-win-icon.cjs && npm run build:win && electron-builder --win",
     "win:dir": "node scripts/generate-win-icon.cjs && npm run build:win && electron-builder --win --dir"

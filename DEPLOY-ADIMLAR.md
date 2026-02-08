@@ -100,6 +100,15 @@ Bu kurulum **bir kez** yapılır. Sonrasında kullanıcılar uygulamayı açtı�
 
 ---
 
+## Vercel'de env değişkenleri eklendikten sonra
+
+Env değişkenleri **yeni build** sırasında kullanılır. Değişken ekledikten sonra:
+
+1. **Deployments** → Son deploy’a tıkla → **Redeploy** açılır menü → **Redeploy with existing Build Cache** değil, **Clear cache and redeploy** seç (veya benzeri).
+2. Veya: Küçük bir kod değişikliği yapıp `git push` at — bu da yeni build tetikler.
+
+Cache’li redeploy bazen eski build’i kullanır; env’ler enjekte edilmez.
+
 ## Özet Tablo
 
 | Ne yapıyorsun?      | Komut / Adım                                      |
