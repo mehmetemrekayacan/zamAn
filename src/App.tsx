@@ -160,7 +160,7 @@ function App() {
         notifySessionComplete({
           enableSound: settings.sessizMod ? false : settings.sesAçık,
           enableVibration: settings.titreşimAçık,
-          enableBrowserNotification: settings.bildirimİzni === 'granted',
+          enableBrowserNotification: typeof Notification !== 'undefined' && Notification.permission === 'granted',
           title: 'Ders süresi bitti',
           body: '60 dk ders tamamlandı, mola başladı.',
         })
@@ -210,7 +210,7 @@ function App() {
         notifySessionComplete({
           enableSound: settings.sessizMod ? false : settings.sesAçık,
           enableVibration: settings.titreşimAçık,
-          enableBrowserNotification: settings.bildirimİzni === 'granted',
+          enableBrowserNotification: typeof Notification !== 'undefined' && Notification.permission === 'granted',
           title: `Seans Tamamlandı! 🎉 (${score.totalScore} puan)`,
           body: `${mode === 'serbest' ? 'Kronometre' : mode === 'gerisayim' ? 'Zamanlayıcı' : mode === 'ders60mola15' ? '60 dk ders / 15 dk mola' : 'Deneme Sınavı'} seansınız tamamlandı.`,
         })
@@ -298,6 +298,10 @@ function App() {
     if (denemeMolada) return advanceFromDenemeBreak()
     if (status === 'running') return pause()
     if (status === 'paused') return resume()
+    // Başlat: bildirim izni + arka plan sesi için context hazırla (user gesture gerekli)
+    import('./lib/notifications').then(({ prepareForBackgroundNotify }) => {
+      prepareForBackgroundNotify()
+    })
     return start()
   }, [denemeMolada, advanceFromDenemeBreak, status, pause, resume, start])
 

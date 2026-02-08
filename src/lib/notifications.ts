@@ -101,42 +101,69 @@ export const playSuccessSound = async (): Promise<void> => {
   }
 }
 
+const FLASH_TITLE = '🔔 Seans Tamamlandı!'
+let titleFlashInterval: ReturnType<typeof setInterval> | null = null
+let originalTitle = 'zamAn'
+
+function startTitleFlash(): void {
+  if (typeof document === 'undefined') return
+  originalTitle = document.title || 'zamAn'
+  if (titleFlashInterval) return
+  let showFlash = true
+  titleFlashInterval = setInterval(() => {
+    document.title = showFlash ? FLASH_TITLE : originalTitle
+    showFlash = !showFlash
+  }, 800)
+}
+
+function stopTitleFlash(): void {
+  if (titleFlashInterval) {
+    clearInterval(titleFlashInterval)
+    titleFlashInterval = null
+  }
+  if (typeof document !== 'undefined') {
+    document.title = originalTitle
+  }
+}
+
 /**
- * Show browser notification
- * Requires user permission (Notification.permission)
+ * Show browser notification — tıklanınca sekmeyi odaklar
  */
 export const showBrowserNotification = (
   title: string = 'Seans Tamamlandı!',
   options: NotificationOptions = {}
 ): void => {
-  if (!('Notification' in window)) {
-    console.warn('Notifications not supported by browser')
-    return
-  }
+  if (!('Notification' in window)) return
 
-  // Check if already granted permission
   if (Notification.permission === 'granted') {
     try {
-      new Notification(title, {
+      const n = new Notification(title, {
         body: options.body || 'Çalışma seansınız tamamlandı!',
-        icon: '/favicon.svg',
+        icon: '/icon-192x192.png',
         tag: 'session-complete',
       })
-    } catch (error) {
-      console.warn('Failed to show notification:', error)
+      n.onclick = () => {
+        window.focus()
+        n.close()
+      }
+    } catch {
+      /* ignore */
     }
   } else if (Notification.permission !== 'denied') {
-    // Request permission if not denied
     Notification.requestPermission().then((permission) => {
       if (permission === 'granted') {
         try {
-          new Notification(title, {
+          const n = new Notification(title, {
             body: options.body || 'Çalışma seansınız tamamlandı!',
-            icon: '/favicon.svg',
+            icon: '/icon-192x192.png',
             tag: 'session-complete',
           })
-        } catch (error) {
-          console.warn('Failed to show notification:', error)
+          n.onclick = () => {
+            window.focus()
+            n.close()
+          }
+        } catch {
+          /* ignore */
         }
       }
     })
@@ -146,9 +173,12 @@ export const showBrowserNotification = (
 let pendingSound = false
 
 function onVisibilityChange(): void {
-  if (document.visibilityState === 'visible' && pendingSound) {
-    pendingSound = false
-    void playSuccessSound()
+  if (document.visibilityState === 'visible') {
+    if (pendingSound) {
+      pendingSound = false
+      void playSuccessSound()
+    }
+    stopTitleFlash()
   }
 }
 
@@ -156,9 +186,39 @@ if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', onVisibilityChange)
 }
 
+/** Kullanıcı Başlat'a bastığında çağrılmalı — ses ve bildirim için context hazırlar */
+export const prepareForBackgroundNotify = (): void => {
+  if (typeof window === 'undefined') return
+  requestNotificationPermission().then((granted) => {
+    if (granted) {
+      import('../store/settings').then(({ useSettingsStore }) => {
+        useSettingsStore.getState().setSetting('bildirimİzni', 'granted')
+      }).catch(() => {})
+    }
+  })
+  prepareAudioContext()
+}
+
+let sharedAudioContext: AudioContext | null = null
+
+function prepareAudioContext(): void {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    if (!sharedAudioContext || sharedAudioContext.state === 'closed') {
+      sharedAudioContext = new Ctx()
+    }
+    if (sharedAudioContext.state === 'suspended') {
+      void sharedAudioContext.resume()
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Trigger all notification methods
- * Ses: Arka plandaysa, kullanıcı geri döndüğünde çalar
+ * Arka plandaysa: bildirim + başlık yanıp sönme; ses geri dönünce çalar
  */
 export const notifySessionComplete = (options: NotificationOptions = {}): void => {
   const {
@@ -167,11 +227,14 @@ export const notifySessionComplete = (options: NotificationOptions = {}): void =
     enableBrowserNotification = true,
   } = options
 
+  const isBackground = document.visibilityState === 'hidden'
+
   if (enableSound) {
-    if (document.visibilityState === 'visible') {
-      void playSuccessSound()
-    } else {
+    if (isBackground) {
+      void playSuccessSoundWithSharedContext()
       pendingSound = true
+    } else {
+      void playSuccessSound()
     }
   }
 
@@ -184,6 +247,39 @@ export const notifySessionComplete = (options: NotificationOptions = {}): void =
       options.title || 'Seans Tamamlandı! 🎉',
       options
     )
+  }
+
+  if (isBackground) {
+    startTitleFlash()
+  }
+}
+
+async function playSuccessSoundWithSharedContext(): Promise<void> {
+  try {
+    if (sharedAudioContext && sharedAudioContext.state !== 'closed') {
+      if (sharedAudioContext.state === 'suspended') {
+        await sharedAudioContext.resume()
+      }
+      const now = sharedAudioContext.currentTime
+      const duration = 0.25
+      const gap = 0.08
+      const tones = [800, 1000, 1200]
+      for (let i = 0; i < tones.length; i++) {
+        const osc = sharedAudioContext.createOscillator()
+        const gain = sharedAudioContext.createGain()
+        osc.connect(gain)
+        gain.connect(sharedAudioContext.destination)
+        osc.frequency.value = tones[i]
+        osc.type = 'sine'
+        const start = now + i * (duration + gap)
+        gain.gain.setValueAtTime(0.35, start)
+        gain.gain.exponentialRampToValueAtTime(0.01, start + duration)
+        osc.start(start)
+        osc.stop(start + duration)
+      }
+    }
+  } catch {
+    /* ignore */
   }
 }
 
