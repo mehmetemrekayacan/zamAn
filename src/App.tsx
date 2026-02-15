@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback, useRef, lazy, Suspense, memo } from 'react'
 import { formatDuration, formatSeconds, getLocalDateString } from './lib/time'
-import { MODE_DEFAULTS, useTimerStore } from './store/timer'
+import { DENEME_TEMPLATES, MODE_DEFAULTS, useTimerStore } from './store/timer'
 import { useSessionsStore } from './store/sessions'
 import { useSettingsStore } from './store/settings'
 import { calculateScore, getUnvan } from './lib/scoring'
@@ -46,6 +46,7 @@ function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'celebration' } | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [sessionRuhHali, setSessionRuhHali] = useState<import('./types').RuhHali | null>(null)
+  const [sessionDenemeAnaliz, setSessionDenemeAnaliz] = useState<import('./types').DenemeAnaliz | null>(null)
   const onceConfettiRef = useRef(false)
   const [countdownHours, setCountdownHours] = useState(0)
   const [countdownMinutes, setCountdownMinutes] = useState(10)
@@ -94,6 +95,16 @@ function App() {
   useEffect(() => {
     loadSessions()
   }, [loadSessions])
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        useTimerStore.getState().syncOnVisibilityChange()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
 
   const {
     mode,
@@ -245,6 +256,9 @@ function App() {
       molaSaniye: mode === 'ders60mola15' && molaToplamMs != null ? Math.round(molaToplamMs / 1000) : undefined,
       denemeMolalarSaniye: mode === 'deneme' && denemeMolalarSaniye?.length ? [...denemeMolalarSaniye] : undefined,
       ruhHali: sessionRuhHali ?? undefined,
+      ...(mode === 'deneme' && sessionDenemeAnaliz && (sessionDenemeAnaliz.dogru > 0 || sessionDenemeAnaliz.yanlis > 0 || sessionDenemeAnaliz.bos > 0)
+        ? { dogruSayisi: sessionDenemeAnaliz.dogru, yanlisSayisi: sessionDenemeAnaliz.yanlis, bosSayisi: sessionDenemeAnaliz.bos }
+        : {}),
     }
 
     try {
@@ -274,6 +288,7 @@ function App() {
       setShowFinishScreen(false)
       setSessionNote('')
       setSessionRuhHali(null)
+      setSessionDenemeAnaliz(null)
       reset()
     } catch (error) {
       console.error('Failed to save session:', error)
@@ -462,11 +477,14 @@ function App() {
         onSave={saveSession}
         sessionRuhHali={sessionRuhHali}
         onRuhHaliChange={setSessionRuhHali}
+        denemeAnaliz={sessionDenemeAnaliz}
+        onDenemeAnalizChange={setSessionDenemeAnaliz}
         onCancel={() => {
           onceConfettiRef.current = false
           setShowFinishScreen(false)
           setSessionNote('')
           setSessionRuhHali(null)
+          setSessionDenemeAnaliz(null)
           reset()
         }}
       />
@@ -702,8 +720,21 @@ function App() {
 
             {modeConfig.mode === 'deneme' && (
               <div className="mt-4 rounded-card border border-accent-amber/30 bg-accent-amber/5 p-4">
+                <p className="mb-2 text-sm font-semibold text-text-primary">Hızlı şablonlar</p>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {DENEME_TEMPLATES.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => setModeConfig({ ...modeConfig, bolumler: tpl.bolumler.map((b) => ({ ...b })) })}
+                      className="rounded-full border border-accent-amber/40 bg-surface-800/80 px-3 py-2 text-xs font-medium text-text-primary hover:bg-accent-amber/10 hover:border-accent-amber/60 active:scale-[0.98] transition touch-manipulation"
+                      title={tpl.bolumler.map((b) => `${b.ad}: ${Math.round(b.surePlanMs / 60000)} dk`).join(' • ')}
+                    >
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
                 <p className="mb-4 text-sm font-semibold text-text-primary">Sınav Bölümleri</p>
-                
                 <div className="mb-4 space-y-3 rounded-lg bg-surface-900/50 p-3">
                   {modeConfig.bolumler.map((bolum, idx) => (
                     <div key={idx} className="flex items-center justify-between rounded-lg bg-surface-800/50 px-3 py-2">
@@ -896,6 +927,16 @@ function App() {
                             </span>
                           )}
                         </div>
+                        {session.mod === 'deneme' && (session.dogruSayisi != null || session.yanlisSayisi != null || session.bosSayisi != null) && (
+                          <div className="flex items-center gap-3 mt-1.5 text-xs">
+                            <span className="text-text-muted">D: <span className="font-semibold text-accent-cyan">{session.dogruSayisi ?? 0}</span></span>
+                            <span className="text-text-muted">Y: <span className="font-semibold text-accent-red">{session.yanlisSayisi ?? 0}</span></span>
+                            <span className="text-text-muted">B: <span className="font-semibold text-text-primary">{session.bosSayisi ?? 0}</span></span>
+                            <span className="text-accent-amber font-semibold">
+                              Net: {((session.dogruSayisi ?? 0) - (session.yanlisSayisi ?? 0) / 4).toFixed(1)}
+                            </span>
+                          </div>
+                        )}
                         {session.not && (
                           <p className="text-xs text-text-muted mt-1.5 border-t border-text-primary/5 pt-1.5 italic line-clamp-2" title={session.not}>
                             {session.not}
@@ -909,6 +950,33 @@ function App() {
                 )}
               </div>
             </div>
+
+            {/* Deneme Analizi — son denemelerde D/Y/B ve net trendi */}
+            {(() => {
+              const denemeWithAnaliz = sessions.filter((s) => s.mod === 'deneme' && (s.dogruSayisi != null || s.yanlisSayisi != null || s.bosSayisi != null))
+              const lastDenemeAnaliz = denemeWithAnaliz.slice(0, 5)
+              if (lastDenemeAnaliz.length === 0) return null
+              return (
+                <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-amber-500/5">
+                  <div className="mb-3">
+                    <p className="text-xs uppercase tracking-widest text-text-muted">Deneme Analizi</p>
+                    <h3 className="font-display text-lg text-text-primary">Doğru / Yanlış / Boş trendi</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {lastDenemeAnaliz.map((s) => {
+                      const net = ((s.dogruSayisi ?? 0) - (s.yanlisSayisi ?? 0) / 4).toFixed(1)
+                      return (
+                        <div key={s.id} className="flex items-center justify-between rounded-lg border border-text-primary/10 bg-surface-900/50 px-3 py-2 text-sm">
+                          <span className="text-text-muted">{new Date(s.tarihISO).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span>
+                          <span className="text-text-muted">D: <span className="text-accent-cyan font-medium">{s.dogruSayisi ?? 0}</span> Y: <span className="text-accent-red font-medium">{s.yanlisSayisi ?? 0}</span> B: <span className="text-text-primary font-medium">{s.bosSayisi ?? 0}</span></span>
+                          <span className="font-semibold text-accent-amber">Net {net}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Statistics Cards */}
             <div className="rounded-card border border-text-primary/5 bg-surface-800/80 p-4 shadow-lg shadow-amber-500/5">
@@ -1020,20 +1088,34 @@ function App() {
                 <span className="text-xs text-text-muted">Hedef: 5 sa</span>
               </div>
               <div className="flex gap-2">
-                {/* Y ekseni: saat */}
-                <div className="flex flex-col justify-between py-1 text-[10px] text-text-muted shrink-0">
-                  <span>5 sa</span>
-                  <span>4 sa</span>
-                  <span>2 sa</span>
-                  <span>0</span>
-                </div>
+                {/* Y ekseni: 0'dan başlayan dinamik saat etiketleri — 5 saatin altı da görünsün */}
+                {(() => {
+                  const HEDEF_SN = 18000
+                  const CONTAINER_H = 128
+                  const veri = summary.gunlukSon30Gun
+                  const maxSn = Math.max(HEDEF_SN, ...veri.map((d) => d.saniye), 3600)
+                  const maxSaat = Math.ceil(maxSn / 3600)
+                  const yLabels = []
+                  for (let sa = 0; sa <= maxSaat; sa += Math.max(1, Math.ceil(maxSaat / 5))) {
+                    if (sa <= maxSaat) yLabels.push(sa)
+                  }
+                  if (yLabels[yLabels.length - 1] !== maxSaat) yLabels.push(maxSaat)
+                  const uniq = [...new Set(yLabels)].sort((a, b) => b - a)
+                  return (
+                    <div className="flex flex-col justify-between py-1 text-[10px] text-text-muted shrink-0">
+                      {uniq.map((sa) => (
+                        <span key={sa}>{sa} sa</span>
+                      ))}
+                    </div>
+                  )
+                })()}
                 <div className="flex-1 min-w-0">
                   <div className="relative h-32 flex items-end gap-0.5" style={{ minHeight: 128 }}>
                     {(() => {
                       const HEDEF_SN = 18000
                       const CONTAINER_H = 128
                       const veri = summary.gunlukSon30Gun
-                      const maxSn = Math.max(HEDEF_SN, ...veri.map((d) => d.saniye), 1)
+                      const maxSn = Math.max(HEDEF_SN, ...veri.map((d) => d.saniye), 3600)
                       const hedefPx = maxSn > 0 ? (HEDEF_SN / maxSn) * CONTAINER_H : 0
                       return (
                         <>
@@ -1044,7 +1126,7 @@ function App() {
                           />
                           {veri.map((d) => {
                             const barPx = maxSn > 0 ? (d.saniye / maxSn) * CONTAINER_H : 0
-                            const barHeight = Math.max(8, barPx)
+                            const barHeight = d.saniye > 0 ? Math.max(8, barPx) : 0
                             const hedefiGecti = d.saniye >= HEDEF_SN
                             return (
                               <div

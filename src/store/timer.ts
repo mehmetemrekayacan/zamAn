@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getLocalDateString } from '../lib/time'
-import type { Mode, ModeConfig, WorkBreakPhase, TimerSnapshot, TimerStatus } from '../types'
+import type { Mode, ModeConfig, Section, WorkBreakPhase, TimerSnapshot, TimerStatus } from '../types'
 
 // Test için: 10 sn ders, 5 sn mola (normal: 60*60*1000, 15*60*1000)
 // ders60mola15: 60 dakika ders, 15 dakika mola
@@ -25,6 +25,26 @@ export const MODE_DEFAULTS: Record<Mode, ModeConfig> = {
     currentSectionIndex: 0,
   },
 }
+
+/** Deneme şablonları — iki ana başlık: KPSS (Genel Yetenek 60 + Genel Kültür 60), ÖABT+AGS. */
+export const DENEME_TEMPLATES: { id: string; label: string; bolumler: Section[] }[] = [
+  {
+    id: 'kpss',
+    label: 'KPSS',
+    bolumler: [
+      { ad: 'Genel Yetenek', surePlanMs: 60 * 60 * 1000 },
+      { ad: 'Genel Kültür', surePlanMs: 60 * 60 * 1000 },
+    ],
+  },
+  {
+    id: 'oabt-ags',
+    label: 'ÖABT + AGS',
+    bolumler: [
+      { ad: 'AGS', surePlanMs: 110 * 60 * 1000 },
+      { ad: 'ÖABT', surePlanMs: 90 * 60 * 1000 },
+    ],
+  },
+]
 
 const getPlannedMs = (config: ModeConfig, phase: WorkBreakPhase = 'work', currentSectionIndex = 0): number | undefined => {
   switch (config.mode) {
@@ -149,6 +169,8 @@ export type TimerState = TimerSnapshot & {
   /** Herhangi bir vakitte erken bitir; o ana kadar geçen süreyi kaydetmek için status'u finished yapar */
   finishEarly: () => void
   getRemainingMs: () => number | undefined
+  /** Sekme tekrar görünür olduğunda çağrılır; arkadayken kaçan ders→mola geçişini yakalar */
+  syncOnVisibilityChange: () => void
 }
 
 export const useTimerStore = create<TimerState>()(
@@ -426,6 +448,13 @@ export const useTimerStore = create<TimerState>()(
       },
 
       getRemainingMs: () => get().remainingMs,
+
+      syncOnVisibilityChange: () => {
+        const state = get()
+        if (state.status !== 'running' || state.lastTickTs == null) return
+        const tick = createTick(get as GetState, set)
+        tick()
+      },
     }),
     {
       name: 'timer-storage',
