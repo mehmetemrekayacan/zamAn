@@ -1,4 +1,4 @@
-import type { Mode, RuhHali } from '../types'
+import type { DenemeAnaliz as DenemeAnalizType, Mode, RuhHali } from '../types'
 import type { ScoreBreakdown } from '../lib/scoring'
 import { formatSeconds } from '../lib/time'
 
@@ -32,6 +32,9 @@ const ScoreRow = ({
   )
 }
 
+/** Re-export for consumers */
+export type DenemeAnaliz = DenemeAnalizType
+
 export interface FinishScreenProps {
   score: ScoreBreakdown
   mode: Mode
@@ -41,6 +44,9 @@ export interface FinishScreenProps {
   onSessionNoteChange: (value: string) => void
   sessionRuhHali?: RuhHali | null
   onRuhHaliChange?: (value: RuhHali | null) => void
+  /** Sadece deneme modunda: doğru / yanlış / boş sayıları */
+  denemeAnaliz?: DenemeAnalizType | null
+  onDenemeAnalizChange?: (value: DenemeAnalizType | null) => void
   onSave: () => void
   onCancel: () => void
 }
@@ -50,6 +56,8 @@ const RUH_HALI_OPTS: { value: RuhHali; label: string; emoji: string }[] = [
   { value: 'normal', label: 'Normal', emoji: '😐' },
   { value: 'yorucu', label: 'Yorucu', emoji: '😤' },
 ]
+const clampNum = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
+
 export function FinishScreen({
   score,
   mode,
@@ -59,9 +67,18 @@ export function FinishScreen({
   onSessionNoteChange,
   sessionRuhHali,
   onRuhHaliChange,
+  denemeAnaliz,
+  onDenemeAnalizChange,
   onSave,
   onCancel,
 }: FinishScreenProps) {
+  const isDeneme = mode === 'deneme'
+  const analiz = denemeAnaliz ?? { dogru: 0, yanlis: 0, bos: 0 }
+  const setAnaliz = (next: Partial<DenemeAnalizType>) => {
+    if (onDenemeAnalizChange) {
+      onDenemeAnalizChange({ ...analiz, ...next })
+    }
+  }
   return (
     <div className="min-h-screen bg-surface-900 text-text-primary">
       <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-10">
@@ -115,6 +132,53 @@ export function FinishScreen({
             </div>
           </div>
         </div>
+
+        {isDeneme && onDenemeAnalizChange && (
+          <div className="space-y-3 rounded-card border border-accent-amber/30 bg-accent-amber/5 p-4">
+            <p className="text-sm font-semibold text-text-primary">Deneme analizi (opsiyonel)</p>
+            <p className="text-xs text-text-muted">Doğru / yanlış / boş sayılarını gir; net ve trend istatistiklerde görünsün.</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-text-muted">Doğru</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={999}
+                  value={analiz.dogru}
+                  onChange={(e) => setAnaliz({ dogru: clampNum(parseInt(e.target.value, 10) || 0, 0, 999) })}
+                  className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-accent-blue/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-text-muted">Yanlış</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={999}
+                  value={analiz.yanlis}
+                  onChange={(e) => setAnaliz({ yanlis: clampNum(parseInt(e.target.value, 10) || 0, 0, 999) })}
+                  className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-accent-blue/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-text-muted">Boş</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={999}
+                  value={analiz.bos}
+                  onChange={(e) => setAnaliz({ bos: clampNum(parseInt(e.target.value, 10) || 0, 0, 999) })}
+                  className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-accent-blue/50 focus:outline-none"
+                />
+              </div>
+            </div>
+            {(analiz.dogru > 0 || analiz.yanlis > 0 || analiz.bos > 0) && (
+              <p className="text-xs text-text-muted">
+                Net (D − Y/4) = <span className="font-semibold text-accent-amber">{((analiz.dogru || 0) - (analiz.yanlis || 0) / 4).toFixed(2)}</span>
+              </p>
+            )}
+          </div>
+        )}
 
         {onRuhHaliChange && (
           <div className="space-y-2">

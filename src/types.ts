@@ -40,6 +40,9 @@ export type TimerSnapshot = {
 /** Seans başında isteğe bağlı ruh hali */
 export type RuhHali = 'iyi' | 'normal' | 'yorucu'
 
+/** Deneme seansı sonrası analiz: doğru / yanlış / boş (net = doğru - yanlış/4) */
+export type DenemeAnaliz = { dogru: number; yanlis: number; bos: number }
+
 export type SessionRecord = {
   id: string
   mod: Mode
@@ -58,6 +61,10 @@ export type SessionRecord = {
   molaSaniye?: number
   /** deneme: bölümler arası mola süreleri (saniye) */
   denemeMolalarSaniye?: number[]
+  /** deneme: analiz — doğru / yanlış / boş sayıları (net = doğru - yanlış/4) */
+  dogruSayisi?: number
+  yanlisSayisi?: number
+  bosSayisi?: number
   bolumler?: { ad: string; surePlan?: number; sureGercek: number }[]
   platform?: { cihaz?: string; userAgentHash?: string }
   createdAt?: string

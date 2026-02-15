@@ -46,7 +46,7 @@ function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'celebration' } | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [sessionRuhHali, setSessionRuhHali] = useState<import('./types').RuhHali | null>(null)
-  const [sessionDenemeAnaliz, setSessionDenemeAnaliz] = useState<import('./types').DenemeAnaliz | null>(null)
+  const [sessionDenemeAnaliz, setSessionDenemeAnaliz] = useState<{ dogru: number; yanlis: number; bos: number } | null>(null)
   const onceConfettiRef = useRef(false)
   const [countdownHours, setCountdownHours] = useState(0)
   const [countdownMinutes, setCountdownMinutes] = useState(10)
