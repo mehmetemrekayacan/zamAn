@@ -35,6 +35,8 @@ export type TimerSnapshot = {
   pauses: number
   lastTickTs: number | null
   status: TimerStatus
+  /** Erken bitirme ile mi bitti? (Scoring için: true = kısmi, false = tam tamamlandı) */
+  wasEarlyFinish?: boolean
 }
 
 /** Seans başında isteğe bağlı ruh hali */

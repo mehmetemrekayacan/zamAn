@@ -95,12 +95,14 @@ function App() {
     workBreakPhase,
     dersCycle,
     pauses,
+    wasEarlyFinish,
     start,
     pause,
     resume,
     reset,
     setModeConfig,
     jumpToSection,
+    finishEarly,
   } = useTimerStore()
 
   /* ── init ── */
@@ -195,11 +197,14 @@ function App() {
 
   useEffect(() => {
     if (status === 'finished' && !showFinishScreen) {
-      const elapsedMinutes = Math.round(elapsedMs / 1000 / 60)
-      const plannedMinutes = plannedMs != null ? Math.round(plannedMs / 1000 / 60) : undefined
       const sessionsState = useSessionsStore.getState()
       const streakDays = calculateStreak(sessionsState.sessions)
-      const score = calculateScore(elapsedMinutes, mode, pauses, plannedMinutes, streakDays)
+      const isFullCompletion = !(wasEarlyFinish ?? false)
+      const todayStr = new Date().toISOString().split('T')[0]
+      const todayCompletedRounds = sessionsState.sessions.filter(
+        (s) => s.tarihISO.startsWith(todayStr) && s.mod === mode
+      ).length
+      const score = calculateScore(elapsedMs, mode, pauses, isFullCompletion, todayCompletedRounds, streakDays)
       setLastSessionScore(score)
       setShowFinishScreen(true)
 
@@ -215,7 +220,7 @@ function App() {
         })
       })
     }
-  }, [status, showFinishScreen, elapsedMs, plannedMs, mode, pauses])
+  }, [status, showFinishScreen, elapsedMs, plannedMs, mode, pauses, wasEarlyFinish])
 
   const primaryLabel = status === 'running' ? 'Duraklat' : status === 'paused' ? 'Devam' : 'Başlat'
   const primaryAction = useCallback(() => {
@@ -412,6 +417,7 @@ function App() {
           pauses={pauses}
           primaryLabel={primaryLabel}
           primaryAction={primaryAction}
+          onFinishEarly={finishEarly}
           onReset={reset}
         />
 

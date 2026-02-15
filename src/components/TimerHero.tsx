@@ -11,6 +11,7 @@ export interface TimerHeroProps {
   pauses: number
   primaryLabel: string
   primaryAction: () => void
+  onFinishEarly: () => void
   onReset: () => void
 }
 
@@ -47,6 +48,7 @@ export const TimerHero = memo(function TimerHero({
   pauses,
   primaryLabel,
   primaryAction,
+  onFinishEarly,
   onReset,
 }: TimerHeroProps) {
   const isRunning = status === 'running'
@@ -121,7 +123,9 @@ export const TimerHero = memo(function TimerHero({
             {mode === 'ders60mola15' && (
               <span className="ml-1 rounded-full bg-accent-amber/20 px-2.5 py-0.5 text-[11px] font-semibold text-accent-amber">
                 {workBreakPhase === 'break' ? 'Mola' : 'Çalışma'} · Tur{' '}
-                {((dersCycle ?? 0) + 1).toString()}
+                {workBreakPhase === 'break'
+                  ? (dersCycle ?? 1).toString()
+                  : ((dersCycle ?? 0) + 1).toString()}
               </span>
             )}
           </div>
@@ -138,7 +142,7 @@ export const TimerHero = memo(function TimerHero({
           <div className="relative">
             {/* Running pulse ring */}
             {isRunning && (
-              <div className="absolute -inset-6 animate-ping rounded-full bg-accent-blue/10 [animation-duration:2s]" />
+              <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-accent-blue/10 [animation-duration:2s]" />
             )}
             <time
               className={`
@@ -158,7 +162,7 @@ export const TimerHero = memo(function TimerHero({
           </div>
 
           {/* Aksiyon butonları */}
-          <div className="flex items-center gap-3">
+          <div className="relative z-10 flex items-center gap-3">
             <button
               ref={btnRef}
               onClick={handlePrimaryClick}
@@ -184,6 +188,24 @@ export const TimerHero = memo(function TimerHero({
                 {primaryLabel}
               </span>
             </button>
+
+            {isActive && (
+              <button
+                onClick={onFinishEarly}
+                className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-5 py-3.5 text-base
+                           font-semibold text-emerald-400 transition-all duration-200
+                           hover:bg-emerald-500/20 hover:border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-500/15
+                           active:scale-[0.97]"
+                title="Seansı erken bitir ve kaydet"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                  </svg>
+                  Bitir
+                </span>
+              </button>
+            )}
 
             {isActive && (
               <button

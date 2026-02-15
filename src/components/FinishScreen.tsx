@@ -95,14 +95,14 @@ export function FinishScreen({
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <ScoreRow label="Temel Puan" value={score.baseScore} accent="blue" />
+            {score.completionBonus > 0 && (
+              <ScoreRow label="Tamamlama Bonusu" value={score.completionBonus} accent="amber" />
+            )}
             {score.pausePenalty > 0 && (
               <ScoreRow label="Duraklatma Cezası" value={-score.pausePenalty} accent="red" />
             )}
-            {score.earlyCompletionBonus > 0 && (
-              <ScoreRow label="Erken Bitirme Bonusu" value={score.earlyCompletionBonus} accent="amber" />
-            )}
-            {score.focusBonus > 0 && (
-              <ScoreRow label="Odak Bonusu" value={score.focusBonus} accent="blue" />
+            {score.roundMultiplier > 1 && (
+              <ScoreRow label={`Tur Çarpanı (×${score.roundMultiplier.toFixed(1)})`} value={score.roundBonusPoints} accent="blue" />
             )}
             {score.streakBonus > 0 && (
               <ScoreRow label="Seri Bonusu" value={score.streakBonus} accent="amber" />

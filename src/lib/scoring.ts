@@ -2,82 +2,52 @@ import type { SessionRecord, Mode } from '../types'
 import { getLocalDateString } from './time'
 
 /**
- * Puan Hesaplama Sistemi
- * 
- * Bileşenler:
- * 1. Temel Puan: Geçen Dakika × Mode Katsayısı
- * 2. Duraklatma Cezası: -5, -10, -20
- * 3. Erken Bitirme Bonusu: +max 20
- * 4. Odak Bonusu: Düşük duraklatma = bonus
- * 5. Seri Bonusu: Ardışık günler = +5 per gün
- * 6. Hız Bonusu: Planlanandan hızlı bitirme
+ * Gelişmiş Puanlama Sistemi v2
+ *
+ * Kurallar:
+ * 1. Baraj: Geçen süre < 1 dakika → puan = 0
+ * 2. Temel Puan: Her dakika = 10 puan
+ * 3. Tamamlama Bonusu: Planlı modu (60/15, gerisayım, deneme) tam tamamlama = +50
+ * 4. Tur Çarpanı: Toplam = (Temel + Bonus - Ceza) × (1 + tamamlananTur × 0.2)
+ *    Örnek: 1. Tur %100, 2. Tur %120, 3. Tur %140
+ * 5. Seri Bonusu: Ardışık gün × 5, maks 50
  */
 
+/** Sabitler */
+const BASE_POINTS_PER_MINUTE = 10
+const COMPLETION_BONUS = 50
+const MIN_ELAPSED_MS = 60_000 // 1 dakika baraj
+const MAX_PAUSE_PENALTY = 15
+
 export interface ScoreBreakdown {
+  /** Dakika × 10 */
   baseScore: number
+  /** Planlı modu eksiksiz tamamlama bonusu */
+  completionBonus: number
+  /** Tur çarpanı (1.0, 1.2, 1.4 …) */
+  roundMultiplier: number
+  /** Tur çarpanından gelen ek puan */
+  roundBonusPoints: number
+  /** Duraklatma cezası */
   pausePenalty: number
-  earlyCompletionBonus: number
-  focusBonus: number
+  /** Ardışık gün seri bonusu */
   streakBonus: number
+  /** Son toplam */
   totalScore: number
 }
 
-// Mode katsayıları
-const MODE_COEFFICIENTS: Record<Mode, number> = {
-  serbest: 0.8,
-  gerisayim: 1.2,
-  ders60mola15: 1.15,
-  deneme: 1.3,
-}
-
 /**
- * Temel puan hesapla (saniye/60 × mode katsayısı — 1 dakika = 1 puan baz)
- */
-export function calculateBaseScore(elapsedSeconds: number, mode: Mode): number {
-  const coefficient = MODE_COEFFICIENTS[mode] ?? 1.0
-  return Math.floor((elapsedSeconds / 60) * coefficient)
-}
-
-/**
- * Duraklatma cezası hesapla
- * 1 duraklatma: -5
- * 2 duraklatma: -10
- * 3+ duraklatma: -20
+ * Duraklatma cezası: 1→-5, 2→-10, 3+→-15
  */
 export function calculatePausePenalty(pauses: number): number {
+  if (pauses <= 0) return 0
   if (pauses === 1) return 5
   if (pauses === 2) return 10
-  if (pauses >= 3) return 20
-  return 0
+  return MAX_PAUSE_PENALTY
 }
 
 /**
- * Erken bitirme bonusu hesapla (max 20)
- */
-export function calculateEarlyCompletionBonus(
-  elapsedSeconds: number,
-  plannedSeconds?: number
-): number {
-  if (!plannedSeconds || elapsedSeconds >= plannedSeconds) return 0
-  const savedMinutes = (plannedSeconds - elapsedSeconds) / 60
-  return Math.min(Math.floor(savedMinutes), 20)
-}
-
-/**
- * Odak bonusu hesapla (duraklatma az = bonus)
- * 0 duraklatma: +15 (Mükemmel odak)
- * 1 duraklatma: +5 (İyi)
- * 2+ duraklatma: 0 (Normal)
- */
-export function calculateFocusBonus(pauses: number): number {
-  if (pauses === 0) return 15
-  if (pauses === 1) return 5
-  return 0
-}
-
-/**
- * Seri bonusu hesapla (ardışık gün sayısı × 5, max 50)
- * Kullanan, her gün minimum 1 seans yaptığı gün sayısını giriyor
+ * Seri bonusu: günlük seri × 5, maks 50
  */
 export function calculateStreakBonus(streakDays: number): number {
   if (streakDays <= 0) return 0
@@ -112,50 +82,64 @@ export function calculateStreak(sessions: SessionRecord[], todayHasSessions?: bo
 }
 
 /**
- * Konsistans puanı hesapla (0-100)
- * Planlanan süreyle gerçek süreyi karşılaştır
- */
-export function calculateConsistency(
-  elapsedSeconds: number,
-  plannedSeconds?: number
-): number {
-  if (!plannedSeconds) return 100 // Plansız ise mükemmel
-  const ratio = (elapsedSeconds / plannedSeconds) * 100
-  return Math.min(Math.round(ratio), 100)
-}
-
-/** Minimum süre (sn): odak ve seri bonusları sadece bu süreden sonra uygulanır. 3 sn'de 20 puan vermeyi önler. */
-const MIN_ELAPSED_FOR_BONUSES = 60
-
-/**
- * Tam puan hesaplama (tüm faktörler)
- * @param elapsedSeconds Geçen süre (saniye)
+ * Tam puanlama hesaplama (v2)
+ *
+ * @param elapsedMs Geçen süre (milisaniye)
  * @param mode Seans modu
  * @param pauses Duraklatma sayısı
- * @param plannedSeconds Planlanan süre saniye (opsiyonel)
- * @param streakDays Ardışık gün sayısı (opsiyonel)
+ * @param isFullCompletion Planlı süre eksiksiz tamamlandı mı?
+ * @param todayCompletedRounds Bugün bu modda daha önce tamamlanan tur sayısı (0-based)
+ * @param streakDays Ardışık gün serisi
  */
 export function calculateScore(
-  elapsedSeconds: number,
+  elapsedMs: number,
   mode: Mode,
   pauses: number,
-  plannedSeconds?: number,
-  streakDays: number = 0
+  isFullCompletion: boolean,
+  todayCompletedRounds: number = 0,
+  streakDays: number = 0,
 ): ScoreBreakdown {
-  const baseScore = calculateBaseScore(elapsedSeconds, mode)
-  const pausePenalty = calculatePausePenalty(pauses)
-  const earlyCompletionBonus = calculateEarlyCompletionBonus(elapsedSeconds, plannedSeconds)
-  const bonusesApply = elapsedSeconds >= MIN_ELAPSED_FOR_BONUSES
-  const focusBonus = bonusesApply ? calculateFocusBonus(pauses) : 0
-  const streakBonus = bonusesApply ? calculateStreakBonus(streakDays) : 0
+  const empty: ScoreBreakdown = {
+    baseScore: 0,
+    completionBonus: 0,
+    roundMultiplier: 1,
+    roundBonusPoints: 0,
+    pausePenalty: 0,
+    streakBonus: 0,
+    totalScore: 0,
+  }
 
-  const totalScore = Math.max(0, baseScore - pausePenalty + earlyCompletionBonus + focusBonus + streakBonus)
+  // Baraj: < 1 dakika → 0 puan
+  if (elapsedMs < MIN_ELAPSED_MS) return empty
+
+  const minutes = Math.floor(elapsedMs / 60_000)
+  const baseScore = minutes * BASE_POINTS_PER_MINUTE
+
+  // Tamamlama bonusu: sadece planlı modlarda (serbest hariç) tam tamamlama
+  const completionBonus = isFullCompletion && mode !== 'serbest' ? COMPLETION_BONUS : 0
+
+  // Duraklatma cezası
+  const pausePenalty = calculatePausePenalty(pauses)
+
+  // Tur çarpanı: 1 + tamamlananTur × 0.2
+  const roundMultiplier = 1 + todayCompletedRounds * 0.2
+
+  // Ara toplam (çarpan öncesi)
+  const subtotal = Math.max(0, baseScore + completionBonus - pausePenalty)
+  const afterRound = subtotal * roundMultiplier
+  const roundBonusPoints = Math.round(afterRound - subtotal)
+
+  // Seri bonusu (çarpandan bağımsız)
+  const streakBonus = calculateStreakBonus(streakDays)
+
+  const totalScore = Math.max(0, Math.round(afterRound + streakBonus))
 
   return {
     baseScore,
+    completionBonus,
+    roundMultiplier,
+    roundBonusPoints,
     pausePenalty,
-    earlyCompletionBonus,
-    focusBonus,
     streakBonus,
     totalScore,
   }

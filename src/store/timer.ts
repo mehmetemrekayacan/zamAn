@@ -135,6 +135,7 @@ function createTick(get: GetState, set: SetState): () => void {
         dersCycle: nextDersCycle,
         dersCycleDate: bugun,
         molaToplamMs: currentMola + addMola,
+        wasEarlyFinish: false,
       })
       stopRaf()
       return
@@ -146,6 +147,7 @@ function createTick(get: GetState, set: SetState): () => void {
       lastTickTs: now,
       status: finished ? ('finished' as TimerStatus) : state.status,
       running: !finished,
+      ...(finished ? { wasEarlyFinish: false } : {}),
     })
 
     if (!finished) {
@@ -192,6 +194,7 @@ export const useTimerStore = create<TimerState>()(
       denemeBreakStartTs: null,
       pauses: 0,
       lastTickTs: null,
+      wasEarlyFinish: undefined,
 
       setModeConfig: (config) => {
         stopRaf()
@@ -344,6 +347,7 @@ export const useTimerStore = create<TimerState>()(
           molaToplamMs,
           dersCycleDate,
           denemeBreakStartTs: null,
+          wasEarlyFinish: undefined,
         })
 
         const tick = createTick(get as GetState, set)
@@ -386,7 +390,9 @@ export const useTimerStore = create<TimerState>()(
         stopRaf()
 
         const isDers60Mola15 = cfg.mode === 'ders60mola15'
-        /** Reset her zaman tur bilgisini sıfırlar; kayıt sonrası birikimli süre hatasını önler */
+        /** Reset: ders60mola15 modunda aynı gündeki dersCycle'\u0131 koru, gün değişmişse sıfırla */
+        const preservedDersCycle = isDers60Mola15 && state.dersCycleDate === bugun
+          ? (state.dersCycle ?? 0) : 0
         set({
           status: 'idle',
           running: false,
@@ -397,10 +403,11 @@ export const useTimerStore = create<TimerState>()(
           lastTickTs: null,
           currentSectionIndex: cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : undefined,
           workBreakPhase: isDers60Mola15 ? basePhase : undefined,
-          dersCycle: isDers60Mola15 ? 0 : undefined,
+          dersCycle: isDers60Mola15 ? preservedDersCycle : undefined,
           dersCycleDate: isDers60Mola15 ? bugun : null,
           molaToplamMs: isDers60Mola15 ? 0 : undefined,
           denemeBreakStartTs: null,
+          wasEarlyFinish: undefined,
         })
       },
 
@@ -433,9 +440,16 @@ export const useTimerStore = create<TimerState>()(
         const delta = state.lastTickTs ? now - state.lastTickTs : 0
         let finalElapsed = state.elapsedMs + (state.status === 'running' ? delta : 0)
 
-        if (state.mode === 'ders60mola15' && state.modeConfig.mode === 'ders60mola15' && state.workBreakPhase === 'break') {
+        if (state.mode === 'ders60mola15' && state.modeConfig.mode === 'ders60mola15') {
           const calismaMs = state.modeConfig.calismaMs ?? 60 * 60 * 1000
-          finalElapsed = (state.dersCycle ?? 0) * calismaMs
+          const completedCycles = state.dersCycle ?? 0
+          if (state.workBreakPhase === 'break') {
+            // Moladayken: sadece tamamlanan çalışma turlarını say
+            finalElapsed = completedCycles * calismaMs
+          } else {
+            // Çalışma fazında: önceki turlar + mevcut kısmi süre
+            finalElapsed = completedCycles * calismaMs + finalElapsed
+          }
         }
 
         set({
@@ -444,6 +458,7 @@ export const useTimerStore = create<TimerState>()(
           elapsedMs: finalElapsed,
           remainingMs: 0,
           lastTickTs: null,
+          wasEarlyFinish: true,
         })
       },
 
@@ -452,6 +467,7 @@ export const useTimerStore = create<TimerState>()(
       syncOnVisibilityChange: () => {
         const state = get()
         if (state.status !== 'running' || state.lastTickTs == null) return
+        stopRaf()
         const tick = createTick(get as GetState, set)
         tick()
       },
