@@ -116,13 +116,14 @@ function startTitleFlash(): void {
   }, 800)
 }
 
-function stopTitleFlash(): void {
+/** Sekme başlığını normale döndürür; finish ekranı kapatılınca veya sekme öne gelince çağrılmalı. restoreTitle verilirse o kullanılır. */
+export function stopTitleFlash(restoreTitle?: string): void {
   if (titleFlashInterval) {
     clearInterval(titleFlashInterval)
     titleFlashInterval = null
   }
   if (typeof document !== 'undefined') {
-    document.title = originalTitle
+    document.title = restoreTitle ?? originalTitle
   }
 }
 

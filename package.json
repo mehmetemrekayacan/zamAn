@@ -9,6 +9,8 @@
   "scripts": {
     "test": "npx tsx scripts/test-all.ts",
     "test:rozetler": "npx tsx scripts/test-rozetler.ts",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:android": "tsc -b && vite build --mode android",
@@ -45,7 +47,10 @@
       "signAndEditExecutable": false
     },
     "extraResources": [
-      { "from": "build/icon.ico", "to": "icon.ico" }
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
     ],
     "nsis": {
       "oneClick": false,
@@ -85,7 +90,8 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "npm:rolldown-vite@7.2.5",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^4.0.18"
   },
   "overrides": {
     "vite": "npm:rolldown-vite@7.2.5"

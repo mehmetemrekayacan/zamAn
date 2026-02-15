@@ -290,6 +290,7 @@ function App() {
       setSessionRuhHali(null)
       setSessionDenemeAnaliz(null)
       reset()
+      import('./lib/notifications').then(({ stopTitleFlash }) => stopTitleFlash('zamAn'))
     } catch (error) {
       console.error('Failed to save session:', error)
     }
@@ -486,6 +487,7 @@ function App() {
           setSessionRuhHali(null)
           setSessionDenemeAnaliz(null)
           reset()
+          import('./lib/notifications').then(({ stopTitleFlash }) => stopTitleFlash('zamAn'))
         }}
       />
         </Suspense>

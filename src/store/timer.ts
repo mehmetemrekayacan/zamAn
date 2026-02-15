@@ -169,7 +169,7 @@ export type TimerState = TimerSnapshot & {
   /** Herhangi bir vakitte erken bitir; o ana kadar geçen süreyi kaydetmek için status'u finished yapar */
   finishEarly: () => void
   getRemainingMs: () => number | undefined
-  /** Sekme tekrar görünür olduğunda çağrılır; arkadayken kaçan ders→mola geçişini yakalar */
+  /** Sekme tekrar görünür olduğunda çağrılır; tüm modlarda (gerisayim, 60/15, deneme, serbest) arkadayken kaçan tick'leri yakalar */
   syncOnVisibilityChange: () => void
 }
 
