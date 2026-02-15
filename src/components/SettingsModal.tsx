@@ -2,16 +2,21 @@ import { useEffect, useRef, useState } from 'react'
 import { clearAllSessions } from '../lib/db'
 import {
   getCurrentUser,
+  getLastSyncTime,
   isCloudSyncEnabled,
   pullCloud,
   pushCloud,
   signIn,
   signOut,
   signUp,
+  syncCloud,
 } from '../lib/cloudSync'
+import { getQueueLength } from '../lib/offlineSync'
 import { exportData, exportFileName, importFromFile } from '../lib/sync'
 import { useSettingsStore } from '../store/settings'
 import type { VurguRengi } from '../store/settings'
+import { canInstallPwa, isPwaInstalled, promptInstallPwa } from '../lib/pwaInstall'
+import { isElectron, toggleAlwaysOnTop, toggleMiniPlayer } from '../lib/electronBridge'
 
 export interface SettingsModalProps {
   onClose: () => void
@@ -41,10 +46,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [cloudLoading, setCloudLoading] = useState(false)
   const [cloudError, setCloudError] = useState<string | null>(null)
   const [cloudPushPullMsg, setCloudPushPullMsg] = useState<string | null>(null)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [lastSync, setLastSync] = useState<string | null>(null)
   const cloudEnabled = isCloudSyncEnabled()
 
   useEffect(() => {
-    if (cloudEnabled) void getCurrentUser().then(setCloudUser)
+    if (cloudEnabled) {
+      void getCurrentUser().then(setCloudUser)
+      void getQueueLength().then(setPendingCount)
+      setLastSync(getLastSyncTime())
+    }
   }, [cloudEnabled])
 
   const handleKayit = async () => {
@@ -84,8 +95,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setCloudPushPullMsg(null)
     const r = await pushCloud()
     setCloudLoading(false)
-    if (r.ok) setCloudPushPullMsg('Buluta kaydedildi.')
-    else setCloudError(r.error)
+    if (r.ok) {
+      setCloudPushPullMsg(`Buluta kaydedildi (${r.pushed} seans).`)
+      setPendingCount(0)
+      setLastSync(new Date().toISOString())
+    } else setCloudError(r.error)
   }
 
   const handleBuluttanCek = async () => {
@@ -95,7 +109,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     const r = await pullCloud()
     setCloudLoading(false)
     if (r.ok) {
-      setCloudPushPullMsg('Buluttan çekildi.')
+      setCloudPushPullMsg(`Buluttan çekildi (${r.pulled} yeni, ${r.merged} güncellenen).`)
+      setLastSync(new Date().toISOString())
       window.location.reload()
     } else setCloudError(r.error)
   }
@@ -377,7 +392,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       disabled={cloudLoading}
                       className="flex-1 rounded-lg border border-accent-blue/50 bg-accent-blue/10 hover:bg-accent-blue/20 px-3 py-2 text-sm font-medium text-accent-blue transition disabled:opacity-50"
                     >
-                      {cloudLoading ? '…' : 'Buluta kaydet'}
+                      {cloudLoading ? '…' : '⬆ Gönder'}
                     </button>
                     <button
                       type="button"
@@ -385,9 +400,34 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       disabled={cloudLoading}
                       className="flex-1 rounded-lg border border-accent-green/50 bg-accent-green/10 hover:bg-accent-green/20 px-3 py-2 text-sm font-medium text-accent-green transition disabled:opacity-50"
                     >
-                      {cloudLoading ? '…' : 'Buluttan çek'}
+                      {cloudLoading ? '…' : '⬇ Çek'}
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setCloudLoading(true)
+                      setCloudError(null)
+                      setCloudPushPullMsg(null)
+                      const r = await syncCloud()
+                      setCloudLoading(false)
+                      if (r.ok) {
+                        setCloudPushPullMsg(`Sync tamamlandı: ${r.pushed} gönderildi, ${r.pulled} yeni, ${r.merged} güncellendi.`)
+                        setPendingCount(0)
+                        setLastSync(new Date().toISOString())
+                      } else setCloudError(r.error)
+                    }}
+                    disabled={cloudLoading}
+                    className="w-full rounded-lg border border-accent-cyan/50 bg-accent-cyan/10 hover:bg-accent-cyan/20 px-3 py-2 text-sm font-medium text-accent-cyan transition disabled:opacity-50"
+                  >
+                    {cloudLoading ? '…' : '🔄 Çift yönlü sync'}
+                  </button>
+                  {pendingCount > 0 && (
+                    <p className="text-xs text-accent-amber">⏳ {pendingCount} bekleyen işlem kuyruktadır.</p>
+                  )}
+                  {lastSync && (
+                    <p className="text-xs text-text-muted">Son sync: {new Date(lastSync).toLocaleString('tr-TR')}</p>
+                  )}
                   {cloudPushPullMsg && <p className="text-xs text-accent-green">{cloudPushPullMsg}</p>}
                   <button
                     type="button"
@@ -490,6 +530,68 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               {temizleniyor ? 'Temizleniyor…' : 'Tüm verileri temizle'}
             </button>
           </div>
+
+          {/* PWA Yükleme */}
+          {!isPwaInstalled() && canInstallPwa() && (
+            <div className="space-y-2 pt-3 border-t border-text-primary/10">
+              <h3 className="text-base font-semibold text-text-primary">Uygulama</h3>
+              <button
+                type="button"
+                onClick={async () => {
+                  const accepted = await promptInstallPwa()
+                  if (accepted) window.location.reload()
+                }}
+                className="w-full rounded-lg border border-accent-cyan/50 bg-accent-cyan/10 hover:bg-accent-cyan/20 px-3 py-2 text-sm font-medium text-accent-cyan transition"
+              >
+                📲 Uygulamayı Ana Ekrana Ekle
+              </button>
+              <p className="text-xs text-text-muted">
+                zamAn&apos;ı bir uygulama gibi kullanmak için ana ekrana ekleyin. Çevrimdışı çalışır.
+              </p>
+            </div>
+          )}
+
+          {/* Masaüstü (Electron) Kontrolleri */}
+          {isElectron() && (
+            <div className="space-y-2 pt-3 border-t border-text-primary/10">
+              <h3 className="text-base font-semibold text-text-primary">🖥️ Masaüstü</h3>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleAlwaysOnTop(true)}
+                  className="flex-1 rounded-lg border border-accent-amber/50 bg-accent-amber/10 hover:bg-accent-amber/20 px-3 py-2 text-sm font-medium text-accent-amber transition"
+                >
+                  📌 Her Zaman Üstte
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleAlwaysOnTop(false)}
+                  className="flex-1 rounded-lg border border-text-primary/20 bg-surface-700/50 hover:bg-surface-600/50 px-3 py-2 text-sm font-medium text-text-muted transition"
+                >
+                  Normal
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleMiniPlayer(true)}
+                  className="flex-1 rounded-lg border border-accent-cyan/50 bg-accent-cyan/10 hover:bg-accent-cyan/20 px-3 py-2 text-sm font-medium text-accent-cyan transition"
+                >
+                  🔲 Mini Player
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleMiniPlayer(false)}
+                  className="flex-1 rounded-lg border border-text-primary/20 bg-surface-700/50 hover:bg-surface-600/50 px-3 py-2 text-sm font-medium text-text-muted transition"
+                >
+                  Normal Boyut
+                </button>
+              </div>
+              <p className="text-xs text-text-muted">
+                Kısayollar: <kbd className="px-1 py-0.5 rounded bg-surface-600 text-text-primary text-xs">Ctrl+Shift+Space</kbd> Başlat/Duraklat · <kbd className="px-1 py-0.5 rounded bg-surface-600 text-text-primary text-xs">Ctrl+Shift+R</kbd> Sıfırla · <kbd className="px-1 py-0.5 rounded bg-surface-600 text-text-primary text-xs">Ctrl+Shift+M</kbd> Mini Player
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-text-primary/10 px-4 sm:px-6 py-4 bg-surface-800">

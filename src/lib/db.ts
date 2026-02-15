@@ -2,9 +2,13 @@
  * IndexedDB: Tüm seans kayıtları burada kalıcı tutulur.
  * Uygulama kapatılsa da, sayfa yenilense de veriler silinmez.
  * Sadece kullanıcı “Tüm verileri temizle” (Ayarlar) derse silinir.
+ *
+ * v2: Seans kaydedildiğinde/silindiğinde offline sync kuyruğuna da eklenir.
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Mode, SessionRecord } from '../types'
+import { enqueueSync } from './offlineSync'
+import { isCloudSyncEnabled } from './supabase'
 
 interface TimerDB extends DBSchema {
   sessions: {
@@ -37,11 +41,17 @@ export async function initDb(): Promise<IDBPDatabase<TimerDB>> {
 
 export async function saveSession(session: SessionRecord): Promise<void> {
   const db = await initDb()
-  await db.put('sessions', {
+  const record = {
     ...session,
     createdAt: session.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  } as SessionRecord)
+  } as SessionRecord
+  await db.put('sessions', record)
+
+  // Bulut sync aktifse kuyruğa ekle (online olunca gönderilir)
+  if (isCloudSyncEnabled()) {
+    void enqueueSync('upsert_session', record.id, record)
+  }
 }
 
 export async function getSession(id: string): Promise<SessionRecord | undefined> {
@@ -80,6 +90,11 @@ export async function listSessions(filter?: {
 export async function deleteSession(id: string): Promise<void> {
   const db = await initDb()
   await db.delete('sessions', id)
+
+  // Bulut sync aktifse silme işlemini kuyruğa ekle
+  if (isCloudSyncEnabled()) {
+    void enqueueSync('delete_session', id)
+  }
 }
 
 export async function clearAllSessions(): Promise<void> {

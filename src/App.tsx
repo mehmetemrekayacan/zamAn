@@ -6,6 +6,10 @@ import { calculateScore, calculateStreak, getUnvan } from './lib/scoring'
 import { getTahmin150Saat } from './lib/tahmin'
 import { getRozetler } from './lib/rozetler'
 import { initDb } from './lib/db'
+import { initOfflineSync } from './lib/offlineSync'
+import { formatDuration } from './lib/time'
+import { stopTitleFlash } from './lib/notifications'
+import { isElectron, onGlobalHotkey, sendTimerUpdate } from './lib/electronBridge'
 import { DashboardHeader } from './components/DashboardHeader'
 import { TimerHero } from './components/TimerHero'
 import { ModeSelector } from './components/ModeSelector'
@@ -102,6 +106,7 @@ function App() {
   const loadSessions = useCallback(async () => {
     try {
       await initDb()
+      initOfflineSync() // Offline sync kuyruğu dinleyicisini başlat
       const state = useSessionsStore.getState()
       await state.loadSessions()
     } catch (error) {
@@ -150,6 +155,43 @@ function App() {
     }
   }, [settings.vurguRengi])
 
+  /* ── actions ── */
+  const timeToDisplay = plannedMs != null ? remainingMs ?? plannedMs : elapsedMs
+
+  /* ── Dinamik tab başlığı: çalışırken sayaç göster ── */
+  useEffect(() => {
+    const timeStr = formatDuration(timeToDisplay)
+    if (status === 'running') {
+      document.title = `▶ ${timeStr} — zamAn`
+    } else if (status === 'paused') {
+      document.title = `⏸ ${timeStr} — zamAn`
+    } else if (status === 'finished') {
+      // finished durumunda notifications.ts zaten title flash yapıyor
+    } else {
+      stopTitleFlash('zamAn')
+      document.title = 'zamAn'
+    }
+    // Electron tray tooltip güncellemesi
+    if (isElectron() && (status === 'running' || status === 'paused')) {
+      sendTimerUpdate(timeStr)
+    }
+  }, [status, timeToDisplay])
+
+  /* ── Electron: Global hotkey dinleyicisi ── */
+  useEffect(() => {
+    if (!isElectron()) return
+    onGlobalHotkey((action) => {
+      const timerState = useTimerStore.getState()
+      if (action === 'startStop') {
+        if (timerState.status === 'running') timerState.pause()
+        else if (timerState.status === 'paused') timerState.resume()
+        else timerState.start()
+      } else if (action === 'reset') {
+        timerState.reset()
+      }
+    })
+  }, [])
+
   useEffect(() => {
     if (status === 'finished' && !showFinishScreen) {
       const elapsedMinutes = Math.round(elapsedMs / 1000 / 60)
@@ -174,8 +216,6 @@ function App() {
     }
   }, [status, showFinishScreen, elapsedMs, plannedMs, mode, pauses])
 
-  /* ── actions ── */
-  const timeToDisplay = plannedMs != null ? remainingMs ?? plannedMs : elapsedMs
   const primaryLabel = status === 'running' ? 'Duraklat' : status === 'paused' ? 'Devam' : 'Başlat'
   const primaryAction = useCallback(() => {
     if (status === 'running') return pause()
@@ -402,7 +442,7 @@ function App() {
         />
 
         {/* ════════  BÖLÜM 3 — DASHBOARD GRID  ════════ */}
-        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] xl:grid-cols-3">
           <SessionHistory sessions={summary.lastSessions} />
 
           <CareerPanel
