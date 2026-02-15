@@ -3,24 +3,35 @@
 @tailwind utilities;
 
 :root {
-  /* Dark theme (default) */
-  --surface-900: #0b1220;
-  --surface-800: #0f172a;
-  --surface-700: #111827;
-  --surface-600: #1e293b;
-  --text-primary: #e5e7eb;
-  --text-muted: #94a3b8;
-  --accent-blue: #38bdf8;
-  --accent-cyan: #22d3ee;
+  /* Dark theme (default) — 2025 Modern SaaS palette */
+  --surface-900: #0a0f1a;
+  --surface-800: #0f1629;
+  --surface-700: #151d32;
+  --surface-600: #1c2744;
+  --surface-500: #243352;
+  --text-primary: #eef0f4;
+  --text-secondary: #c1c8d8;
+  --text-muted: #7b879e;
+  --accent-blue: #3b82f6;
+  --accent-cyan: #06b6d4;
   --accent-amber: #f59e0b;
-  --accent-red: #ff4d6d;
+  --accent-red: #ef4444;
+  --accent-green: #10b981;
+
+  /* Card system tokens */
+  --card-bg: rgba(15, 22, 41, 0.65);
+  --card-border: rgba(238, 240, 244, 0.06);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2);
+  --card-shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.35), 0 8px 32px rgba(0, 0, 0, 0.25);
+  --card-radius: 16px;
 
   color-scheme: dark;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0b1220;
+  background-color: #0a0f1a;
+  letter-spacing: -0.011em;
 }
 
 html {
@@ -33,9 +44,10 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.06), transparent 28%),
-    radial-gradient(circle at 80% 10%, rgba(245, 158, 11, 0.08), transparent 32%),
-    #0b1220;
+  background: 
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(59, 130, 246, 0.06), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 85% 20%, rgba(6, 182, 212, 0.04), transparent 50%),
+    #0a0f1a;
   overflow-x: hidden;
   touch-action: manipulation;
 }
@@ -48,25 +60,35 @@ body {
   touch-action: manipulation;
 }
 
-/* Light Theme */
+/* Light Theme — warm neutral, WCAG AA compliant */
 :root.light-theme {
-  --surface-900: #f5f5f5;
+  --surface-900: #f8f9fb;
   --surface-800: #ffffff;
-  --surface-700: #e9e9e9;
-  --surface-600: #d4d4d4;
-  --text-primary: #1a1a1a;
-  --text-muted: #666666;
-  --accent-blue: #0066cc;
-  --accent-cyan: #0088aa;
-  --accent-amber: #cc8800;
-  --accent-red: #cc0000;
-  
+  --surface-700: #f1f3f7;
+  --surface-600: #e4e7ee;
+  --surface-500: #d1d5df;
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --accent-blue: #2563eb;
+  --accent-cyan: #0891b2;
+  --accent-amber: #d97706;
+  --accent-red: #dc2626;
+  --accent-green: #059669;
+
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --card-border: rgba(0, 0, 0, 0.06);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --card-shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.08), 0 8px 32px rgba(0, 0, 0, 0.06);
+
   color-scheme: light;
-  background-color: #f5f5f5;
+  background-color: #f8f9fb;
 }
 
 :root.light-theme body {
-  background: linear-gradient(135deg, #f5f5f5 0%, #e9e9e9 100%);
+  background:
+    radial-gradient(ellipse 70% 50% at 30% 10%, rgba(37, 99, 235, 0.03), transparent 50%),
+    linear-gradient(180deg, #f8f9fb 0%, #f1f3f7 100%);
 }
 
 /* High Contrast Theme */
@@ -75,13 +97,21 @@ body {
   --surface-800: #0a0a0a;
   --surface-700: #1a1a1a;
   --surface-600: #2a2a2a;
+  --surface-500: #3a3a3a;
   --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
   --text-muted: #cccccc;
   --accent-blue: #ffff00;
   --accent-cyan: #00ffff;
   --accent-amber: #00ff00;
   --accent-red: #ff00ff;
-  
+  --accent-green: #00ff00;
+
+  --card-bg: rgba(10, 10, 10, 0.9);
+  --card-border: rgba(255, 255, 255, 0.15);
+  --card-shadow: none;
+  --card-shadow-hover: none;
+
   color-scheme: dark;
   background-color: #000000;
 }
@@ -92,29 +122,29 @@ body {
 
 /* Ünvan seviyesine göre arka tema vurgusu (puana bağlı) */
 [data-tier="tier-ady"] body {
-  background: radial-gradient(circle at 30% 20%, rgba(56, 189, 248, 0.12), transparent 35%),
-    radial-gradient(circle at 80% 10%, rgba(245, 158, 11, 0.06), transparent 32%),
-    var(--surface-900, #0b1220);
+  background: radial-gradient(ellipse 80% 60% at 25% 15%, rgba(59, 130, 246, 0.1), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(6, 182, 212, 0.04), transparent 50%),
+    var(--surface-900, #0a0f1a);
 }
 [data-tier="tier-gozcu"] body {
-  background: radial-gradient(circle at 25% 25%, rgba(34, 211, 238, 0.14), transparent 40%),
-    radial-gradient(circle at 75% 15%, rgba(56, 189, 248, 0.08), transparent 30%),
-    var(--surface-900, #0b1220);
+  background: radial-gradient(ellipse 70% 55% at 25% 20%, rgba(6, 182, 212, 0.12), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 75% 15%, rgba(59, 130, 246, 0.06), transparent 50%),
+    var(--surface-900, #0a0f1a);
 }
 [data-tier="tier-uzman"] body {
-  background: radial-gradient(circle at 20% 30%, rgba(245, 158, 11, 0.15), transparent 38%),
-    radial-gradient(circle at 70% 20%, rgba(34, 211, 238, 0.06), transparent 28%),
-    var(--surface-900, #0b1220);
+  background: radial-gradient(ellipse 70% 55% at 20% 25%, rgba(245, 158, 11, 0.12), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 70% 15%, rgba(6, 182, 212, 0.05), transparent 50%),
+    var(--surface-900, #0a0f1a);
 }
 [data-tier="tier-kahraman"] body {
-  background: radial-gradient(circle at 50% 20%, rgba(168, 85, 247, 0.12), transparent 45%),
-    radial-gradient(circle at 20% 70%, rgba(245, 158, 11, 0.1), transparent 35%),
-    var(--surface-900, #0b1220);
+  background: radial-gradient(ellipse 80% 60% at 50% 15%, rgba(139, 92, 246, 0.1), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 20% 60%, rgba(245, 158, 11, 0.06), transparent 50%),
+    var(--surface-900, #0a0f1a);
 }
 [data-tier="tier-efsane"] body {
-  background: radial-gradient(circle at 50% 30%, rgba(251, 191, 36, 0.18), transparent 50%),
-    radial-gradient(circle at 80% 60%, rgba(56, 189, 248, 0.08), transparent 35%),
-    var(--surface-900, #0b1220);
+  background: radial-gradient(ellipse 80% 60% at 50% 20%, rgba(251, 191, 36, 0.14), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 80% 55%, rgba(59, 130, 246, 0.06), transparent 50%),
+    var(--surface-900, #0a0f1a);
 }
 
 @keyframes confetti-fall {
@@ -224,14 +254,61 @@ body {
 
 /* Vurgu rengi (ayarlardan) – buton/çubuk vurguları */
 [data-vurgu="mor"] {
-  --accent-blue: #a78bfa;
-  --accent-cyan: #c4b5fd;
+  --accent-blue: #8b5cf6;
+  --accent-cyan: #a78bfa;
 }
 [data-vurgu="yeşil"] {
-  --accent-blue: #34d399;
-  --accent-cyan: #6ee7b7;
+  --accent-blue: #10b981;
+  --accent-cyan: #34d399;
 }
 [data-vurgu="pembe"] {
-  --accent-blue: #f472b6;
-  --accent-cyan: #f9a8d4;
+  --accent-blue: #ec4899;
+  --accent-cyan: #f472b6;
+}
+
+/* ─── Modern Card System ─── */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+.card:hover {
+  box-shadow: var(--card-shadow-hover);
+  border-color: rgba(238, 240, 244, 0.1);
+}
+:root.light-theme .card:hover {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* ─── Typography utilities ─── */
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+/* Timer monospace tabular — ensures fixed-width digit rendering */
+.timer-digits {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
+  letter-spacing: -0.02em;
+}
+
+/* Section label — tiny uppercase muted label */
+.section-label {
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+/* Section title — medium display heading */
+.section-title {
+  font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
 }

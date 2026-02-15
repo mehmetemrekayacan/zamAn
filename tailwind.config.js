@@ -5,28 +5,33 @@ export default {
     extend: {
       colors: {
         surface: {
-          900: 'var(--surface-900, #0b1220)',
-          800: 'var(--surface-800, #0f172a)',
-          700: 'var(--surface-700, #111827)',
-          600: 'var(--surface-600, #1e293b)',
+          900: 'var(--surface-900, #0a0f1a)',
+          800: 'var(--surface-800, #0f1629)',
+          700: 'var(--surface-700, #151d32)',
+          600: 'var(--surface-600, #1c2744)',
+          500: 'var(--surface-500, #243352)',
         },
         text: {
-          primary: 'var(--text-primary, #e5e7eb)',
-          muted: 'var(--text-muted, #94a3b8)',
+          primary: 'var(--text-primary, #eef0f4)',
+          secondary: 'var(--text-secondary, #c1c8d8)',
+          muted: 'var(--text-muted, #7b879e)',
         },
         accent: {
-          blue: 'var(--accent-blue, #38bdf8)',
-          cyan: 'var(--accent-cyan, #22d3ee)',
+          blue: 'var(--accent-blue, #3b82f6)',
+          cyan: 'var(--accent-cyan, #06b6d4)',
           amber: 'var(--accent-amber, #f59e0b)',
-          red: 'var(--accent-red, #ff4d6d)',
+          red: 'var(--accent-red, #ef4444)',
+          green: 'var(--accent-green, #10b981)',
         },
       },
       fontFamily: {
-        display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
-        body: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['"Space Grotesk"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        body: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['"JetBrains Mono"', '"SF Mono"', '"Fira Code"', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
-        card: '12px',
+        card: '16px',
+        'card-sm': '12px',
       },
       animation: {
         'btn-pulse': 'btn-state-pulse 0.45s cubic-bezier(0.4,0,0.2,1)',

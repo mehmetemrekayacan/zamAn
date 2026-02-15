@@ -26,17 +26,17 @@ export const QuickStatsBar = memo(function QuickStatsBar({
 }: QuickStatsBarProps) {
   return (
     <div
-      className="grid rounded-2xl border border-text-primary/5 bg-surface-800/50 shadow-md shadow-black/10"
+      className="card grid"
       style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}
     >
       {stats.map((s, i) => (
         <div
           key={s.label}
-          className={`flex flex-col items-center gap-0.5 px-3 py-4 sm:px-5 ${
-            i > 0 ? 'border-l border-text-primary/5' : ''
+          className={`flex flex-col items-center gap-1 px-3 py-5 sm:px-5 ${
+            i > 0 ? 'border-l border-[var(--card-border)]' : ''
           }`}
         >
-          <p className="text-[10px] uppercase tracking-[0.15em] text-text-muted">
+          <p className="section-label">
             {s.label}
           </p>
           <p className={`font-display text-xl font-bold sm:text-2xl ${accentMap[s.accent ?? 'blue']}`}>

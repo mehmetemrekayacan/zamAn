@@ -22,10 +22,10 @@ export const DashboardHeader = memo(function DashboardHeader({
     <header className="flex items-center justify-between py-2">
       {/* Sol: Selamlama & Ünvan */}
       <div className="min-w-0">
-        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+        <p className="section-label">
           {getSelam(kullaniciAdi)}
         </p>
-        <h1 className="font-display text-2xl font-semibold text-text-primary sm:text-3xl">
+        <h1 className="font-display text-2xl font-bold text-text-primary sm:text-3xl">
           {unvanEmoji} {unvanText}
         </h1>
         {kalan != null && kalan > 0 && (
@@ -43,8 +43,8 @@ export const DashboardHeader = memo(function DashboardHeader({
       {/* Sağ: Ayarlar butonu */}
       <button
         onClick={onSettingsClick}
-        className="group relative rounded-xl bg-surface-800/60 p-2.5 border border-text-primary/10 
-                   hover:border-accent-blue/40 hover:bg-accent-blue/10 transition-all duration-200
+        className="group relative rounded-card-sm bg-[var(--card-bg)] p-2.5 border border-[var(--card-border)]
+                   hover:border-accent-blue/40 hover:bg-accent-blue/10 backdrop-blur-sm transition-all duration-200
                    text-text-muted hover:text-accent-blue"
         title="Ayarlar"
       >

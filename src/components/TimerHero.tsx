@@ -77,7 +77,7 @@ export const TimerHero = memo(function TimerHero({
         ripple.className = 'btn-ripple-ring'
         ripple.style.left = `${e.clientX - rect.left}px`
         ripple.style.top = `${e.clientY - rect.top}px`
-        ripple.style.color = isRunning ? 'rgba(245,158,11,0.3)' : 'rgba(56,189,248,0.3)'
+        ripple.style.color = isRunning ? 'rgba(245,158,11,0.3)' : 'rgba(59,130,246,0.3)'
         btn.appendChild(ripple)
         setTimeout(() => ripple.remove(), 600)
       }
@@ -95,19 +95,19 @@ export const TimerHero = memo(function TimerHero({
         }`}
         style={{
           background:
-            'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(56,189,248,0.12), transparent 70%)',
+            'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(59,130,246,0.10), transparent 70%)',
         }}
       />
 
       <div
         className={`
-          relative overflow-hidden rounded-2xl border bg-surface-800/70 backdrop-blur-sm
+          relative overflow-hidden rounded-[20px] border backdrop-blur-md
           shadow-2xl transition-all duration-500
           ${isRunning
-            ? 'border-accent-blue/40 shadow-accent-blue/20'
+            ? 'border-accent-blue/30 bg-[var(--card-bg)] shadow-accent-blue/15'
             : isPaused
-              ? 'border-accent-amber/40 shadow-accent-amber/10'
-              : 'border-text-primary/10 shadow-black/20'
+              ? 'border-accent-amber/30 bg-[var(--card-bg)] shadow-accent-amber/10'
+              : 'border-[var(--card-border)] bg-[var(--card-bg)] shadow-black/20'
           }
         `}
       >
@@ -142,13 +142,13 @@ export const TimerHero = memo(function TimerHero({
             )}
             <time
               className={`
-                relative font-display tabular-nums tracking-tight
+                relative font-mono timer-digits font-bold
                 text-6xl sm:text-7xl md:text-8xl lg:text-[7rem]
                 transition-colors duration-300
                 ${isRunning
-                  ? 'text-accent-blue drop-shadow-[0_0_30px_rgba(56,189,248,0.3)]'
+                  ? 'text-accent-blue drop-shadow-[0_0_40px_rgba(59,130,246,0.35)]'
                   : isPaused
-                    ? 'text-accent-amber drop-shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+                    ? 'text-accent-amber drop-shadow-[0_0_25px_rgba(245,158,11,0.25)]'
                     : 'text-text-primary'
                 }
               `}

@@ -36,17 +36,17 @@ export const SessionHistory = memo(function SessionHistory({
   }, [sessions])
 
   return (
-    <div className="rounded-2xl border border-text-primary/5 bg-surface-800/60 p-5 shadow-lg shadow-cyan-500/5">
+    <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-text-muted">
+          <p className="section-label">
             Aktivite
           </p>
-          <h3 className="font-display text-lg font-semibold text-text-primary">
+          <h3 className="section-title text-lg">
             Son Seanslar
           </h3>
         </div>
-        <span className="rounded-full bg-surface-700/60 px-2.5 py-0.5 text-xs text-text-muted">
+        <span className="rounded-full bg-surface-600/50 px-2.5 py-0.5 text-xs text-text-muted">
           {sessions.length} kayıt
         </span>
       </div>
@@ -56,21 +56,21 @@ export const SessionHistory = memo(function SessionHistory({
           sessions.map((session, index) => (
             <div
               key={session.id}
-              className={`flex items-center gap-3 rounded-xl border border-text-primary/5 
+              className={`flex items-center gap-3 rounded-card-sm border border-[var(--card-border)]
                          bg-surface-900/40 px-4 py-3 transition-all duration-300 hover:border-text-primary/10
-                         animate-list-item
+                         hover:bg-surface-900/60 animate-list-item
                          ${session.id === newItemId ? 'ring-2 ring-accent-blue/30 ring-offset-1 ring-offset-surface-900' : ''}`}
               style={{ animationDelay: `${index * 60}ms` }}
             >
               {/* Mod icon */}
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-blue/10 text-base">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-blue/10 text-base">
                 {MODE_EMOJIS[session.mod] ?? '📋'}
               </span>
 
               {/* Detay */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-text-primary truncate">
+                  <span className="text-sm font-semibold text-text-primary truncate">
                     {MODE_LABELS[session.mod] ?? session.mod}
                   </span>
                   <span className="text-[11px] text-text-muted">
@@ -82,13 +82,13 @@ export const SessionHistory = memo(function SessionHistory({
                     })}
                   </span>
                 </div>
-                <span className="text-xs text-text-muted">
+                <span className="text-xs text-text-secondary">
                   {Math.round(session.sureGercek / 60)} dakika
                 </span>
               </div>
 
               {/* Puan */}
-              <span className="shrink-0 rounded-full bg-accent-blue/15 px-2.5 py-1 text-xs font-bold text-accent-blue">
+              <span className="shrink-0 rounded-full bg-accent-blue/12 px-3 py-1 text-xs font-bold text-accent-blue">
                 +{session.puan}
               </span>
             </div>

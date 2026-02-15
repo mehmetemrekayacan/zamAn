@@ -30,10 +30,13 @@ export const CareerPanel = memo(function CareerPanel({
   return (
     <div className="space-y-5">
       {/* Kariyer kartı */}
-      <div className="rounded-2xl border border-text-primary/5 bg-surface-800/60 p-5 shadow-lg shadow-purple-500/5">
+      <div className="card p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold text-text-primary">Kariyer</h3>
-          <span className="text-xs text-text-muted">{toplamPuan} puan</span>
+          <div>
+            <p className="section-label">Profil</p>
+            <h3 className="section-title text-lg">Kariyer</h3>
+          </div>
+          <span className="rounded-full bg-surface-600/50 px-2.5 py-0.5 text-xs text-text-muted">{toplamPuan} puan</span>
         </div>
 
         <div className="flex items-center gap-4 mb-4">
@@ -54,7 +57,7 @@ export const CareerPanel = memo(function CareerPanel({
               <span className="text-xs text-text-muted">İlerleme</span>
               <span className="text-xs font-semibold text-accent-blue">%{ilerlemeYuzde}</span>
             </div>
-            <div className="h-2 rounded-full bg-surface-700 overflow-hidden">
+            <div className="h-2.5 rounded-full bg-surface-700 overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-accent-blue to-accent-cyan transition-all duration-500"
                 style={{ width: `${ilerlemeYuzde}%` }}
@@ -69,31 +72,34 @@ export const CareerPanel = memo(function CareerPanel({
       </div>
 
       {/* Aylık istatistikler */}
-      <div className="rounded-2xl border border-text-primary/5 bg-surface-800/60 p-5 shadow-lg shadow-amber-500/5">
+      <div className="card p-5">
         <div className="mb-4">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-text-muted">Bu Ay</p>
-          <h3 className="font-display text-lg font-semibold text-text-primary">İstatistikler</h3>
+          <p className="section-label">Bu Ay</p>
+          <h3 className="section-title text-lg">İstatistikler</h3>
         </div>
         <dl className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-text-muted">Toplam Süre</span>
+            <span className="text-sm text-text-secondary">Toplam Süre</span>
             <span className="font-semibold text-text-primary">{monthMinutes} dk</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-text-muted">Seans Sayısı</span>
+            <span className="text-sm text-text-secondary">Seans Sayısı</span>
             <span className="font-semibold text-accent-amber">{monthSessions}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-text-muted">Ort. Puan</span>
+            <span className="text-sm text-text-secondary">Ort. Puan</span>
             <span className="font-semibold text-accent-cyan">{avgScoreMonth}</span>
           </div>
         </dl>
       </div>
 
       {/* Rozetler */}
-      <div className="rounded-2xl border border-text-primary/5 bg-surface-800/60 p-5 shadow-lg shadow-amber-500/5">
+      <div className="card p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold text-text-primary">Rozetler</h3>
+          <div>
+            <p className="section-label">Başarılar</p>
+            <h3 className="section-title text-lg">Rozetler</h3>
+          </div>
           <span className="text-xs text-text-muted">
             {rozetler.filter((r) => r.kazanildi).length}/{rozetler.length}
           </span>
@@ -102,10 +108,10 @@ export const CareerPanel = memo(function CareerPanel({
           {rozetler.map((rozet) => (
             <div
               key={rozet.id}
-              className={`flex flex-col items-center rounded-xl p-2.5 text-center transition-all duration-200 ${
+              className={`flex flex-col items-center rounded-card-sm p-2.5 text-center transition-all duration-200 ${
                 rozet.kazanildi
-                  ? 'border border-accent-amber/30 bg-accent-amber/10 hover:bg-accent-amber/15'
-                  : 'border border-text-primary/5 bg-surface-700/20 opacity-40'
+                  ? 'border border-accent-amber/30 bg-accent-amber/10 hover:bg-accent-amber/15 hover:scale-105'
+                  : 'border border-[var(--card-border)] bg-surface-700/20 opacity-40'
               }`}
               title={rozet.aciklama}
             >
