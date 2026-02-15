@@ -1090,10 +1090,8 @@ function App() {
               <div className="flex gap-2">
                 {/* Y ekseni: 0'dan başlayan dinamik saat etiketleri — 5 saatin altı da görünsün */}
                 {(() => {
-                  const HEDEF_SN = 18000
-                  const CONTAINER_H = 128
                   const veri = summary.gunlukSon30Gun
-                  const maxSn = Math.max(HEDEF_SN, ...veri.map((d) => d.saniye), 3600)
+                  const maxSn = Math.max(18000, ...veri.map((d) => d.saniye), 3600)
                   const maxSaat = Math.ceil(maxSn / 3600)
                   const yLabels = []
                   for (let sa = 0; sa <= maxSaat; sa += Math.max(1, Math.ceil(maxSaat / 5))) {
