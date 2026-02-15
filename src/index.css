@@ -133,6 +133,95 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* ─── UX Animasyonları ─── */
+
+/* Buton durum değişimi pulse */
+@keyframes btn-state-pulse {
+  0%   { transform: scale(1); box-shadow: 0 0 0 0 currentColor; }
+  40%  { transform: scale(1.06); box-shadow: 0 0 0 8px transparent; }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+}
+.animate-btn-pulse {
+  animation: btn-state-pulse 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Buton ripple efekti */
+@keyframes btn-ripple {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
+}
+.btn-ripple-ring {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: currentColor;
+  pointer-events: none;
+  animation: btn-ripple 0.55s ease-out forwards;
+}
+
+/* Liste slide-in (aşağıdan yukarı) */
+@keyframes list-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-list-item {
+  animation: list-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Toast slide-up */
+@keyframes toast-slide-up {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes toast-slide-down {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+}
+.animate-toast-enter {
+  animation: toast-slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-toast-exit {
+  animation: toast-slide-down 0.25s ease-in forwards;
+}
+
+/* Toast countdown bar */
+@keyframes toast-progress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+.toast-progress-bar {
+  transform-origin: left;
+  animation: toast-progress var(--toast-duration, 3s) linear forwards;
+}
+
+/* Mode geçiş morph */
+@keyframes mode-switch {
+  0%   { opacity: 0.5; transform: scale(0.92); }
+  100% { opacity: 1;   transform: scale(1); }
+}
+.animate-mode-switch {
+  animation: mode-switch 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Vurgu rengi (ayarlardan) – buton/çubuk vurguları */
 [data-vurgu="mor"] {
   --accent-blue: #a78bfa;

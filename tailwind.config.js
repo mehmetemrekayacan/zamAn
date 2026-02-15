@@ -28,6 +28,13 @@ export default {
       borderRadius: {
         card: '12px',
       },
+      animation: {
+        'btn-pulse': 'btn-state-pulse 0.45s cubic-bezier(0.4,0,0.2,1)',
+        'list-slide': 'list-slide-in 0.35s cubic-bezier(0.16,1,0.3,1) both',
+        'toast-enter': 'toast-slide-up 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+        'toast-exit': 'toast-slide-down 0.25s ease-in forwards',
+        'mode-switch': 'mode-switch 0.3s cubic-bezier(0.16,1,0.3,1)',
+      },
     },
   },
   plugins: [],

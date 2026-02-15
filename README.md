@@ -161,9 +161,38 @@ Windows ve telefonda aynı verileri tutmak için **Supabase** ile kayıt/giriş 
 
 ---
 
-## Kullanım kılavuzu
+## Otomatik güncelleme (remote mod)
 
-Adım adım kullanım (mod seçimi, deneme bölümleri, ayarlar, “Tüm verileri temizle” vb.) için **[KULLANIM.md](./KULLANIM.md)** dosyasına bak.
+Uygulama **remote URL** modunda çalışır. `git push` ile Vercel'e deploy yapınca tüm kullanıcılar (Windows, Android, PWA) **anında** güncelleme alır — yeni EXE/APK göndermene gerek yok.
+
+- `app-config.cjs` → `APP_URL` değişkenine Vercel URL'ini yaz
+- İlk dağıtım: `npm run win` (Windows) / `npm run apk:release` (Android)
+- Sonraki güncellemeler: `git push` → Vercel otomatik deploy → kullanıcılar bir sonraki açışta güncel sürümü alır
+
+---
+
+## Test
+
+```bash
+npm run test          # Tüm birim testleri (scoring, time, rozetler, tahmin)
+npm run test:unit     # Vitest unit testleri
+npm run test:rozetler # Sadece rozet hesaplaması
+npm run lint          # ESLint
+```
+
+---
+
+## Supabase kurulum (online senkron)
+
+1. [supabase.com](https://supabase.com) → New Project oluştur
+2. Settings → API → **Project URL** ve **anon key** kopyala
+3. `.env.local` dosyası oluştur:
+   ```
+   VITE_SUPABASE_URL=https://xxxxxxxx.supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJ...
+   ```
+4. SQL Editor'da `supabase-sync.sql` içeriğini çalıştır
+5. Ayarlar'da "Hesap (online senkron)" bölümü görünür
 
 ---
 

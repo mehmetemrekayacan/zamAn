@@ -22,14 +22,6 @@ export interface ScoreBreakdown {
   totalScore: number
 }
 
-export interface SessionScoreDetail extends ScoreBreakdown {
-  mode: string
-  elapsedSeconds: number
-  plannedSeconds?: number
-  pauses: number
-  consistency: number // 0-100 (Oransal başarı)
-}
-
 // Mode katsayıları
 const MODE_COEFFICIENTS: Record<Mode, number> = {
   serbest: 0.8,
@@ -93,6 +85,33 @@ export function calculateStreakBonus(streakDays: number): number {
 }
 
 /**
+ * Ardışık gün serisi hesapla.
+ * @param sessions Seans dizisi
+ * @param todayHasSessions Bugün seans var mı (opsiyonel — verilmezse sessions'tan bakılır)
+ */
+export function calculateStreak(sessions: SessionRecord[], todayHasSessions?: boolean): number {
+  const today = getLocalDateString()
+  const hasTodaySession = todayHasSessions ?? sessions.some(s => s.tarihISO.startsWith(today))
+  if (!hasTodaySession) return 0
+
+  let streak = 1
+  const checkDate = new Date()
+  checkDate.setHours(0, 0, 0, 0)
+
+  for (let i = 1; i <= 365; i++) {
+    checkDate.setDate(checkDate.getDate() - 1)
+    const checkDateStr = getLocalDateString(checkDate)
+    const hasSessions = sessions.some(s => s.tarihISO.startsWith(checkDateStr))
+    if (hasSessions) {
+      streak++
+    } else {
+      break
+    }
+  }
+  return streak
+}
+
+/**
  * Konsistans puanı hesapla (0-100)
  * Planlanan süreyle gerçek süreyi karşılaştır
  */
@@ -140,130 +159,6 @@ export function calculateScore(
     streakBonus,
     totalScore,
   }
-}
-
-/**
- * Detaylı seans puanı hesapla
- */
-export function calculateSessionScoreDetail(
-  elapsedSeconds: number,
-  mode: Mode,
-  pauses: number,
-  plannedSeconds?: number,
-  streakDays: number = 0
-): SessionScoreDetail {
-  const score = calculateScore(elapsedSeconds, mode, pauses, plannedSeconds, streakDays)
-  const consistency = calculateConsistency(elapsedSeconds, plannedSeconds)
-
-  return {
-    ...score,
-    mode,
-    elapsedSeconds,
-    plannedSeconds,
-    pauses,
-    consistency,
-  }
-}
-
-/**
- * Bugünün seri bonusu hesapla (örn: seanslar dizisinde kaç gün seri yapıldı)
- */
-export function calculateTodayStreakBonus(sessions: SessionRecord[]): number {
-  if (sessions.length === 0) return 0
-
-  const today = getLocalDateString()
-  const todaySessions = sessions.filter(s => getLocalDateString(new Date(s.tarihISO)) === today)
-
-  // Bugün seans var mı?
-  if (todaySessions.length === 0) return 0
-
-  // Seri sayıp geçmiş günleri kontrol et
-  let streak = 1
-  let checkDate = new Date()
-  checkDate.setHours(0, 0, 0, 0)
-
-  // Geri doğru git ve her gün kontrol et
-  for (let i = 1; i <= 365; i++) {
-    checkDate.setDate(checkDate.getDate() - 1)
-    const checkDateStr = getLocalDateString(checkDate)
-    const hasSessions = sessions.some(s => getLocalDateString(new Date(s.tarihISO)) === checkDateStr)
-
-    if (hasSessions) {
-      streak++
-    } else {
-      break // Seri kesildi
-    }
-  }
-
-  return Math.min(streak * 5, 50)
-}
-
-/**
- * Toplam bugün saniyesi hesapla
- */
-export function getTotalTodaySeconds(sessions: SessionRecord[]): number {
-  const today = getLocalDateString()
-  return sessions
-    .filter(s => getLocalDateString(new Date(s.tarihISO)) === today)
-    .reduce((sum, s) => sum + (s.sureGercek || 0), 0)
-}
-
-/**
- * Toplam bugün puanı hesapla
- */
-export function getTotalTodayScore(sessions: SessionRecord[]): number {
-  const today = getLocalDateString()
-  return sessions
-    .filter(s => getLocalDateString(new Date(s.tarihISO)) === today)
-    .reduce((sum, s) => sum + s.puan, 0)
-}
-
-/**
- * Moda göre istatistik hesapla
- */
-export function getModeStatistics(sessions: SessionRecord[]) {
-  const stats: Record<string, { count: number; totalSeconds: number; totalScore: number; avgScore: number }> = {}
-
-  sessions.forEach(s => {
-    if (!stats[s.mod]) {
-      stats[s.mod] = { count: 0, totalSeconds: 0, totalScore: 0, avgScore: 0 }
-    }
-    stats[s.mod].count++
-    stats[s.mod].totalSeconds += s.sureGercek || 0
-    stats[s.mod].totalScore += s.puan
-  })
-
-  // Ortalama hesapla
-  Object.values(stats).forEach(stat => {
-    stat.avgScore = stat.count > 0 ? Math.round(stat.totalScore / stat.count) : 0
-  })
-
-  return stats
-}
-
-/**
- * En iyi seans bul
- */
-export function getBestSession(sessions: SessionRecord[]): SessionRecord | null {
-  if (sessions.length === 0) return null
-  return sessions.reduce((best, current) => (current.puan > best.puan ? current : best))
-}
-
-/**
- * En kötü seans bul
- */
-export function getWorstSession(sessions: SessionRecord[]): SessionRecord | null {
-  if (sessions.length === 0) return null
-  return sessions.reduce((worst, current) => (current.puan < worst.puan ? current : worst))
-}
-
-/**
- * Ortalama seans puanı
- */
-export function getAverageScore(sessions: SessionRecord[]): number {
-  if (sessions.length === 0) return 0
-  const total = sessions.reduce((sum, s) => sum + s.puan, 0)
-  return Math.round(total / sessions.length)
 }
 
 /** Ünvan eşikleri: ~120 gün düzenli çalışma (5h/gün, 1 deneme) son ünvana ulaştırır. Sınavdan ~40 gün önce. */
