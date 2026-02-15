@@ -409,7 +409,7 @@ function App() {
     })
     const gunluk5SaatGunSayisi = Object.values(gunlukSaniyeByDate).filter((sn) => sn >= HEDEF_SANIYE).length
 
-    // Son 30 gün, günde toplam saniye (grafik için) — yerel tarih, son sütun = bugün
+    // Son 30 gün, günde toplam saniye (grafik için) — grid önce oluşturulur, sonra her seans kendi yerel gününe eklenir (2 sn vb. dahil)
     const gunlukSon30Gun: { date: string; saniye: number }[] = []
     const bugun = new Date()
     const y = bugun.getFullYear()
@@ -417,9 +417,18 @@ function App() {
     const gun = bugun.getDate()
     for (let i = 29; i >= 0; i--) {
       const d = new Date(y, m, gun - i)
-      const dateStr = getLocalDateString(d)
-      gunlukSon30Gun.push({ date: dateStr, saniye: gunlukSaniyeByDate[dateStr] ?? 0 })
+      gunlukSon30Gun.push({ date: getLocalDateString(d), saniye: 0 })
     }
+    const dateToIndex = new Map<string, number>()
+    gunlukSon30Gun.forEach((row, idx) => dateToIndex.set(row.date, idx))
+    sessions.forEach((s) => {
+      if (!s.tarihISO) return
+      const parsed = new Date(s.tarihISO)
+      if (Number.isNaN(parsed.getTime())) return
+      const dateStr = getLocalDateString(parsed)
+      const idx = dateToIndex.get(dateStr)
+      if (idx !== undefined) gunlukSon30Gun[idx].saniye += s.sureGercek || 0
+    })
 
     // Last 5 sessions
     const lastSessions = sessions.slice(0, 5)
@@ -1126,7 +1135,7 @@ function App() {
                           />
                           {veri.map((d) => {
                             const barPx = maxSn > 0 ? (d.saniye / maxSn) * CONTAINER_H : 0
-                            const barHeight = d.saniye > 0 ? Math.max(8, barPx) : 0
+                            const barHeight = d.saniye > 0 ? Math.max(14, barPx) : 0
                             const hedefiGecti = d.saniye >= HEDEF_SN
                             return (
                               <div
