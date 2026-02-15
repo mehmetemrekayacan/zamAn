@@ -16,6 +16,7 @@ import { ModeSelector } from './components/ModeSelector'
 import { QuickStatsBar } from './components/QuickStatsBar'
 import { SessionHistory } from './components/SessionHistory'
 import { CareerPanel } from './components/CareerPanel'
+import { BottomSheet } from './components/BottomSheet'
 import { FinishScreen } from './components/FinishScreen'
 import { SettingsModal } from './components/SettingsModal'
 import { Toast } from './components/Toast'
@@ -441,10 +442,11 @@ function App() {
           jumpToSection={jumpToSection}
         />
 
-        {/* ════════  BÖLÜM 3 — DASHBOARD GRID  ════════ */}
-        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] xl:grid-cols-3">
-          <SessionHistory sessions={summary.lastSessions} />
+        {/* ════════  BÖLÜM 3 — DASHBOARD  ════════ */}
 
+        {/* Masaüstü: normal grid */}
+        <section className="hidden lg:grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <SessionHistory sessions={summary.lastSessions} />
           <CareerPanel
             toplamPuan={summary.toplamKariyerPuan}
             unvanEmoji={summary.unvan.profilEmoji}
@@ -459,6 +461,36 @@ function App() {
             rozetler={summary.rozetler}
           />
         </section>
+
+        {/* Mobil: Bottom Sheet */}
+        <BottomSheet
+          summary={
+            <span className="flex items-center justify-center gap-3 text-sm">
+              <span className="font-medium text-text-primary">{summary.unvan.profilEmoji} {summary.unvan.unvan}</span>
+              <span className="text-text-muted">·</span>
+              <span>{summary.lastSessions.length} seans</span>
+              <span className="text-text-muted">·</span>
+              <span className="text-accent-blue font-semibold">{summary.toplamKariyerPuan} puan</span>
+            </span>
+          }
+        >
+          <div className="space-y-5">
+            <SessionHistory sessions={summary.lastSessions} />
+            <CareerPanel
+              toplamPuan={summary.toplamKariyerPuan}
+              unvanEmoji={summary.unvan.profilEmoji}
+              unvanText={summary.unvan.unvan}
+              sonrakiUnvan={summary.unvan.sonrakiUnvan ?? undefined}
+              sonrakiPuan={summary.unvan.sonrakiPuan ?? undefined}
+              ilerlemeYuzde={summary.unvan.ilerlemeYuzde ?? undefined}
+              tahmin={summary.tahmin ?? undefined}
+              monthMinutes={summary.monthMinutes}
+              monthSessions={summary.monthSessions}
+              avgScoreMonth={summary.avgScoreMonth}
+              rozetler={summary.rozetler}
+            />
+          </div>
+        </BottomSheet>
 
         {/* Settings Modal */}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}

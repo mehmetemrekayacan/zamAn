@@ -206,7 +206,7 @@ Normal UI + "Always on Top" toggle + "Mini Player" toggle
 | 🟡 P1 | Dinamik tab başlığı (sayaç) | 30 dk | UX iyileştirme | ✅ Tamamlandı |
 | 🟡 P1 | Electron: System Tray + mini-player | 1 gün | Masaüstü UX | ✅ Tamamlandı |
 | 🟡 P1 | Electron: Global hotkeys | 2 saat | Masaüstü verimlilik | ✅ Tamamlandı |
-| 🟡 P1 | Mobil: Bottom sheet layout | 1 gün | Touch UX | ⬜ Bekliyor |
+| 🟡 P1 | Mobil: Bottom sheet layout | 1 gün | Touch UX | ✅ Tamamlandı |
 | 🟢 P2 | Web: PWA install prompt | 2 saat | Engagement | ✅ Tamamlandı |
 | 🟢 P2 | Mobil: Push notifications (FCM) | 1-2 gün | Retention | ⬜ Bekliyor |
 | 🟢 P2 | Responsive 3-sütun layout (xl) | 1 gün | Geniş ekran UX | ✅ Tamamlandı |
