@@ -22,19 +22,19 @@ export const DashboardHeader = memo(function DashboardHeader({
     <header className="flex items-center justify-between py-2">
       {/* Sol: Selamlama & Ünvan */}
       <div className="min-w-0">
-        <p className="section-label">
+        <p className="section-label !text-sm mb-3">
           {getSelam(kullaniciAdi)}
         </p>
-        <h1 className="font-display text-2xl font-bold text-text-primary sm:text-3xl">
+        <h1 className="font-display text-2xl font-bold text-text-primary sm:text-3xl mt-2 mb-3">
           {unvanEmoji} {unvanText}
         </h1>
         {kalan != null && kalan > 0 && (
-          <p className="mt-1 text-xs text-accent-amber">
+          <p className="mt-3 text-sm text-accent-amber">
             📅 Sınava <span className="font-semibold">{kalan}</span> gün kaldı
           </p>
         )}
         {kalan === 0 && (
-          <p className="mt-1 text-xs font-semibold text-accent-red">
+          <p className="mt-3 text-sm font-semibold text-accent-red">
             🔥 Sınav bugün! Başarılar!
           </p>
         )}

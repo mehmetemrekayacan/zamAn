@@ -7,7 +7,7 @@ import { getTahmin150Saat } from './lib/tahmin'
 import { getRozetler } from './lib/rozetler'
 import { initDb } from './lib/db'
 import { initOfflineSync } from './lib/offlineSync'
-import { formatDuration } from './lib/time'
+import { formatDuration, formatMinutesHuman } from './lib/time'
 import { stopTitleFlash } from './lib/notifications'
 import { isElectron, onGlobalHotkey, sendTimerUpdate } from './lib/electronBridge'
 import { DashboardHeader } from './components/DashboardHeader'
@@ -400,8 +400,8 @@ function App() {
         {/* Hızlı istatistik çubuğu */}
         <QuickStatsBar
           stats={[
-            { label: 'Bugün', value: `${summary.todayMinutes}`, hint: `${summary.todaySessions} seans`, accent: 'blue' },
-            { label: 'Bu Hafta', value: `${summary.weekMinutes}`, hint: `${summary.weekSessions} seans`, accent: 'cyan' },
+            { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} seans`, accent: 'blue' },
+            { label: 'Bu Hafta', value: formatMinutesHuman(summary.weekMinutes), hint: `${summary.weekSessions} seans`, accent: 'cyan' },
             { label: 'Seri', value: `${summary.streak}`, hint: 'ardışık gün', accent: 'amber' },
             { label: 'Puan', value: `${summary.todayScore}`, hint: 'bugün', accent: 'blue' },
           ]}

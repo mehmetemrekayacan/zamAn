@@ -15,6 +15,13 @@ export interface TimerHeroProps {
   onReset: () => void
 }
 
+function formatPauseTime(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000))
+  const min = Math.floor(totalSec / 60)
+  const sec = totalSec % 60
+  return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+}
+
 const MODE_LABELS: Record<string, string> = {
   serbest: 'Kronometre',
   gerisayim: 'Zamanlayıcı',
@@ -54,6 +61,21 @@ export const TimerHero = memo(function TimerHero({
   const isRunning = status === 'running'
   const isPaused = status === 'paused'
   const isActive = isRunning || isPaused
+
+  /* ── Duraklatma sayacı: pause süresi ── */
+  const [pauseElapsedMs, setPauseElapsedMs] = useState(0)
+  useEffect(() => {
+    if (isPaused) {
+      setPauseElapsedMs(0)
+      const start = Date.now()
+      const interval = setInterval(() => {
+        setPauseElapsedMs(Date.now() - start)
+      }, 1000)
+      return () => clearInterval(interval)
+    } else {
+      setPauseElapsedMs(0)
+    }
+  }, [isPaused])
 
   /* ── Buton pulse: durum değiştiğinde tetiklenir ── */
   const [pulse, setPulse] = useState(false)
@@ -138,7 +160,7 @@ export const TimerHero = memo(function TimerHero({
         </div>
 
         {/* Merkezi zaman gösterimi */}
-        <div className="flex flex-col items-center gap-6 px-6 py-8 sm:py-12">
+        <div className="relative flex flex-col items-center gap-6 px-6 py-8 sm:py-12">
           <div className="relative">
             {/* Running pulse ring */}
             {isRunning && (
@@ -160,6 +182,16 @@ export const TimerHero = memo(function TimerHero({
               {formatDuration(timeToDisplay)}
             </time>
           </div>
+
+          {/* Duraklatma sayacı — sağ alt köşe */}
+          {isPaused && (
+            <div className="absolute bottom-3 right-4 flex items-center gap-1.5 rounded-full bg-accent-amber/15 border border-accent-amber/30 px-3 py-1.5 backdrop-blur-sm animate-pulse [animation-duration:2s]">
+              <span className="text-[11px] font-medium text-accent-amber/80">⏸ Duraklatıldı:</span>
+              <span className="font-mono text-xs font-bold text-accent-amber tabular-nums">
+                {formatPauseTime(pauseElapsedMs)}
+              </span>
+            </div>
+          )}
 
           {/* Aksiyon butonları */}
           <div className="relative z-10 flex items-center gap-3">

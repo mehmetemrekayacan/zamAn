@@ -34,6 +34,8 @@ export type TimerSnapshot = {
   denemeBreakStartTs?: number | null
   pauses: number
   lastTickTs: number | null
+  /** Duraklatmanın başladığı zaman (performance.now()). Resume'da süre telafisi için kullanılır. */
+  pauseStartTs?: number | null
   status: TimerStatus
   /** Erken bitirme ile mi bitti? (Scoring için: true = kısmi, false = tam tamamlandı) */
   wasEarlyFinish?: boolean

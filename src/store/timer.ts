@@ -124,7 +124,7 @@ function createTick(get: GetState, set: SetState): () => void {
       }
 
       const calismaMs = state.modeConfig.calismaMs ?? 60 * 60 * 1000
-      const toplamElapsed = nextDersCycle * calismaMs + (currentMola + addMola)
+      const toplamElapsed = calismaMs + addMola
       set({
         status: 'finished',
         running: false,
@@ -194,6 +194,7 @@ export const useTimerStore = create<TimerState>()(
       denemeBreakStartTs: null,
       pauses: 0,
       lastTickTs: null,
+      pauseStartTs: null,
       wasEarlyFinish: undefined,
 
       setModeConfig: (config) => {
@@ -366,6 +367,7 @@ export const useTimerStore = create<TimerState>()(
           elapsedMs: state.elapsedMs + delta,
           lastTickTs: null,
           pauses: state.pauses + 1,
+          pauseStartTs: now,
           remainingMs: state.plannedMs != null ? Math.max(0, (state.plannedMs - state.elapsedMs - delta)) : undefined,
         })
       },
@@ -374,7 +376,23 @@ export const useTimerStore = create<TimerState>()(
         const state = get()
         if (state.status !== 'paused') return
         const resumeTs = performance.now()
-        set({ status: 'running', running: true, lastTickTs: resumeTs })
+        const pauseStartTs = state.pauseStartTs ?? resumeTs
+        const pauseDurationMs = resumeTs - pauseStartTs
+
+        if (state.plannedMs != null && state.remainingMs != null && pauseDurationMs > 0) {
+          const newPlannedMs = state.plannedMs + pauseDurationMs
+          const newRemainingMs = state.remainingMs + pauseDurationMs
+          set({
+            status: 'running',
+            running: true,
+            lastTickTs: resumeTs,
+            plannedMs: newPlannedMs,
+            remainingMs: newRemainingMs,
+            pauseStartTs: null,
+          })
+        } else {
+          set({ status: 'running', running: true, lastTickTs: resumeTs, pauseStartTs: null })
+        }
 
         const tick = createTick(get as GetState, set)
         rafId = requestAnimationFrame(tick)
@@ -407,6 +425,7 @@ export const useTimerStore = create<TimerState>()(
           dersCycleDate: isDers60Mola15 ? bugun : null,
           molaToplamMs: isDers60Mola15 ? 0 : undefined,
           denemeBreakStartTs: null,
+          pauseStartTs: null,
           wasEarlyFinish: undefined,
         })
       },
@@ -442,13 +461,11 @@ export const useTimerStore = create<TimerState>()(
 
         if (state.mode === 'ders60mola15' && state.modeConfig.mode === 'ders60mola15') {
           const calismaMs = state.modeConfig.calismaMs ?? 60 * 60 * 1000
-          const completedCycles = state.dersCycle ?? 0
           if (state.workBreakPhase === 'break') {
-            // Moladayken: sadece tamamlanan çalışma turlarını say
-            finalElapsed = completedCycles * calismaMs
+            finalElapsed = calismaMs
           } else {
-            // Çalışma fazında: önceki turlar + mevcut kısmi süre
-            finalElapsed = completedCycles * calismaMs + finalElapsed
+            // Çalışma fazında: sadece bu oturumdaki kısmi çalışma süresi
+            // finalElapsed zaten mevcut work phase elapsed'ı içeriyor, ek cycle eklemeye gerek yok
           }
         }
 

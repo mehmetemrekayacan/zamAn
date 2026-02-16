@@ -27,6 +27,16 @@ export function formatSeconds(seconds: number): string {
   return parts.join(' ')
 }
 
+/** Dakika cinsinden süreyi kullanıcı dostu formata çevirir (örn: 130 → "2 sa 10 dk", 45 → "45 dk", 0 → "0 dk") */
+export function formatMinutesHuman(minutes: number): string {
+  const m = Math.max(0, Math.floor(minutes))
+  const hours = Math.floor(m / 60)
+  const mins = m % 60
+  if (hours > 0 && mins > 0) return `${hours} sa ${mins} dk`
+  if (hours > 0) return `${hours} sa`
+  return `${mins} dk`
+}
+
 /** Grafik için kısa format (örn: "1s 30dk", "45dk") */
 export function formatSecondsShort(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds))
