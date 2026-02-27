@@ -17,7 +17,7 @@ import { exportData, exportFileName, importFromFile } from '../lib/sync'
 import { useSettingsStore } from '../store/settings'
 import type { VurguRengi } from '../store/settings'
 import { useSessionsStore } from '../store/sessions'
-import { canInstallPwa, isPwaInstalled, promptInstallPwa } from '../lib/pwaInstall'
+import { usePwaInstallStore } from '../store/pwaInstall'
 import { isElectron, toggleAlwaysOnTop, toggleMiniPlayer } from '../lib/electronBridge'
 
 export interface SettingsModalProps {
@@ -54,6 +54,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [healthMsg, setHealthMsg] = useState<string | null>(null)
   const syncStatusById = useSessionsStore((s) => s.syncStatusById)
   const refreshSyncStatuses = useSessionsStore((s) => s.refreshSyncStatuses)
+  const isInstallable = usePwaInstallStore((s) => s.isInstallable)
+  const promptInstall = usePwaInstallStore((s) => s.promptInstall)
 
   const pendingCount = useMemo(
     () => Object.values(syncStatusById).filter((status) => status === 'pending').length,
@@ -615,18 +617,18 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           </div>
 
           {/* PWA Yükleme */}
-          {!isPwaInstalled() && canInstallPwa() && (
+          {isInstallable && (
             <div className="space-y-2 pt-3 border-t border-text-primary/10">
               <h3 className="text-base font-semibold text-text-primary">Uygulama</h3>
               <button
                 type="button"
                 onClick={async () => {
-                  const accepted = await promptInstallPwa()
+                  const accepted = await promptInstall()
                   if (accepted) window.location.reload()
                 }}
                 className="w-full rounded-lg border border-accent-cyan/50 bg-accent-cyan/10 hover:bg-accent-cyan/20 px-3 py-2 text-sm font-medium text-accent-cyan transition"
               >
-                📲 Uygulamayı Ana Ekrana Ekle
+                📱 Uygulamayı Yükle
               </button>
               <p className="text-xs text-text-muted">
                 zamAn&apos;ı bir uygulama gibi kullanmak için ana ekrana ekleyin. Çevrimdışı çalışır.

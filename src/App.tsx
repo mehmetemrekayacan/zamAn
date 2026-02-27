@@ -20,6 +20,7 @@ import { BottomSheet } from './components/BottomSheet'
 import { FinishScreen } from './components/FinishScreen'
 import { SettingsModal } from './components/SettingsModal'
 import { Toast } from './components/Toast'
+import { AnalyticsPage } from './components/analytics/AnalyticsPage'
 import type { ModeConfig, SessionRecord, RuhHali, DenemeAnaliz } from './types'
 
 /* ─── helpers ─── */
@@ -52,6 +53,7 @@ function App() {
   const [showFinishScreen, setShowFinishScreen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isMiniPlayerMode, setIsMiniPlayerMode] = useState(false)
+  const [activeView, setActiveView] = useState<'timer' | 'analytics'>('timer')
   const [lastSessionScore, setLastSessionScore] = useState<ReturnType<typeof calculateScore> | null>(null)
 
   /* Toast geri bildirim state */
@@ -505,108 +507,141 @@ function App() {
           onSettingsClick={() => setShowSettings(!showSettings)}
         />
 
-        {/* Hızlı istatistik çubuğu */}
-        <QuickStatsBar
-          stats={[
-            { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} seans`, accent: 'blue' },
-            { label: 'Bu Hafta', value: formatMinutesHuman(summary.weekMinutes), hint: `${summary.weekSessions} seans`, accent: 'cyan' },
-            { label: 'Seri', value: `${summary.streak}`, hint: 'ardışık gün', accent: 'amber' },
-            { label: 'Puan', value: `${summary.todayScore}`, hint: 'bugün', accent: 'blue' },
-          ]}
-        />
-
-        {/* ════════  BÖLÜM 2 — TIMER HERO  ════════ */}
-        <TimerHero
-          timeToDisplay={timeToDisplay}
-          status={status}
-          mode={mode}
-          workBreakPhase={workBreakPhase}
-          dersCycle={dersCycle}
-          pauses={pauses}
-          primaryLabel={primaryLabel}
-          primaryAction={primaryAction}
-          onFinishEarly={finishEarly}
-          onReset={reset}
-          isBreakMode={mode === 'ders60mola15' && workBreakPhase === 'break'}
-          onFinishBreak={finishBreakEarly}
-        />
-
-        {/* Mod seçici — Timer'ın hemen altında */}
-        <ModeSelector currentMode={modeConfig.mode} onSelect={handleModeSelect} />
-
-        {/* Mod konfigürasyon paneli (gerisayim / deneme) */}
-        <ModeConfigPanel
-          modeConfig={modeConfig}
-          setModeConfig={setModeConfig}
-          countdownHours={countdownHours}
-          countdownMinutes={countdownMinutes}
-          countdownSeconds={countdownSeconds}
-          setCountdownHours={setCountdownHours}
-          setCountdownMinutes={setCountdownMinutes}
-          setCountdownSeconds={setCountdownSeconds}
-          sectionName={sectionName}
-          setSectionName={setSectionName}
-          sectionHours={sectionHours}
-          setSectionHours={setSectionHours}
-          sectionMinutes={sectionMinutes}
-          setSectionMinutes={setSectionMinutes}
-          sectionSeconds={sectionSeconds}
-          setSectionSeconds={setSectionSeconds}
-          editingSectionIndex={editingSectionIndex}
-          setEditingSectionIndex={setEditingSectionIndex}
-          currentSectionIndex={currentSectionIndex}
-          jumpToSection={jumpToSection}
-        />
-
-        {/* ════════  BÖLÜM 3 — DASHBOARD  ════════ */}
-
-        {/* Masaüstü: normal grid */}
-        <section className="hidden lg:grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <SessionHistory sessions={summary.lastSessions} syncStatusById={syncStatusById} />
-          <CareerPanel
-            toplamPuan={summary.toplamKariyerPuan}
-            unvanEmoji={summary.unvan.profilEmoji}
-            unvanText={summary.unvan.unvan}
-            sonrakiUnvan={summary.unvan.sonrakiUnvan ?? undefined}
-            sonrakiPuan={summary.unvan.sonrakiPuan ?? undefined}
-            ilerlemeYuzde={summary.unvan.ilerlemeYuzde ?? undefined}
-            tahmin={summary.tahmin ?? undefined}
-            monthMinutes={summary.monthMinutes}
-            monthSessions={summary.monthSessions}
-            avgScoreMonth={summary.avgScoreMonth}
-            rozetler={summary.rozetler}
-          />
-        </section>
-
-        {/* Mobil: Bottom Sheet */}
-        <BottomSheet
-          summary={
-            <span className="flex items-center justify-center gap-3 text-sm">
-              <span className="font-medium text-text-primary">{summary.unvan.profilEmoji} {summary.unvan.unvan}</span>
-              <span className="text-text-muted">·</span>
-              <span>{summary.lastSessions.length} seans</span>
-              <span className="text-text-muted">·</span>
-              <span className="text-accent-blue font-semibold">{summary.toplamKariyerPuan} puan</span>
-            </span>
-          }
-        >
-          <div className="space-y-5">
-            <SessionHistory sessions={summary.lastSessions} syncStatusById={syncStatusById} />
-            <CareerPanel
-              toplamPuan={summary.toplamKariyerPuan}
-              unvanEmoji={summary.unvan.profilEmoji}
-              unvanText={summary.unvan.unvan}
-              sonrakiUnvan={summary.unvan.sonrakiUnvan ?? undefined}
-              sonrakiPuan={summary.unvan.sonrakiPuan ?? undefined}
-              ilerlemeYuzde={summary.unvan.ilerlemeYuzde ?? undefined}
-              tahmin={summary.tahmin ?? undefined}
-              monthMinutes={summary.monthMinutes}
-              monthSessions={summary.monthSessions}
-              avgScoreMonth={summary.avgScoreMonth}
-              rozetler={summary.rozetler}
-            />
+        <div className="flex items-center justify-center sm:justify-end">
+          <div className="inline-flex rounded-full border border-text-primary/10 bg-surface-700/50 p-1">
+            <button
+              type="button"
+              onClick={() => setActiveView('timer')}
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                activeView === 'timer'
+                  ? 'bg-accent-blue text-surface-900'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              Zamanlayıcı
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('analytics')}
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                activeView === 'analytics'
+                  ? 'bg-accent-blue text-surface-900'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              İstatistikler
+            </button>
           </div>
-        </BottomSheet>
+        </div>
+
+        {activeView === 'timer' ? (
+          <>
+            {/* Hızlı istatistik çubuğu */}
+            <QuickStatsBar
+              stats={[
+                { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} seans`, accent: 'blue' },
+                { label: 'Bu Hafta', value: formatMinutesHuman(summary.weekMinutes), hint: `${summary.weekSessions} seans`, accent: 'cyan' },
+                { label: 'Seri', value: `${summary.streak}`, hint: 'ardışık gün', accent: 'amber' },
+                { label: 'Puan', value: `${summary.todayScore}`, hint: 'bugün', accent: 'blue' },
+              ]}
+            />
+
+            {/* ════════  BÖLÜM 2 — TIMER HERO  ════════ */}
+            <TimerHero
+              timeToDisplay={timeToDisplay}
+              status={status}
+              mode={mode}
+              workBreakPhase={workBreakPhase}
+              dersCycle={dersCycle}
+              pauses={pauses}
+              primaryLabel={primaryLabel}
+              primaryAction={primaryAction}
+              onFinishEarly={finishEarly}
+              onReset={reset}
+              isBreakMode={mode === 'ders60mola15' && workBreakPhase === 'break'}
+              onFinishBreak={finishBreakEarly}
+            />
+
+            {/* Mod seçici — Timer'ın hemen altında */}
+            <ModeSelector currentMode={modeConfig.mode} onSelect={handleModeSelect} />
+
+            {/* Mod konfigürasyon paneli (gerisayim / deneme) */}
+            <ModeConfigPanel
+              modeConfig={modeConfig}
+              setModeConfig={setModeConfig}
+              countdownHours={countdownHours}
+              countdownMinutes={countdownMinutes}
+              countdownSeconds={countdownSeconds}
+              setCountdownHours={setCountdownHours}
+              setCountdownMinutes={setCountdownMinutes}
+              setCountdownSeconds={setCountdownSeconds}
+              sectionName={sectionName}
+              setSectionName={setSectionName}
+              sectionHours={sectionHours}
+              setSectionHours={setSectionHours}
+              sectionMinutes={sectionMinutes}
+              setSectionMinutes={setSectionMinutes}
+              sectionSeconds={sectionSeconds}
+              setSectionSeconds={setSectionSeconds}
+              editingSectionIndex={editingSectionIndex}
+              setEditingSectionIndex={setEditingSectionIndex}
+              currentSectionIndex={currentSectionIndex}
+              jumpToSection={jumpToSection}
+            />
+
+            {/* ════════  BÖLÜM 3 — DASHBOARD  ════════ */}
+
+            {/* Masaüstü: normal grid */}
+            <section className="hidden lg:grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <SessionHistory sessions={summary.lastSessions} syncStatusById={syncStatusById} />
+              <CareerPanel
+                toplamPuan={summary.toplamKariyerPuan}
+                unvanEmoji={summary.unvan.profilEmoji}
+                unvanText={summary.unvan.unvan}
+                sonrakiUnvan={summary.unvan.sonrakiUnvan ?? undefined}
+                sonrakiPuan={summary.unvan.sonrakiPuan ?? undefined}
+                ilerlemeYuzde={summary.unvan.ilerlemeYuzde ?? undefined}
+                tahmin={summary.tahmin ?? undefined}
+                monthMinutes={summary.monthMinutes}
+                monthSessions={summary.monthSessions}
+                avgScoreMonth={summary.avgScoreMonth}
+                rozetler={summary.rozetler}
+              />
+            </section>
+
+            {/* Mobil: Bottom Sheet */}
+            <BottomSheet
+              summary={
+                <span className="flex items-center justify-center gap-3 text-sm">
+                  <span className="font-medium text-text-primary">{summary.unvan.profilEmoji} {summary.unvan.unvan}</span>
+                  <span className="text-text-muted">·</span>
+                  <span>{summary.lastSessions.length} seans</span>
+                  <span className="text-text-muted">·</span>
+                  <span className="text-accent-blue font-semibold">{summary.toplamKariyerPuan} puan</span>
+                </span>
+              }
+            >
+              <div className="space-y-5">
+                <SessionHistory sessions={summary.lastSessions} syncStatusById={syncStatusById} />
+                <CareerPanel
+                  toplamPuan={summary.toplamKariyerPuan}
+                  unvanEmoji={summary.unvan.profilEmoji}
+                  unvanText={summary.unvan.unvan}
+                  sonrakiUnvan={summary.unvan.sonrakiUnvan ?? undefined}
+                  sonrakiPuan={summary.unvan.sonrakiPuan ?? undefined}
+                  ilerlemeYuzde={summary.unvan.ilerlemeYuzde ?? undefined}
+                  tahmin={summary.tahmin ?? undefined}
+                  monthMinutes={summary.monthMinutes}
+                  monthSessions={summary.monthSessions}
+                  avgScoreMonth={summary.avgScoreMonth}
+                  rozetler={summary.rozetler}
+                />
+              </div>
+            </BottomSheet>
+          </>
+        ) : (
+          <AnalyticsPage />
+        )}
 
         {/* Settings Modal */}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
