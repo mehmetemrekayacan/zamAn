@@ -28,9 +28,17 @@ export interface SyncQueueItem {
   createdAt: string
   /** Kaç kez denendi */
   retryCount: number
+  /** Son hata mesajı (debug/UI amaçlı) */
+  lastError?: string
+  /** Bir sonraki deneme zamanı (ISO) */
+  nextAttemptAt?: string
+  /** Kalıcı başarısızlık (max retry aşıldı) */
+  isFailed?: boolean
   /** Session verisi (upsert için) */
   payload?: SessionRecord
 }
+
+export type RetryableQueueItem = SyncQueueItem
 
 interface SyncQueueDB extends DBSchema {
   'sync-queue': {
@@ -44,6 +52,17 @@ const DB_NAME = 'zaman-sync-queue'
 const DB_VERSION = 1
 
 let dbInstance: IDBPDatabase<SyncQueueDB> | null = null
+let flushInFlight = false
+
+const BASE_DELAY_MS = 1_500
+const MAX_DELAY_MS = 5 * 60_000
+const MAX_RETRIES = 8
+
+function computeBackoffMs(retryCount: number): number {
+  const expDelay = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * (2 ** retryCount))
+  const jitter = Math.floor(Math.random() * 500)
+  return expDelay + jitter
+}
 
 async function getDb(): Promise<IDBPDatabase<SyncQueueDB>> {
   if (dbInstance) return dbInstance
@@ -74,6 +93,9 @@ export async function enqueueSync(action: SyncAction, sessionId: string, payload
     sessionId,
     createdAt: new Date().toISOString(),
     retryCount: 0,
+    lastError: undefined,
+    nextAttemptAt: undefined,
+    isFailed: false,
     payload,
   })
 }
@@ -90,58 +112,112 @@ export async function getQueueItems(): Promise<SyncQueueItem[]> {
   return db.getAll('sync-queue')
 }
 
-/* ─── Flush: kuyruktaki tüm işlemleri Supabase'e gönder ─── */
-
-export async function flushSyncQueue(): Promise<{ flushed: number; failed: number }> {
+async function executeQueueItem(item: RetryableQueueItem, userId: string): Promise<void> {
   const supabase = getSupabase()
-  if (!supabase) return { flushed: 0, failed: 0 }
+  if (!supabase) throw new Error('Supabase unavailable')
 
-  const user = await getCurrentUser()
-  if (!user) return { flushed: 0, failed: 0 }
-
-  const db = await getDb()
-  const items = await db.getAll('sync-queue')
-  if (items.length === 0) return { flushed: 0, failed: 0 }
-
-  let flushed = 0
-  let failed = 0
-  const MAX_RETRIES = 5
-
-  for (const item of items) {
-    if (item.retryCount >= MAX_RETRIES) {
-      // Çok fazla denendi — sil
-      if (item.id != null) await db.delete('sync-queue', item.id)
-      failed++
-      continue
-    }
-
-    try {
-      if (item.action === 'upsert_session' && item.payload) {
-        const row = sessionToRow(item.payload, user.id)
-        const { error } = await supabase.from('sessions').upsert(row, { onConflict: 'id,user_id' })
-        if (error) throw error
-      } else if (item.action === 'delete_session') {
-        // Soft delete — deleted_at set et
-        const { error } = await supabase
-          .from('sessions')
-          .update({ deleted_at: new Date().toISOString() })
-          .eq('id', item.sessionId)
-          .eq('user_id', user.id)
-        if (error) throw error
-      }
-
-      // Başarılı → kuyruktan sil
-      if (item.id != null) await db.delete('sync-queue', item.id)
-      flushed++
-    } catch {
-      // Hata → retry sayacını artır
-      if (item.id != null) {
-        await db.put('sync-queue', { ...item, retryCount: item.retryCount + 1 })
-      }
-      failed++
-    }
+  if (item.action === 'upsert_session' && item.payload) {
+    const row = sessionToRow(item.payload, userId)
+    const { error } = await supabase.from('sessions').upsert(row, { onConflict: 'id,user_id' })
+    if (error) throw error
+    return
   }
 
+  if (item.action === 'delete_session') {
+    const { error } = await supabase
+      .from('sessions')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', item.sessionId)
+      .eq('user_id', userId)
+    if (error) throw error
+    return
+  }
+}
+
+/* ─── Process: kuyruktaki işlemleri backoff+jitter ile işle ─── */
+
+export async function processQueue(): Promise<{ flushed: number; failed: number; scheduled: number }> {
+  if (flushInFlight) return { flushed: 0, failed: 0, scheduled: 0 }
+  flushInFlight = true
+
+  try {
+    const supabase = getSupabase()
+    if (!supabase) return { flushed: 0, failed: 0, scheduled: 0 }
+
+    const user = await getCurrentUser()
+    if (!user) return { flushed: 0, failed: 0, scheduled: 0 }
+
+    const db = await getDb()
+    const items = (await db.getAll('sync-queue')) as RetryableQueueItem[]
+    if (items.length === 0) return { flushed: 0, failed: 0, scheduled: 0 }
+
+    const now = Date.now()
+    const sorted = [...items].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    )
+
+    let flushed = 0
+    let failed = 0
+    let scheduled = 0
+
+    for (const item of sorted) {
+      if (item.isFailed) {
+        failed++
+        continue
+      }
+
+      const dueAt = item.nextAttemptAt ? new Date(item.nextAttemptAt).getTime() : 0
+      if (dueAt > now) {
+        scheduled++
+        continue
+      }
+
+      try {
+        await executeQueueItem(item, user.id)
+        if (item.id != null) await db.delete('sync-queue', item.id)
+        flushed++
+      } catch (error) {
+        const nextRetry = item.retryCount + 1
+        const errMessage = (error as Error)?.message ?? 'Unknown sync error'
+
+        if (nextRetry >= MAX_RETRIES) {
+          if (item.id != null) {
+            await db.put('sync-queue', {
+              ...item,
+              retryCount: nextRetry,
+              isFailed: true,
+              lastError: errMessage,
+              nextAttemptAt: undefined,
+            })
+          }
+          failed++
+          continue
+        }
+
+        const delay = computeBackoffMs(nextRetry)
+        if (item.id != null) {
+          await db.put('sync-queue', {
+            ...item,
+            retryCount: nextRetry,
+            isFailed: false,
+            lastError: errMessage,
+            nextAttemptAt: new Date(now + delay).toISOString(),
+          })
+        }
+        scheduled++
+      }
+    }
+
+    return { flushed, failed, scheduled }
+  } finally {
+    flushInFlight = false
+  }
+}
+
+/* ─── Geriye uyumluluk: eski API ─── */
+
+export async function flushSyncQueue(): Promise<{ flushed: number; failed: number }> {
+  const { flushed, failed } = await processQueue()
   return { flushed, failed }
 }
 
@@ -178,21 +254,31 @@ function sessionToRow(s: SessionRecord, userId: string) {
 
 let listenerAttached = false
 
-export function initOfflineSync(): void {
+export function initOfflineSync(onProcessed?: (result: { flushed: number; failed: number; scheduled: number }) => void): void {
   if (listenerAttached) return
   listenerAttached = true
 
-  window.addEventListener('online', () => {
-    // Online olunca kuyruğu boşalt
-    void flushSyncQueue().then(({ flushed }) => {
-      if (flushed > 0) {
-        console.log(`[offlineSync] ${flushed} bekleyen işlem buluta gönderildi.`)
+  const runQueue = () => {
+    void processQueue().then((result) => {
+      if (result.flushed > 0) {
+        console.log(`[offlineSync] ${result.flushed} bekleyen işlem buluta gönderildi.`)
       }
+      onProcessed?.(result)
     })
+  }
+
+  window.addEventListener('online', () => {
+    runQueue()
   })
 
   // Uygulama açılışında online'sa kuyruğu boşalt
   if (navigator.onLine) {
-    void flushSyncQueue()
+    runQueue()
   }
+
+  // Periyodik deneme (ör. geçici ağ/supabase timeout sonrası)
+  window.setInterval(() => {
+    if (!navigator.onLine) return
+    runQueue()
+  }, 30_000)
 }

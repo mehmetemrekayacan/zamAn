@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "43416220163",
+    "project_id": "zaman-91cde",
+    "storage_bucket": "zaman-91cde.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:43416220163:android:4ea1a29d2c675ab4ead436",
+        "android_client_info": {
+          "package_name": "com.zamanolcer.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxDUra_RV9ktjLE_ALeb46F4N05Ad9r5Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

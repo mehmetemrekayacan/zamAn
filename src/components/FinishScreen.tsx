@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { DenemeAnaliz as DenemeAnalizType, Mode, RuhHali } from '../types'
 import type { ScoreBreakdown } from '../lib/scoring'
 import { formatSeconds } from '../lib/time'
@@ -49,6 +50,14 @@ export interface FinishScreenProps {
   onDenemeAnalizChange?: (value: DenemeAnalizType | null) => void
   onSave: () => void
   onCancel: () => void
+
+  /* ── Wall-Clock vs Net-Time rapor alanları ── */
+  /** Toplam birikmiş duraklatma süresi (ms) */
+  totalPauseDurationMs?: number
+  /** Arka plandaki mola başlangıç zamanı (performance.now()) — live countdown için */
+  backgroundBreakStartTs?: number | null
+  /** Arka plandaki mola planlanan süresi (ms) */
+  backgroundBreakPlannedMs?: number
 }
 
 const RUH_HALI_OPTS: { value: RuhHali; label: string; emoji: string }[] = [
@@ -71,6 +80,9 @@ export function FinishScreen({
   onDenemeAnalizChange,
   onSave,
   onCancel,
+  totalPauseDurationMs = 0,
+  backgroundBreakStartTs,
+  backgroundBreakPlannedMs,
 }: FinishScreenProps) {
   const isDeneme = mode === 'deneme'
   const analiz = denemeAnaliz ?? { dogru: 0, yanlis: 0, bos: 0 }
@@ -79,6 +91,27 @@ export function FinishScreen({
       onDenemeAnalizChange({ ...analiz, ...next })
     }
   }
+
+  /* ── Arka plandaki mola countdown — her saniye güncellenir ── */
+  const hasBackgroundBreak = backgroundBreakStartTs != null && backgroundBreakPlannedMs != null
+  const [breakRemainingMs, setBreakRemainingMs] = useState(0)
+
+  useEffect(() => {
+    if (!hasBackgroundBreak || backgroundBreakStartTs == null || backgroundBreakPlannedMs == null) return
+
+    const update = () => {
+      const elapsed = performance.now() - backgroundBreakStartTs
+      setBreakRemainingMs(Math.max(0, backgroundBreakPlannedMs - elapsed))
+    }
+    update()
+    const interval = setInterval(update, 1000)
+    return () => clearInterval(interval)
+  }, [hasBackgroundBreak, backgroundBreakStartTs, backgroundBreakPlannedMs])
+
+  /* Wall-Clock hesaplaması */
+  const totalDurationMs = elapsedMs + totalPauseDurationMs
+  const hasPauses = totalPauseDurationMs > 0
+
   return (
     <div className="min-h-screen bg-surface-900 text-text-primary">
       <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-10">
@@ -110,6 +143,24 @@ export function FinishScreen({
           </div>
         </div>
 
+        {/* Arka plandaki mola banner — non-intrusive indicator */}
+        {hasBackgroundBreak && breakRemainingMs > 0 && (
+          <div className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 backdrop-blur-sm">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+              <span className="text-sm font-medium text-emerald-300">Mola arka planda başladı</span>
+            </div>
+            <span className="font-mono text-lg font-bold tabular-nums text-emerald-400">
+              {formatSeconds(Math.round(breakRemainingMs / 1000))}
+            </span>
+          </div>
+        )}
+        {hasBackgroundBreak && breakRemainingMs <= 0 && (
+          <div className="flex items-center gap-2 rounded-2xl border border-accent-amber/30 bg-accent-amber/10 px-5 py-3">
+            <span className="text-sm font-medium text-accent-amber">Mola süresi doldu — kayıt sonrası yeni tura geçeceksiniz</span>
+          </div>
+        )}
+
         <div className="space-y-3 rounded-card border border-text-primary/5 bg-surface-800/80 p-4">
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
@@ -117,12 +168,22 @@ export function FinishScreen({
               <p className="font-semibold text-text-primary">{modes.find((m) => m.id === mode)?.title}</p>
             </div>
             <div>
-              <p className="text-xs text-text-muted">Geçen Süre</p>
+              <p className="text-xs text-text-muted">Net Çalışma</p>
               <p className="font-semibold text-text-primary">{formatSeconds(Math.round(elapsedMs / 1000))}</p>
             </div>
+            {hasPauses && (
+              <div>
+                <p className="text-xs text-text-muted">Toplam Süre (duraklamalar dahil)</p>
+                <p className="font-semibold text-accent-amber">{formatSeconds(Math.round(totalDurationMs / 1000))}</p>
+              </div>
+            )}
             <div>
-              <p className="text-xs text-text-muted">Duraklatma Sayısı</p>
-              <p className="font-semibold text-text-primary">{pauses}</p>
+              <p className="text-xs text-text-muted">Duraklatma {pauses > 0 ? `(${pauses}×)` : ''}</p>
+              <p className="font-semibold text-text-primary">
+                {pauses > 0
+                  ? formatSeconds(Math.round(totalPauseDurationMs / 1000))
+                  : 'Yok'}
+              </p>
             </div>
             <div>
               <p className="text-xs text-text-muted">Saat</p>

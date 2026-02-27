@@ -39,6 +39,14 @@ export type TimerSnapshot = {
   status: TimerStatus
   /** Erken bitirme ile mi bitti? (Scoring için: true = kısmi, false = tam tamamlandı) */
   wasEarlyFinish?: boolean
+
+  /* ── Wall-Clock vs Net-Time tracking ── */
+  /** Birikmiş duraklatma süresi (ms). Net çalışma zamanına eklenmez, sadece final raporda kullanılır. */
+  totalPauseDurationMs: number
+  /** ders60mola15: iş bitince arka planda başlayan mola zamanlayıcısının başlangıç zamanı (performance.now()) */
+  backgroundBreakStartTs?: number | null
+  /** ders60mola15: arka plan molasının planlanan süresi (ms) */
+  backgroundBreakPlannedMs?: number
 }
 
 /** Seans başında isteğe bağlı ruh hali */
@@ -58,6 +66,8 @@ export type SessionRecord = {
   tarihISO: string
   not?: string
   duraklatmaSayisi: number
+  /** Toplam duraklatma süresi (saniye) — Wall-Clock hesaplaması için */
+  toplamDuraklamaSureSaniye?: number
   /** Erken bitirmede kalan süre (saniye) */
   erkenBitirmeSuresi?: number
   odakSkoru?: number

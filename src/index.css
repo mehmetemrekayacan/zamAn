@@ -312,3 +312,18 @@ body {
   color: var(--text-primary);
   letter-spacing: -0.02em;
 }
+
+/* ─── Electron Mini Player (frameless drag) ─── */
+.mini-player-drag {
+  -webkit-app-region: drag;
+}
+
+.mini-player-drag button,
+.mini-player-drag input,
+.mini-player-drag textarea,
+.mini-player-drag select,
+.mini-player-drag a,
+.mini-player-drag [role='button'],
+.mini-player-drag [data-no-drag='true'] {
+  -webkit-app-region: no-drag;
+}

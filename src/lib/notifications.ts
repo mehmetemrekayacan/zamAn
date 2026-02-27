@@ -10,6 +10,9 @@ export interface NotificationOptions {
   enableBrowserNotification?: boolean
 }
 
+const PUSH_TOKEN_STORAGE_KEY = 'zaman-push-token'
+let pushInitialized = false
+
 /**
  * Trigger vibration (mobile: Capacitor Haptics, web: Vibration API).
  * Android'de WebView'daki navigator.vibrate bazen çalışmaz; native Haptics kullanırız.
@@ -198,6 +201,7 @@ export const prepareForBackgroundNotify = (): void => {
     }
   })
   prepareAudioContext()
+  void initPushNotifications()
 }
 
 let sharedAudioContext: AudioContext | null = null
@@ -302,4 +306,80 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
   }
 
   return false
+}
+
+/**
+ * Android (Capacitor) FCM Push Notifications init.
+ * - requestPermissions
+ * - register
+ * - token/listener yönetimi
+ */
+export const initPushNotifications = async (): Promise<void> => {
+  if (pushInitialized) return
+
+  try {
+    const { Capacitor } = await import('@capacitor/core')
+    if (!Capacitor?.isNativePlatform?.()) return
+
+    const {
+      PushNotifications,
+    } = await import('@capacitor/push-notifications')
+
+    const permStatus = await PushNotifications.requestPermissions()
+    if (permStatus.receive !== 'granted') {
+      console.warn('[push] Permission denied:', permStatus.receive)
+      return
+    }
+
+    await PushNotifications.register()
+
+    await PushNotifications.addListener('registration', (token) => {
+      console.log('[push] FCM token:', token.value)
+      try {
+        localStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token.value)
+      } catch {
+        /* ignore */
+      }
+    })
+
+    await PushNotifications.addListener('registrationError', (error) => {
+      console.error('[push] Registration error:', error)
+    })
+
+    await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      console.log('[push] Foreground notification:', notification)
+      notifySessionComplete({
+        title: notification.title ?? 'Yeni Bildirim',
+        body: notification.body ?? '',
+        enableBrowserNotification: false,
+        enableSound: true,
+        enableVibration: true,
+      })
+    })
+
+    await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      console.log('[push] Notification action:', action)
+      window.focus()
+      const dataTitle = action.notification?.data?.title as string | undefined
+      const dataBody = action.notification?.data?.body as string | undefined
+      if (dataTitle || dataBody) {
+        showBrowserNotification(dataTitle ?? 'Bildirim Açıldı', {
+          body: dataBody,
+          enableBrowserNotification: true,
+        })
+      }
+    })
+
+    pushInitialized = true
+  } catch (error) {
+    console.warn('[push] Capacitor push init skipped:', error)
+  }
+}
+
+export const getStoredPushToken = (): string | null => {
+  try {
+    return localStorage.getItem(PUSH_TOKEN_STORAGE_KEY)
+  } catch {
+    return null
+  }
 }

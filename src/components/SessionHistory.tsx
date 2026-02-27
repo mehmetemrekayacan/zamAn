@@ -1,5 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import type { SessionRecord } from '../types'
+import type { SessionSyncMap } from '../store/sessions'
+import { SyncStatusBadge } from './SyncStatusBadge'
 
 const MODE_LABELS: Record<string, string> = {
   serbest: 'Kronometre',
@@ -16,10 +18,12 @@ const MODE_EMOJIS: Record<string, string> = {
 
 export interface SessionHistoryProps {
   sessions: SessionRecord[]
+  syncStatusById?: SessionSyncMap
 }
 
 export const SessionHistory = memo(function SessionHistory({
   sessions,
+  syncStatusById,
 }: SessionHistoryProps) {
   /* Yeni eklenen öğeyi tespit et ve animasyon uygula */
   const prevCountRef = useRef(sessions.length)
@@ -73,6 +77,10 @@ export const SessionHistory = memo(function SessionHistory({
                   <span className="text-sm font-semibold text-text-primary truncate">
                     {MODE_LABELS[session.mod] ?? session.mod}
                   </span>
+                  <SyncStatusBadge
+                    sessionId={session.id}
+                    status={syncStatusById?.[session.id]}
+                  />
                   <span className="text-[11px] text-text-muted">
                     {new Date(session.tarihISO).toLocaleDateString('tr-TR', {
                       month: 'short',

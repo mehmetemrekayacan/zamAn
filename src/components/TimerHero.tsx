@@ -13,6 +13,10 @@ export interface TimerHeroProps {
   primaryAction: () => void
   onFinishEarly: () => void
   onReset: () => void
+  /** ders60mola15: Mola modundaysa true — Duraklat gizlenir, sadece "Molayı Bitir" gösterilir */
+  isBreakMode?: boolean
+  /** ders60mola15: Molayı erken bitirip sonraki tura geçme */
+  onFinishBreak?: () => void
 }
 
 function formatPauseTime(ms: number): string {
@@ -57,6 +61,8 @@ export const TimerHero = memo(function TimerHero({
   primaryAction,
   onFinishEarly,
   onReset,
+  isBreakMode = false,
+  onFinishBreak,
 }: TimerHeroProps) {
   const isRunning = status === 'running'
   const isPaused = status === 'paused'
@@ -195,59 +201,86 @@ export const TimerHero = memo(function TimerHero({
 
           {/* Aksiyon butonları */}
           <div className="relative z-10 flex items-center gap-3">
-            <button
-              ref={btnRef}
-              onClick={handlePrimaryClick}
-              className={`
-                relative overflow-hidden
-                min-w-[140px] rounded-full px-8 py-3.5 text-base font-bold
-                shadow-lg transition-all duration-200
-                active:scale-[0.97] hover:-translate-y-0.5
-                ${pulse ? 'animate-btn-pulse' : ''}
-                ${isRunning
-                  ? 'bg-accent-amber text-surface-900 shadow-amber-500/30 hover:shadow-amber-500/50'
-                  : isPaused
-                    ? 'bg-accent-blue text-surface-900 shadow-cyan-500/30 hover:shadow-cyan-500/50'
-                    : 'bg-accent-blue text-surface-900 shadow-cyan-500/40 hover:shadow-cyan-500/60'
-                }
-              `}
-            >
-              {/* Durum ikonu + metin geçişi */}
-              <span className="inline-flex items-center gap-2 transition-all duration-300">
-                <span className="text-lg transition-transform duration-300" style={{ transform: isRunning ? 'rotate(0deg)' : 'rotate(360deg)' }}>
-                  {isRunning ? '⏸' : isPaused ? '▶️' : '▶️'}
-                </span>
-                {primaryLabel}
-              </span>
-            </button>
-
-            {isActive && (
+            {/*
+             * Break Mode Constraints (Hard Limits):
+             * - Mola sırasında: Duraklat/Devam/Başlat butonu YOK
+             * - Tek kontrol: "Molayı Bitir / Sonraki Tur"
+             */}
+            {isBreakMode ? (
               <button
-                onClick={onFinishEarly}
-                className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-5 py-3.5 text-base
-                           font-semibold text-emerald-400 transition-all duration-200
-                           hover:bg-emerald-500/20 hover:border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-500/15
-                           active:scale-[0.97]"
-                title="Seansı erken bitir ve kaydet"
+                onClick={onFinishBreak}
+                className={`
+                  relative overflow-hidden
+                  min-w-[200px] rounded-full px-8 py-3.5 text-base font-bold
+                  shadow-lg transition-all duration-200
+                  active:scale-[0.97] hover:-translate-y-0.5
+                  bg-emerald-500 text-surface-900 shadow-emerald-500/30 hover:shadow-emerald-500/50
+                  ${pulse ? 'animate-btn-pulse' : ''}
+                `}
               >
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M2 10a.75.75 0 01.75-.75h12.59l-2.1-1.95a.75.75 0 111.02-1.1l3.5 3.25a.75.75 0 010 1.1l-3.5 3.25a.75.75 0 11-1.02-1.1l2.1-1.95H2.75A.75.75 0 012 10z" clipRule="evenodd" />
                   </svg>
-                  Bitir
+                  Sonraki Tura Geç
                 </span>
               </button>
-            )}
+            ) : (
+              <>
+                <button
+                  ref={btnRef}
+                  onClick={handlePrimaryClick}
+                  className={`
+                    relative overflow-hidden
+                    min-w-[140px] rounded-full px-8 py-3.5 text-base font-bold
+                    shadow-lg transition-all duration-200
+                    active:scale-[0.97] hover:-translate-y-0.5
+                    ${pulse ? 'animate-btn-pulse' : ''}
+                    ${isRunning
+                      ? 'bg-accent-amber text-surface-900 shadow-amber-500/30 hover:shadow-amber-500/50'
+                      : isPaused
+                        ? 'bg-accent-blue text-surface-900 shadow-cyan-500/30 hover:shadow-cyan-500/50'
+                        : 'bg-accent-blue text-surface-900 shadow-cyan-500/40 hover:shadow-cyan-500/60'
+                    }
+                  `}
+                >
+                  <span className="inline-flex items-center gap-2 transition-all duration-300">
+                    <span className="text-lg transition-transform duration-300" style={{ transform: isRunning ? 'rotate(0deg)' : 'rotate(360deg)' }}>
+                      {isRunning ? '⏸' : isPaused ? '▶️' : '▶️'}
+                    </span>
+                    {primaryLabel}
+                  </span>
+                </button>
 
-            {isActive && (
-              <button
-                onClick={onReset}
-                className="rounded-full border border-text-primary/15 bg-surface-700/50 px-6 py-3.5 text-base
-                           font-medium text-text-primary transition-all duration-200
-                           hover:border-accent-red/40 hover:text-accent-red active:scale-[0.97]"
-              >
-                Sıfırla
-              </button>
+                {isActive && (
+                  <button
+                    onClick={onFinishEarly}
+                    className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-5 py-3.5 text-base
+                               font-semibold text-emerald-400 transition-all duration-200
+                               hover:bg-emerald-500/20 hover:border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-500/15
+                               active:scale-[0.97]"
+                    title="Seansı erken bitir ve kaydet"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                        <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                      </svg>
+                      Bitir
+                    </span>
+                  </button>
+                )}
+
+                {isActive && (
+                  <button
+                    onClick={onReset}
+                    className="rounded-full border border-text-primary/15 bg-surface-700/50 px-6 py-3.5 text-base
+                               font-medium text-text-primary transition-all duration-200
+                               hover:border-accent-red/40 hover:text-accent-red active:scale-[0.97]"
+                  >
+                    Sıfırla
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

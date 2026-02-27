@@ -6,10 +6,10 @@ import { calculateScore, calculateStreak, getUnvan } from './lib/scoring'
 import { getTahmin150Saat } from './lib/tahmin'
 import { getRozetler } from './lib/rozetler'
 import { initDb } from './lib/db'
-import { initOfflineSync } from './lib/offlineSync'
+import { initOfflineSync, processQueue } from './lib/offlineSync'
 import { formatDuration, formatMinutesHuman } from './lib/time'
 import { stopTitleFlash } from './lib/notifications'
-import { isElectron, onGlobalHotkey, sendTimerUpdate } from './lib/electronBridge'
+import { isElectron, onGlobalHotkey, onMiniPlayerChanged, sendTimerUpdate, toggleMiniPlayer } from './lib/electronBridge'
 import { DashboardHeader } from './components/DashboardHeader'
 import { TimerHero } from './components/TimerHero'
 import { ModeSelector } from './components/ModeSelector'
@@ -51,6 +51,7 @@ function App() {
   const [denemeAnaliz, setDenemeAnaliz] = useState<DenemeAnaliz | null>(null)
   const [showFinishScreen, setShowFinishScreen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [isMiniPlayerMode, setIsMiniPlayerMode] = useState(false)
   const [lastSessionScore, setLastSessionScore] = useState<ReturnType<typeof calculateScore> | null>(null)
 
   /* Toast geri bildirim state */
@@ -81,6 +82,8 @@ function App() {
 
   /* ── stores ── */
   const sessions = useSessionsStore((s) => s.sessions)
+  const syncStatusById = useSessionsStore((s) => s.syncStatusById)
+  const refreshSyncStatuses = useSessionsStore((s) => s.refreshSyncStatuses)
   const addSession = useSessionsStore((s) => s.addSession)
   const settings = useSettingsStore()
 
@@ -94,28 +97,41 @@ function App() {
     currentSectionIndex,
     workBreakPhase,
     dersCycle,
+    denemeBreakStartTs,
+    denemeMolalarSaniye,
     pauses,
     wasEarlyFinish,
+    molaToplamMs,
+    totalPauseDurationMs,
+    backgroundBreakStartTs,
+    backgroundBreakPlannedMs,
     start,
     pause,
     resume,
     reset,
     setModeConfig,
     jumpToSection,
+    advanceFromDenemeBreak,
     finishEarly,
+    transitionToBreak,
+    finishBreakEarly,
   } = useTimerStore()
 
   /* ── init ── */
   const loadSessions = useCallback(async () => {
     try {
       await initDb()
-      initOfflineSync() // Offline sync kuyruğu dinleyicisini başlat
+      initOfflineSync(() => {
+        void refreshSyncStatuses()
+      }) // Offline sync kuyruğu dinleyicisini başlat
       const state = useSessionsStore.getState()
       await state.loadSessions()
+      await processQueue()
+      await refreshSyncStatuses()
     } catch (error) {
       console.error('Failed to initialize DB:', error)
     }
-  }, [])
+  }, [refreshSyncStatuses])
 
   useEffect(() => {
     loadSessions()
@@ -196,6 +212,13 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!isElectron()) return
+    onMiniPlayerChanged((enabled) => {
+      setIsMiniPlayerMode(Boolean(enabled))
+    })
+  }, [])
+
+  useEffect(() => {
     if (status === 'finished' && !showFinishScreen) {
       const sessionsState = useSessionsStore.getState()
       const streakDays = calculateStreak(sessionsState.sessions)
@@ -224,32 +247,55 @@ function App() {
 
   const primaryLabel = status === 'running' ? 'Duraklat' : status === 'paused' ? 'Devam' : 'Başlat'
   const primaryAction = useCallback(() => {
+    if (mode === 'deneme' && status === 'paused' && denemeBreakStartTs != null) return advanceFromDenemeBreak()
     if (status === 'running') return pause()
     if (status === 'paused') return resume()
     return start()
-  }, [status, pause, resume, start])
+  }, [mode, status, denemeBreakStartTs, advanceFromDenemeBreak, pause, resume, start])
 
   const saveSession = async () => {
     if (!lastSessionScore) return
+    const sureGercekSaniye = Math.round(elapsedMs / 1000)
+    const surePlanSaniye = plannedMs != null ? Math.round(plannedMs / 1000) : undefined
+    const denemeToplamPlanSaniye = mode === 'deneme' && modeConfig.mode === 'deneme'
+      ? Math.round(modeConfig.bolumler.reduce((acc, bolum) => acc + bolum.surePlanMs, 0) / 1000)
+      : surePlanSaniye
     const session: SessionRecord = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       mod: mode,
-      surePlan: plannedMs != null ? Math.round(plannedMs / 1000) : undefined,
-      sureGercek: Math.round(elapsedMs / 1000),
+      surePlan: denemeToplamPlanSaniye,
+      sureGercek: sureGercekSaniye,
       puan: lastSessionScore.totalScore,
       tarihISO: new Date().toISOString(),
       not: sessionNote || undefined,
       duraklatmaSayisi: pauses,
+      toplamDuraklamaSureSaniye: totalPauseDurationMs > 0 ? Math.round(totalPauseDurationMs / 1000) : undefined,
       erkenBitirmeSuresi:
-        plannedMs != null ? Math.max(0, Math.round(plannedMs / 1000) - Math.round(elapsedMs / 1000)) : undefined,
+        wasEarlyFinish && denemeToplamPlanSaniye != null ? Math.max(0, denemeToplamPlanSaniye - sureGercekSaniye) : undefined,
       odakSkoru: lastSessionScore.totalScore,
+      molaSaniye: mode === 'ders60mola15' && molaToplamMs != null ? Math.round(molaToplamMs / 1000) : undefined,
+      denemeMolalarSaniye: mode === 'deneme' ? [...(denemeMolalarSaniye ?? [])] : undefined,
+      dogruSayisi: mode === 'deneme' ? denemeAnaliz?.dogru : undefined,
+      yanlisSayisi: mode === 'deneme' ? denemeAnaliz?.yanlis : undefined,
+      bosSayisi: mode === 'deneme' ? denemeAnaliz?.bos : undefined,
+      ruhHali: sessionRuhHali ?? undefined,
     }
     try {
       await addSession(session)
       showToast(`Seans kaydedildi! +${lastSessionScore.totalScore} puan 🎉`, 'success')
       setShowFinishScreen(false)
       setSessionNote('')
-      reset()
+
+      /*
+       * Asenkron geçiş: ders60mola15 modunda arka planda mola başlamışsa,
+       * reset yerine transitionToBreak çağrılır — mola kaldığı yerden devam eder.
+       */
+      const timerState = useTimerStore.getState()
+      if (mode === 'ders60mola15' && timerState.backgroundBreakStartTs != null) {
+        transitionToBreak()
+      } else {
+        reset()
+      }
     } catch (error) {
       console.error('Failed to save session:', error)
     }
@@ -373,20 +419,82 @@ function App() {
         onRuhHaliChange={setSessionRuhHali}
         denemeAnaliz={mode === 'deneme' ? denemeAnaliz : undefined}
         onDenemeAnalizChange={mode === 'deneme' ? setDenemeAnaliz : undefined}
+        totalPauseDurationMs={totalPauseDurationMs}
+        backgroundBreakStartTs={backgroundBreakStartTs}
+        backgroundBreakPlannedMs={backgroundBreakPlannedMs}
         onSave={saveSession}
         onCancel={() => {
           setShowFinishScreen(false)
           setSessionNote('')
           setSessionRuhHali(null)
           setDenemeAnaliz(null)
-          reset()
+
+          // Arka planda mola varsa break'e geç, yoksa reset
+          const timerState = useTimerStore.getState()
+          if (mode === 'ders60mola15' && timerState.backgroundBreakStartTs != null) {
+            transitionToBreak()
+          } else {
+            reset()
+          }
         }}
       />
     )
   }
 
+  if (isMiniPlayerMode) {
+    return (
+      <div className="mini-player-drag h-screen w-full bg-surface-900 text-text-primary">
+        <button
+          type="button"
+          data-no-drag="true"
+          onClick={() => toggleMiniPlayer(false)}
+          className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-text-primary/20 bg-surface-700/70 text-text-muted transition hover:border-accent-blue/60 hover:text-text-primary"
+          title="Genişlet"
+        >
+          ↗
+        </button>
+
+        <div className="flex h-screen w-full flex-col items-center justify-center gap-3 px-3">
+          <time className="font-mono text-4xl font-bold tabular-nums text-accent-blue">
+            {formatDuration(timeToDisplay)}
+          </time>
+
+          <div data-no-drag="true" className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={primaryAction}
+              className="rounded-full bg-accent-blue px-4 py-1.5 text-xs font-semibold text-surface-900 transition hover:shadow-lg hover:shadow-cyan-500/30"
+            >
+              {primaryLabel}
+            </button>
+
+            {mode === 'ders60mola15' && workBreakPhase === 'break' ? (
+              <button
+                type="button"
+                onClick={finishBreakEarly}
+                className="rounded-full border border-emerald-500/50 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
+              >
+                Molayı Bitir
+              </button>
+            ) : (
+              (status === 'running' || status === 'paused') && (
+                <button
+                  type="button"
+                  onClick={finishEarly}
+                  className="rounded-full border border-accent-amber/50 bg-accent-amber/15 px-3 py-1.5 text-xs font-semibold text-accent-amber transition hover:bg-accent-amber/25"
+                >
+                  Bitir
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-surface-900 text-text-primary">
+    <div className={`min-h-screen bg-surface-900 text-text-primary ${isMiniPlayerMode ? 'mini-player-drag' : ''}`}>
       <div className="mx-auto flex max-w-5xl flex-col gap-8 px-5 pb-16 pt-8 sm:px-8">
         {/* ════════  BÖLÜM 1 — HEADER  ════════ */}
         <DashboardHeader
@@ -419,6 +527,8 @@ function App() {
           primaryAction={primaryAction}
           onFinishEarly={finishEarly}
           onReset={reset}
+          isBreakMode={mode === 'ders60mola15' && workBreakPhase === 'break'}
+          onFinishBreak={finishBreakEarly}
         />
 
         {/* Mod seçici — Timer'ın hemen altında */}
@@ -452,7 +562,7 @@ function App() {
 
         {/* Masaüstü: normal grid */}
         <section className="hidden lg:grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <SessionHistory sessions={summary.lastSessions} />
+          <SessionHistory sessions={summary.lastSessions} syncStatusById={syncStatusById} />
           <CareerPanel
             toplamPuan={summary.toplamKariyerPuan}
             unvanEmoji={summary.unvan.profilEmoji}
@@ -481,7 +591,7 @@ function App() {
           }
         >
           <div className="space-y-5">
-            <SessionHistory sessions={summary.lastSessions} />
+            <SessionHistory sessions={summary.lastSessions} syncStatusById={syncStatusById} />
             <CareerPanel
               toplamPuan={summary.toplamKariyerPuan}
               unvanEmoji={summary.unvan.profilEmoji}

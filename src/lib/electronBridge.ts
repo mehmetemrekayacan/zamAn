@@ -8,7 +8,7 @@
 export interface ElectronAPI {
   sendTimerUpdate: (timeStr: string) => void
   toggleMiniPlayer: (enabled: boolean) => void
-  toggleAlwaysOnTop: (enabled: boolean) => void
+  toggleAlwaysOnTop: (isTop: boolean) => void
   onGlobalHotkey: (callback: (action: string) => void) => void
   onMiniPlayerChanged: (callback: (enabled: boolean) => void) => void
   isElectron: boolean
@@ -36,8 +36,8 @@ export function toggleMiniPlayer(enabled: boolean): void {
 }
 
 /** Always-on-top modunu aç/kapat */
-export function toggleAlwaysOnTop(enabled: boolean): void {
-  window.electronAPI?.toggleAlwaysOnTop(enabled)
+export function toggleAlwaysOnTop(isTop: boolean): void {
+  window.electronAPI?.toggleAlwaysOnTop(isTop)
 }
 
 /** Global hotkey dinle (başlat/duraklat, sıfırla vb.) */

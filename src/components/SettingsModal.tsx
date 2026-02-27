@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { clearAllSessions } from '../lib/db'
 import {
+  checkSupabaseHealth,
   getCurrentUser,
   getLastSyncTime,
   isCloudSyncEnabled,
@@ -11,10 +12,11 @@ import {
   signUp,
   syncCloud,
 } from '../lib/cloudSync'
-import { getQueueLength } from '../lib/offlineSync'
+import { processQueue } from '../lib/offlineSync'
 import { exportData, exportFileName, importFromFile } from '../lib/sync'
 import { useSettingsStore } from '../store/settings'
 import type { VurguRengi } from '../store/settings'
+import { useSessionsStore } from '../store/sessions'
 import { canInstallPwa, isPwaInstalled, promptInstallPwa } from '../lib/pwaInstall'
 import { isElectron, toggleAlwaysOnTop, toggleMiniPlayer } from '../lib/electronBridge'
 
@@ -44,27 +46,47 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [cloudPassword, setCloudPassword] = useState('')
   const [cloudIsim, setCloudIsim] = useState('')
   const [cloudLoading, setCloudLoading] = useState(false)
+  const [forceSyncLoading, setForceSyncLoading] = useState(false)
+  const [lastForceSyncAt, setLastForceSyncAt] = useState<string | null>(null)
   const [cloudError, setCloudError] = useState<string | null>(null)
   const [cloudPushPullMsg, setCloudPushPullMsg] = useState<string | null>(null)
-  const [pendingCount, setPendingCount] = useState(0)
   const [lastSync, setLastSync] = useState<string | null>(null)
+  const [healthMsg, setHealthMsg] = useState<string | null>(null)
+  const syncStatusById = useSessionsStore((s) => s.syncStatusById)
+  const refreshSyncStatuses = useSessionsStore((s) => s.refreshSyncStatuses)
+
+  const pendingCount = useMemo(
+    () => Object.values(syncStatusById).filter((status) => status === 'pending').length,
+    [syncStatusById],
+  )
+  const failedCount = useMemo(
+    () => Object.values(syncStatusById).filter((status) => status === 'failed').length,
+    [syncStatusById],
+  )
   const cloudEnabled = isCloudSyncEnabled()
 
   useEffect(() => {
     if (cloudEnabled) {
       void getCurrentUser().then(setCloudUser)
-      void getQueueLength().then(setPendingCount)
+      void refreshSyncStatuses()
       setLastSync(getLastSyncTime())
+      void checkSupabaseHealth().then((r) => setHealthMsg(r.ok ? null : `⚠️ ${r.message}`))
     }
-  }, [cloudEnabled])
+  }, [cloudEnabled, refreshSyncStatuses])
 
   const handleKayit = async () => {
     setCloudLoading(true)
     setCloudError(null)
+    setCloudPushPullMsg(null)
     const r = await signUp(cloudEmail, cloudPassword, cloudIsim)
     setCloudLoading(false)
     if (r.ok) {
-      setCloudUser(r.user)
+      if (r.message) {
+        // E-posta onayı gerekiyor — kullanıcıya bilgilendir
+        setCloudPushPullMsg(r.message)
+      } else {
+        setCloudUser(r.user)
+      }
       setCloudPassword('')
     } else setCloudError(r.error)
   }
@@ -97,8 +119,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setCloudLoading(false)
     if (r.ok) {
       setCloudPushPullMsg(`Buluta kaydedildi (${r.pushed} seans).`)
-      setPendingCount(0)
       setLastSync(new Date().toISOString())
+      await refreshSyncStatuses()
     } else setCloudError(r.error)
   }
 
@@ -111,8 +133,29 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     if (r.ok) {
       setCloudPushPullMsg(`Buluttan çekildi (${r.pulled} yeni, ${r.merged} güncellenen).`)
       setLastSync(new Date().toISOString())
+      await refreshSyncStatuses()
       window.location.reload()
     } else setCloudError(r.error)
+  }
+
+  const handleForceSync = async () => {
+    setForceSyncLoading(true)
+    setCloudError(null)
+    setCloudPushPullMsg(null)
+    try {
+      const result = await processQueue()
+      await refreshSyncStatuses()
+      setLastForceSyncAt(new Date().toISOString())
+      if (result.failed > 0) {
+        setCloudError(`Bazı kayıtlar eşitlenemedi (${result.failed} başarısız).`)
+      } else {
+        setCloudPushPullMsg(`Kuyruk işlendi: ${result.flushed} eşitlendi, ${result.scheduled} planlandı.`)
+      }
+    } catch (error) {
+      setCloudError((error as Error).message)
+    } finally {
+      setForceSyncLoading(false)
+    }
   }
 
   const handleTumVerileriTemizle = async () => {
@@ -413,8 +456,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       setCloudLoading(false)
                       if (r.ok) {
                         setCloudPushPullMsg(`Sync tamamlandı: ${r.pushed} gönderildi, ${r.pulled} yeni, ${r.merged} güncellendi.`)
-                        setPendingCount(0)
                         setLastSync(new Date().toISOString())
+                        await refreshSyncStatuses()
                       } else setCloudError(r.error)
                     }}
                     disabled={cloudLoading}
@@ -425,6 +468,44 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   {pendingCount > 0 && (
                     <p className="text-xs text-accent-amber">⏳ {pendingCount} bekleyen işlem kuyruktadır.</p>
                   )}
+                  <div className="rounded-lg border border-text-primary/10 bg-surface-700/40 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-text-primary">Veri Senkronizasyonu</h4>
+                      <span className="text-[11px] text-text-muted">Canlı durum</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-md border border-accent-amber/30 bg-accent-amber/10 px-2 py-1.5 text-accent-amber">
+                        Bekleyen: <strong>{pendingCount}</strong>
+                      </div>
+                      <div className="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-red-400">
+                        Hatalı: <strong>{failedCount}</strong>
+                      </div>
+                    </div>
+
+                    {failedCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={handleForceSync}
+                        disabled={forceSyncLoading || cloudLoading}
+                        className="w-full rounded-lg border border-accent-cyan/50 bg-accent-cyan/10 hover:bg-accent-cyan/20 px-3 py-2 text-sm font-medium text-accent-cyan transition disabled:opacity-50"
+                      >
+                        {forceSyncLoading ? '…' : 'Şimdi Eşitle (Force Sync)'}
+                      </button>
+                    ) : pendingCount === 0 ? (
+                      <p className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                        <span>✓</span>
+                        Tüm verileriniz bulutla eşitlendi.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-accent-amber">Bekleyen kayıtlar internet/işlem sırasına göre otomatik eşitlenecek.</p>
+                    )}
+
+                    {lastForceSyncAt && (
+                      <p className="text-[11px] text-text-muted">
+                        Son force sync: {new Date(lastForceSyncAt).toLocaleString('tr-TR')}
+                      </p>
+                    )}
+                  </div>
                   {lastSync && (
                     <p className="text-xs text-text-muted">Son sync: {new Date(lastSync).toLocaleString('tr-TR')}</p>
                   )}
@@ -462,6 +543,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-accent-blue/50 focus:outline-none"
                   />
                   {cloudError && <p className="text-xs text-red-400">{cloudError}</p>}
+                  {cloudPushPullMsg && <p className="text-xs text-accent-green whitespace-pre-line">{cloudPushPullMsg}</p>}
+                  {healthMsg && <p className="text-xs text-accent-amber">{healthMsg}</p>}
                   <div className="flex gap-2">
                     <button
                       type="button"
