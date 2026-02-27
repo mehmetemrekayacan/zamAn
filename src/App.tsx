@@ -507,12 +507,12 @@ function App() {
           onSettingsClick={() => setShowSettings(!showSettings)}
         />
 
-        <div className="flex items-center justify-center sm:justify-end">
-          <div className="inline-flex rounded-full border border-text-primary/10 bg-surface-700/50 p-1">
+        <div className="w-full md:flex md:justify-end">
+          <div className="grid w-full grid-cols-2 rounded-full border border-text-primary/10 bg-surface-700/50 p-1 md:inline-flex md:w-auto md:min-w-[260px]">
             <button
               type="button"
               onClick={() => setActiveView('timer')}
-              className={`rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+              className={`w-full rounded-full px-3 py-2 text-center text-xs font-semibold transition sm:text-sm ${
                 activeView === 'timer'
                   ? 'bg-accent-blue text-surface-900'
                   : 'text-text-muted hover:text-text-primary'
@@ -523,7 +523,7 @@ function App() {
             <button
               type="button"
               onClick={() => setActiveView('analytics')}
-              className={`rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+              className={`w-full rounded-full px-3 py-2 text-center text-xs font-semibold transition sm:text-sm ${
                 activeView === 'analytics'
                   ? 'bg-accent-blue text-surface-900'
                   : 'text-text-muted hover:text-text-primary'
