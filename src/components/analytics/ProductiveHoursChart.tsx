@@ -3,7 +3,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -48,8 +47,6 @@ export function ProductiveHoursChart() {
     }))
   }, [sessions])
 
-  const peakMinutes = useMemo(() => Math.max(0, ...data.map((item) => item.minutes)), [data])
-
   return (
     <div className="w-full rounded-2xl border border-white/10 bg-white/5 p-4">
       <div className="mb-4 flex items-center justify-between">
@@ -58,7 +55,7 @@ export function ProductiveHoursChart() {
       </div>
 
       <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minHeight={250}>
           <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
             <XAxis
@@ -84,12 +81,12 @@ export function ProductiveHoursChart() {
               formatter={(value: number | string | undefined) => [`${Number(value ?? 0)} dk`, 'Toplam çalışma']}
               labelFormatter={(label) => `Saat: ${label}`}
             />
-            <Bar dataKey="minutes" radius={[6, 6, 0, 0]}>
-              {data.map((entry) => {
-                const isPeak = peakMinutes > 0 && entry.minutes === peakMinutes
-                return <Cell key={entry.hour} fill={isPeak ? '#10b981' : '#059669'} />
-              })}
-            </Bar>
+            <Bar
+              dataKey="minutes"
+              radius={[6, 6, 0, 0]}
+              fill="#10b981"
+              isAnimationActive={false}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>

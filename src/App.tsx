@@ -355,7 +355,7 @@ function App() {
     const avgScoreMonth =
       monthSessions.length > 0 ? Math.round(monthSessions.reduce((acc, s) => acc + (s.puan || 0), 0) / monthSessions.length) : 0
 
-    const lastSessions = sessions.slice(0, 5)
+    const lastSessions = sessions.slice(0, 10)
     const toplamKariyerPuan = sessions.reduce((acc, s) => acc + (s.puan || 0), 0)
     const unvan = getUnvan(toplamKariyerPuan)
     const monthSeconds = monthSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)

@@ -25,6 +25,8 @@ export const SessionHistory = memo(function SessionHistory({
   sessions,
   syncStatusById,
 }: SessionHistoryProps) {
+  const visibleSessions = sessions.slice(0, 10)
+
   /* Yeni eklenen öğeyi tespit et ve animasyon uygula */
   const prevCountRef = useRef(sessions.length)
   const [newItemId, setNewItemId] = useState<string | null>(null)
@@ -56,8 +58,8 @@ export const SessionHistory = memo(function SessionHistory({
       </div>
 
       <div className="space-y-2">
-        {sessions.length > 0 ? (
-          sessions.map((session, index) => (
+        {visibleSessions.length > 0 ? (
+          visibleSessions.map((session, index) => (
             <div
               key={session.id}
               className={`flex items-center gap-3 rounded-card-sm border border-[var(--card-border)]
