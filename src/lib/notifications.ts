@@ -222,6 +222,36 @@ function prepareAudioContext(): void {
 }
 
 /**
+ * Audio Unlock — Tarayıcı Autoplay politikasını aşmak için kullanıcı
+ * etkileşimi (gesture) anında çağrılmalıdır (Başlat / Devam butonları).
+ *
+ * Shared AudioContext'i oluşturur/resume eder ve sessiz bir buffer çalarak
+ * tarayıcıdan ses çalma iznini garanti altına alır. Böylece arka planda
+ * seans bittiğinde playSuccessSound() gerçekten ses üretebilir.
+ */
+export function unlockAudio(): void {
+  if (typeof window === 'undefined') return
+  try {
+    prepareAudioContext()
+    if (!sharedAudioContext) return
+
+    // Context suspended ise resume et (kullanıcı gesture'ı altında)
+    if (sharedAudioContext.state === 'suspended') {
+      void sharedAudioContext.resume()
+    }
+
+    // Sessiz buffer çal — tarayıcıya "bu context aktif" sinyali ver
+    const buffer = sharedAudioContext.createBuffer(1, 1, sharedAudioContext.sampleRate)
+    const source = sharedAudioContext.createBufferSource()
+    source.buffer = buffer
+    source.connect(sharedAudioContext.destination)
+    source.start(0)
+  } catch (err) {
+    console.warn('[unlockAudio] Audio unlock failed:', err)
+  }
+}
+
+/**
  * Trigger all notification methods
  * Arka plandaysa: bildirim + başlık yanıp sönme; ses geri dönünce çalar
  */

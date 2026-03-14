@@ -8,7 +8,7 @@ import { getRozetler } from './lib/rozetler'
 import { initDb } from './lib/db'
 import { initOfflineSync, processQueue } from './lib/offlineSync'
 import { formatDuration, formatMinutesHuman } from './lib/time'
-import { stopTitleFlash } from './lib/notifications'
+import { stopTitleFlash, unlockAudio } from './lib/notifications'
 import { isElectron, onGlobalHotkey, onMiniPlayerChanged, sendTimerUpdate, toggleMiniPlayer } from './lib/electronBridge'
 import { DashboardHeader } from './components/DashboardHeader'
 import { TimerHero } from './components/TimerHero'
@@ -220,6 +220,17 @@ function App() {
     })
   }, [])
 
+  /* ── Visibility API Fallback: sekmeye dönünce timer senkronize et ── */
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        useTimerStore.getState().syncTimer()
+      }
+    }
+    document.addEventListener('visibilitychange', handler)
+    return () => document.removeEventListener('visibilitychange', handler)
+  }, [])
+
   useEffect(() => {
     if (status === 'finished' && !showFinishScreen) {
       const sessionsState = useSessionsStore.getState()
@@ -249,6 +260,10 @@ function App() {
 
   const primaryLabel = status === 'running' ? 'Duraklat' : status === 'paused' ? 'Devam' : 'Başlat'
   const primaryAction = useCallback(() => {
+    // Kullanıcı gesture'ı altında AudioContext'i unlock et (autoplay politikası)
+    if (status !== 'running') {
+      unlockAudio()
+    }
     if (mode === 'deneme' && status === 'paused' && denemeBreakStartTs != null) return advanceFromDenemeBreak()
     if (status === 'running') return pause()
     if (status === 'paused') return resume()

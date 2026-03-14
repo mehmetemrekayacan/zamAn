@@ -43,10 +43,14 @@ export type TimerSnapshot = {
   /* ── Wall-Clock vs Net-Time tracking ── */
   /** Birikmiş duraklatma süresi (ms). Net çalışma zamanına eklenmez, sadece final raporda kullanılır. */
   totalPauseDurationMs: number
-  /** ders60mola15: iş bitince arka planda başlayan mola zamanlayıcısının başlangıç zamanı (performance.now()) */
+  /** ders60mola15: iş bitince arka planda başlayan mola zamanlayıcısının başlangıç zamanı (Date.now()) */
   backgroundBreakStartTs?: number | null
   /** ders60mola15: arka plan molasının planlanan süresi (ms) */
   backgroundBreakPlannedMs?: number
+  /** Mutlak bitiş zamanı (Date.now epoch ms). Arka planda gecikme olsa bile doğru kalan süre hesaplar. */
+  expectedEndTime?: number
+  /** Serbest mod gibi sınırsız modlar için duvar saati başlangıcı (Date.now epoch ms). */
+  startWallTime?: number
 }
 
 /** Seans başında isteğe bağlı ruh hali */

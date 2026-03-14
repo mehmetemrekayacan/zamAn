@@ -80,122 +80,158 @@ function deriveDers6015PhaseAndPlan(
   }
 }
 
-let rafId: number | null = null
+/* ═══════════════════════════════════════
+   Web Worker Entegrasyonu
+   ═══════════════════════════════════════ */
 
-const stopRaf = () => {
-  if (rafId != null) {
-    cancelAnimationFrame(rafId)
-    rafId = null
+let worker: Worker | null = null
+
+/**
+ * Worker'ı lazy olarak başlatır. Vite, `new URL(...)` ile
+ * modülü ayrı bundle edip doğru yolu üretir.
+ * Node.js test ortamında Worker yoktur — no-op olarak çalışır.
+ */
+function getWorker(): Worker | null {
+  if (typeof Worker === 'undefined') return null
+  if (!worker) {
+    worker = new Worker(new URL('../lib/timerWorker.ts', import.meta.url), { type: 'module' })
+  }
+  return worker
+}
+
+function startWorker(onTick: () => void): void {
+  const w = getWorker()
+  if (!w) return // Node.js test ortamı — Worker yok
+  w.onmessage = (e: MessageEvent) => {
+    if (e.data === 'tick') {
+      onTick()
+    }
+  }
+  w.postMessage('start')
+}
+
+function stopWorker(): void {
+  if (worker) {
+    worker.postMessage('stop')
+    worker.onmessage = null
   }
 }
+
+/* ═══════════════════════════════════════
+   Tick / Zaman Hesaplama (Absolute Time)
+   ═══════════════════════════════════════ */
 
 type GetState = () => TimerSnapshot & { modeConfig: ModeConfig }
 type SetState = (partial: Partial<TimerSnapshot & { modeConfig: ModeConfig }>) => void
 
-function createTick(get: GetState, set: SetState): () => void {
-  return function tick() {
-    const state = get()
-    if (state.status !== 'running' || state.lastTickTs == null) return
-    const now = performance.now()
-    const delta = now - state.lastTickTs
-    const elapsed = state.elapsedMs + delta
-    const remaining = state.plannedMs != null ? Math.max(0, state.plannedMs - elapsed) : undefined
-    const finished = state.plannedMs != null && remaining === 0
+function processTick(get: GetState, set: SetState): void {
+  const state = get()
+  if (state.status !== 'running') return
 
-    if (finished && state.mode === 'deneme' && state.modeConfig.mode === 'deneme') {
-      const nextIdx = (state.currentSectionIndex ?? 0) + 1
-      if (state.modeConfig.bolumler[nextIdx]) {
-        set({
-          status: 'paused',
-          running: false,
-          elapsedMs: state.plannedMs ?? elapsed,
-          remainingMs: 0,
-          lastTickTs: null,
-          denemeBreakStartTs: now,
-        })
-        stopRaf()
-        return
-      }
-    }
+  const now = Date.now()
 
-    if (finished && state.mode === 'ders60mola15' && state.modeConfig.mode === 'ders60mola15') {
-      const phase = state.workBreakPhase ?? 'work'
-      const isWork = phase === 'work'
-      const currentMola = state.molaToplamMs ?? 0
-      const nextDersCycle = isWork ? (state.dersCycle ?? 0) + 1 : (state.dersCycle ?? 0)
-      const bugun = getLocalDateString()
-      const molaMs = getPlannedMs(state.modeConfig, 'break', state.currentSectionIndex ?? 0) ?? MOLA_MS
+  // --- Mutlak zaman hesaplaması ---
+  let elapsed: number
+  let remaining: number | undefined
 
-      if (isWork) {
-        /*
-         * Asenkron Oturum Geçişi (Work → Break):
-         *
-         * Action A (Foreground): status='finished' → FinishScreen/Kayıt ekranı gösterilir
-         * Action B (Background): backgroundBreakStartTs kaydedilir → 15dk mola
-         *   arka planda saymaya başlar. Kullanıcı kayıt ekranındayken
-         *   mola süresi de ilerler.
-         *
-         * elapsedMs: hedef çalışma süresi (net work time, pause dahil değil)
-         */
-        const netWorkMs = state.modeConfig.calismaMs ?? DERS_MS
-        set({
-          status: 'finished',
-          running: false,
-          elapsedMs: netWorkMs,
-          remainingMs: 0,
-          lastTickTs: null,
-          wasEarlyFinish: false,
-          workBreakPhase: 'work',
-          dersCycle: nextDersCycle,
-          dersCycleDate: bugun,
-          molaToplamMs: currentMola,
-          backgroundBreakStartTs: now,
-          backgroundBreakPlannedMs: molaMs,
-        })
-        stopRaf()
-        return
-      }
+  if (state.plannedMs != null && state.expectedEndTime != null) {
+    // Geri sayımlı modlar (gerisayim, ders60mola15, deneme)
+    remaining = Math.max(0, state.expectedEndTime - now)
+    elapsed = state.plannedMs - remaining
+  } else {
+    // Serbest mod — sınırsız
+    elapsed = state.startWallTime != null ? now - state.startWallTime : state.elapsedMs
+    remaining = undefined
+  }
 
-      /*
-       * Mola bitti → Sonraki tura hazırlan (FinishScreen YOK).
-       * Mola süresi "çalışma" metriklerine eklenmez — ayrı bir state.
-       */
+  const finished = state.plannedMs != null && remaining === 0
+
+  // --- Deneme mod geçişi ---
+  if (finished && state.mode === 'deneme' && state.modeConfig.mode === 'deneme') {
+    const nextIdx = (state.currentSectionIndex ?? 0) + 1
+    if (state.modeConfig.bolumler[nextIdx]) {
       set({
-        status: 'idle',
+        status: 'paused',
         running: false,
-        elapsedMs: 0,
-        plannedMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
-        remainingMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
+        elapsedMs: state.plannedMs ?? elapsed,
+        remainingMs: 0,
         lastTickTs: null,
+        expectedEndTime: undefined,
+        denemeBreakStartTs: Date.now(),
+      })
+      stopWorker()
+      return
+    }
+  }
+
+  // --- Ders60Mola15 mod geçişi ---
+  if (finished && state.mode === 'ders60mola15' && state.modeConfig.mode === 'ders60mola15') {
+    const phase = state.workBreakPhase ?? 'work'
+    const isWork = phase === 'work'
+    const currentMola = state.molaToplamMs ?? 0
+    const nextDersCycle = isWork ? (state.dersCycle ?? 0) + 1 : (state.dersCycle ?? 0)
+    const bugun = getLocalDateString()
+    const molaMs = getPlannedMs(state.modeConfig, 'break', state.currentSectionIndex ?? 0) ?? MOLA_MS
+
+    if (isWork) {
+      const netWorkMs = state.modeConfig.calismaMs ?? DERS_MS
+      set({
+        status: 'finished',
+        running: false,
+        elapsedMs: netWorkMs,
+        remainingMs: 0,
+        lastTickTs: null,
+        expectedEndTime: undefined,
+        startWallTime: undefined,
+        wasEarlyFinish: false,
         workBreakPhase: 'work',
         dersCycle: nextDersCycle,
         dersCycleDate: bugun,
-        molaToplamMs: currentMola + elapsed,
-        totalPauseDurationMs: 0,
-        pauses: 0,
-        pauseStartTs: null,
-        wasEarlyFinish: undefined,
-        backgroundBreakStartTs: null,
-        backgroundBreakPlannedMs: undefined,
+        molaToplamMs: currentMola,
+        backgroundBreakStartTs: Date.now(),
+        backgroundBreakPlannedMs: molaMs,
       })
-      stopRaf()
+      stopWorker()
       return
     }
 
+    // Mola bitti → Sonraki tura hazırlan
     set({
-      elapsedMs: elapsed,
-      remainingMs: remaining,
-      lastTickTs: now,
-      status: finished ? ('finished' as TimerStatus) : state.status,
-      running: !finished,
-      ...(finished ? { wasEarlyFinish: false } : {}),
+      status: 'idle',
+      running: false,
+      elapsedMs: 0,
+      plannedMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
+      remainingMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
+      lastTickTs: null,
+      expectedEndTime: undefined,
+      startWallTime: undefined,
+      workBreakPhase: 'work',
+      dersCycle: nextDersCycle,
+      dersCycleDate: bugun,
+      molaToplamMs: currentMola + elapsed,
+      totalPauseDurationMs: 0,
+      pauses: 0,
+      pauseStartTs: null,
+      wasEarlyFinish: undefined,
+      backgroundBreakStartTs: null,
+      backgroundBreakPlannedMs: undefined,
     })
+    stopWorker()
+    return
+  }
 
-    if (!finished) {
-      rafId = requestAnimationFrame(tick)
-    } else {
-      stopRaf()
-    }
+  // --- Genel güncelleme ---
+  set({
+    elapsedMs: elapsed,
+    remainingMs: remaining,
+    lastTickTs: now,
+    status: finished ? ('finished' as TimerStatus) : state.status,
+    running: !finished,
+    ...(finished ? { wasEarlyFinish: false, expectedEndTime: undefined, startWallTime: undefined } : {}),
+  })
+
+  if (finished) {
+    stopWorker()
   }
 }
 
@@ -212,8 +248,10 @@ export type TimerState = TimerSnapshot & {
   /** Herhangi bir vakitte erken bitir; o ana kadar geçen süreyi kaydetmek için status'u finished yapar */
   finishEarly: () => void
   getRemainingMs: () => number | undefined
-  /** Sekme tekrar görünür olduğunda çağrılır; tüm modlarda (gerisayim, 60/15, deneme, serbest) arkadayken kaçan tick'leri yakalar */
+  /** Sekme tekrar görünür olduğunda çağrılır; mutlak zaman üzerinden UI'ı anında günceller */
   syncOnVisibilityChange: () => void
+  /** Alias: syncOnVisibilityChange ile aynı, visibility API fallback için */
+  syncTimer: () => void
   /** ders60mola15: FinishScreen kapatıldıktan sonra arka plandaki molaya geçiş yapar */
   transitionToBreak: () => void
   /** ders60mola15: Mola sırasında erken bitirip sonraki tura geçer */
@@ -244,9 +282,11 @@ export const useTimerStore = create<TimerState>()(
       totalPauseDurationMs: 0,
       backgroundBreakStartTs: null,
       backgroundBreakPlannedMs: undefined,
+      expectedEndTime: undefined,
+      startWallTime: undefined,
 
       setModeConfig: (config) => {
-        stopRaf()
+        stopWorker()
         const state = get()
         const bugun = getLocalDateString()
         const denemeRawIdx = config.mode === 'deneme' ? config.currentSectionIndex ?? 0 : 0
@@ -324,6 +364,8 @@ export const useTimerStore = create<TimerState>()(
           running: false,
           pauses: elapsedMs > 0 ? restoredPauses : 0,
           lastTickTs: null,
+          expectedEndTime: undefined,
+          startWallTime: undefined,
           currentSectionIndex,
           denemeBreakStartTs: null,
         }
@@ -339,12 +381,12 @@ export const useTimerStore = create<TimerState>()(
       advanceFromDenemeBreak: () => {
         const state = get()
         if (state.modeConfig.mode !== 'deneme' || state.denemeBreakStartTs == null) return
-        const breakSeconds = Math.round((performance.now() - state.denemeBreakStartTs) / 1000)
+        const breakSeconds = Math.round((Date.now() - state.denemeBreakStartTs) / 1000)
         const molalar = [...(state.denemeMolalarSaniye ?? []), breakSeconds]
         const nextIdx = (state.currentSectionIndex ?? 0) + 1
         const plannedNext = getPlannedMs(state.modeConfig, 'work', nextIdx)
         const updatedConfig = { ...state.modeConfig, currentSectionIndex: nextIdx }
-        const now = performance.now()
+        const now = Date.now()
         set({
           modeConfig: updatedConfig,
           currentSectionIndex: nextIdx,
@@ -354,11 +396,12 @@ export const useTimerStore = create<TimerState>()(
           plannedMs: plannedNext,
           remainingMs: plannedNext,
           lastTickTs: now,
+          expectedEndTime: plannedNext != null ? now + plannedNext : undefined,
+          startWallTime: now,
           status: 'running',
           running: true,
         })
-        const tick = createTick(get as GetState, set)
-        rafId = requestAnimationFrame(tick)
+        startWorker(() => processTick(get as GetState, set))
       },
 
       start: (config) => {
@@ -372,8 +415,8 @@ export const useTimerStore = create<TimerState>()(
           dersCycleDate: state.dersCycleDate,
           currentSectionIndex: sectionIdx,
         }, bugun)
-        stopRaf()
-        const startTs = performance.now()
+        stopWorker()
+        const now = Date.now()
 
         let workBreakPhase: WorkBreakPhase | undefined = cfg.mode === 'ders60mola15' ? derivedPhase : undefined
         let dersCycle: number | undefined = cfg.mode === 'ders60mola15' ? 0 : undefined
@@ -398,7 +441,9 @@ export const useTimerStore = create<TimerState>()(
           status: 'running',
           running: true,
           pauses: 0,
-          lastTickTs: startTs,
+          lastTickTs: now,
+          expectedEndTime: plannedMs != null ? now + plannedMs : undefined,
+          startWallTime: now,
           currentSectionIndex: cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : undefined,
           workBreakPhase,
           dersCycle,
@@ -411,8 +456,7 @@ export const useTimerStore = create<TimerState>()(
           backgroundBreakPlannedMs: undefined,
         })
 
-        const tick = createTick(get as GetState, set)
-        rafId = requestAnimationFrame(tick)
+        startWorker(() => processTick(get as GetState, set))
       },
 
       pause: () => {
@@ -420,51 +464,59 @@ export const useTimerStore = create<TimerState>()(
         if (state.status !== 'running') return
         // Hard Limit: Mola sırasında DURAKLAT butonu devre dışı
         if (state.mode === 'ders60mola15' && state.workBreakPhase === 'break') return
-        stopRaf()
-        const now = performance.now()
-        const delta = state.lastTickTs ? now - state.lastTickTs : 0
+        stopWorker()
+        const now = Date.now()
+
+        // Mutlak zamandan kalan süreyi hesapla
+        let elapsed: number
+        let remaining: number | undefined
+
+        if (state.plannedMs != null && state.expectedEndTime != null) {
+          remaining = Math.max(0, state.expectedEndTime - now)
+          elapsed = state.plannedMs - remaining
+        } else {
+          elapsed = state.startWallTime != null ? now - state.startWallTime : state.elapsedMs
+          remaining = undefined
+        }
+
         set({
           status: 'paused',
           running: false,
-          elapsedMs: state.elapsedMs + delta,
+          elapsedMs: elapsed,
+          remainingMs: remaining,
           lastTickTs: null,
+          expectedEndTime: undefined, // Pause'da iptal, resume'da yeniden hesap
           pauses: state.pauses + 1,
           pauseStartTs: now,
-          remainingMs: state.plannedMs != null ? Math.max(0, (state.plannedMs - state.elapsedMs - delta)) : undefined,
         })
       },
 
       resume: () => {
         const state = get()
         if (state.status !== 'paused') return
-        const resumeTs = performance.now()
-        const pauseStartTs = state.pauseStartTs ?? resumeTs
-        const pauseDurationMs = resumeTs - pauseStartTs
-
-        /*
-         * BUG FIX: Önceki kod plannedMs/remainingMs'i pause süresi kadar uzatıyordu.
-         * Bu, kullanıcının fazladan çalışma yapmasına neden oluyordu.
-         *
-         * Wall-Clock vs Net-Time mantığı:
-         * - elapsedMs: sadece NET çalışma süresi (pause sırasında donmuş kalır)
-         * - remainingMs = plannedMs - elapsedMs → countdown doğru kalır
-         * - totalPauseDurationMs: birikmiş tüm duraklama süreleri (final rapor için)
-         *
-         * Örnek: 45dk çalış → 15dk duraklat → 15dk çalış
-         *   Net çalışma = 60dk, Toplam süre = 75dk, Duraklama = 15dk
-         */
+        const now = Date.now()
+        const pauseStartTs = state.pauseStartTs ?? now
+        const pauseDurationMs = now - pauseStartTs
         const newTotalPause = (state.totalPauseDurationMs ?? 0) + pauseDurationMs
+
+        // Kalan süreyi (pause sırasında kaydedilmiş) kullanarak yeni expectedEndTime hesapla
+        const newExpectedEndTime = state.remainingMs != null ? now + state.remainingMs : undefined
+        // Serbest mod: startWallTime'ı pause süresi kadar ileri al
+        const newStartWallTime = state.startWallTime != null
+          ? state.startWallTime + pauseDurationMs
+          : now
 
         set({
           status: 'running',
           running: true,
-          lastTickTs: resumeTs,
+          lastTickTs: now,
           pauseStartTs: null,
           totalPauseDurationMs: newTotalPause,
+          expectedEndTime: newExpectedEndTime,
+          startWallTime: newStartWallTime,
         })
 
-        const tick = createTick(get as GetState, set)
-        rafId = requestAnimationFrame(tick)
+        startWorker(() => processTick(get as GetState, set))
       },
 
       reset: () => {
@@ -473,10 +525,10 @@ export const useTimerStore = create<TimerState>()(
         const sectionIdx = cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : 0
         const plannedMs = getPlannedMs(cfg, 'work', sectionIdx)
         const bugun = getLocalDateString()
-        stopRaf()
+        stopWorker()
 
         const isDers60Mola15 = cfg.mode === 'ders60mola15'
-        /** Reset: ders60mola15 modunda aynı gündeki dersCycle'\u0131 koru, gün değişmişse sıfırla */
+        /** Reset: ders60mola15 modunda aynı gündeki dersCycle'ı koru, gün değişmişse sıfırla */
         const preservedDersCycle = isDers60Mola15 && state.dersCycleDate === bugun
           ? (state.dersCycle ?? 0) : 0
         set({
@@ -487,6 +539,8 @@ export const useTimerStore = create<TimerState>()(
           remainingMs: plannedMs,
           pauses: 0,
           lastTickTs: null,
+          expectedEndTime: undefined,
+          startWallTime: undefined,
           currentSectionIndex: cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : undefined,
           workBreakPhase: isDers60Mola15 ? 'work' : undefined,
           dersCycle: isDers60Mola15 ? preservedDersCycle : undefined,
@@ -508,7 +562,7 @@ export const useTimerStore = create<TimerState>()(
         const clamped = Math.max(0, Math.min(index, state.modeConfig.bolumler.length - 1))
         const updatedConfig = { ...state.modeConfig, currentSectionIndex: clamped }
         const plannedMs = getPlannedMs(updatedConfig)
-        stopRaf()
+        stopWorker()
         set({
           modeConfig: updatedConfig,
           mode: 'deneme',
@@ -519,6 +573,8 @@ export const useTimerStore = create<TimerState>()(
           plannedMs,
           remainingMs: plannedMs,
           lastTickTs: null,
+          expectedEndTime: undefined,
+          startWallTime: undefined,
           pauses: 0,
           denemeBreakStartTs: null,
         })
@@ -527,10 +583,22 @@ export const useTimerStore = create<TimerState>()(
       finishEarly: () => {
         const state = get()
         if (state.status !== 'running' && state.status !== 'paused') return
-        stopRaf()
-        const now = performance.now()
-        const delta = state.lastTickTs ? now - state.lastTickTs : 0
-        let finalElapsed = state.elapsedMs + (state.status === 'running' ? delta : 0)
+        stopWorker()
+        const now = Date.now()
+
+        // Mutlak zamandan geçen süreyi hesapla
+        let finalElapsed: number
+        if (state.status === 'running') {
+          if (state.plannedMs != null && state.expectedEndTime != null) {
+            const remaining = Math.max(0, state.expectedEndTime - now)
+            finalElapsed = state.plannedMs - remaining
+          } else {
+            finalElapsed = state.startWallTime != null ? now - state.startWallTime : state.elapsedMs
+          }
+        } else {
+          // Paused — elapsedMs zaten pause sırasında hesaplanmış
+          finalElapsed = state.elapsedMs
+        }
 
         // Eğer paused durumdaysa, son pause süresini de totalPauseDurationMs'e ekle
         let totalPause = state.totalPauseDurationMs ?? 0
@@ -540,7 +608,7 @@ export const useTimerStore = create<TimerState>()(
 
         if (state.mode === 'ders60mola15' && state.modeConfig.mode === 'ders60mola15') {
           if (state.workBreakPhase === 'break') {
-            // Mola fazında erken bitir → sonraki tura geç (finishBreakEarly ile aynı)
+            // Mola fazında erken bitir → sonraki tura geç
             const bugun = getLocalDateString()
             set({
               status: 'idle',
@@ -549,6 +617,8 @@ export const useTimerStore = create<TimerState>()(
               plannedMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
               remainingMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
               lastTickTs: null,
+              expectedEndTime: undefined,
+              startWallTime: undefined,
               workBreakPhase: 'work',
               totalPauseDurationMs: 0,
               pauses: 0,
@@ -561,8 +631,6 @@ export const useTimerStore = create<TimerState>()(
             })
             return
           }
-          // Çalışma fazında erken bitir: sadece kısmi çalışma süresi
-          // Arka plan molası BAŞLAMAZ (erken bitirildi, doğal tamamlama değil)
         }
 
         set({
@@ -571,6 +639,8 @@ export const useTimerStore = create<TimerState>()(
           elapsedMs: finalElapsed,
           remainingMs: 0,
           lastTickTs: null,
+          expectedEndTime: undefined,
+          startWallTime: undefined,
           wasEarlyFinish: true,
           totalPauseDurationMs: totalPause,
         })
@@ -580,16 +650,12 @@ export const useTimerStore = create<TimerState>()(
 
       /**
        * ders60mola15: FinishScreen kapatıldıktan sonra arka plandaki molaya geçiş.
-       *
-       * Arka plandaki mola (backgroundBreakStartTs) sürerken kullanıcı kayıt ekranını
-       * kapattığında çağrılır. Kalan mola süresini hesaplayıp gerçek break countdown başlatır.
-       * Eğer mola zaten bitmiş ise direkt sonraki tura (idle/work) geçer.
        */
       transitionToBreak: () => {
         const state = get()
         if (state.backgroundBreakStartTs == null || state.backgroundBreakPlannedMs == null) return
 
-        const now = performance.now()
+        const now = Date.now()
         const breakElapsed = now - state.backgroundBreakStartTs
         const breakRemaining = Math.max(0, state.backgroundBreakPlannedMs - breakElapsed)
         const bugun = getLocalDateString()
@@ -609,6 +675,8 @@ export const useTimerStore = create<TimerState>()(
             plannedMs: nextWorkPlannedMs,
             remainingMs: nextWorkPlannedMs,
             lastTickTs: null,
+            expectedEndTime: undefined,
+            startWallTime: undefined,
             workBreakPhase: 'work',
             backgroundBreakStartTs: null,
             backgroundBreakPlannedMs: undefined,
@@ -622,7 +690,8 @@ export const useTimerStore = create<TimerState>()(
         }
 
         // Mola hâlâ devam ediyor — kalan süreyle break countdown başlat
-        stopRaf()
+        stopWorker()
+        const expectedEnd = now + breakRemaining
         set({
           workBreakPhase: 'break',
           status: 'running',
@@ -631,6 +700,8 @@ export const useTimerStore = create<TimerState>()(
           plannedMs: state.backgroundBreakPlannedMs,
           remainingMs: breakRemaining,
           lastTickTs: now,
+          expectedEndTime: expectedEnd,
+          startWallTime: undefined,
           backgroundBreakStartTs: null,
           backgroundBreakPlannedMs: undefined,
           totalPauseDurationMs: 0,
@@ -638,21 +709,18 @@ export const useTimerStore = create<TimerState>()(
           pauses: 0,
         })
 
-        const tick = createTick(get as GetState, set)
-        rafId = requestAnimationFrame(tick)
+        startWorker(() => processTick(get as GetState, set))
       },
 
       /**
        * ders60mola15: Mola sırasında "Molayı Bitir / Sonraki Tur" butonu.
-       * Break state'i keser ve sonraki çalışma turunu idle olarak hazırlar.
-       * Mola süresi çalışma metriklerine DAHİL EDİLMEZ.
        */
       finishBreakEarly: () => {
         const state = get()
         if (state.mode !== 'ders60mola15') return
         if (state.workBreakPhase !== 'break' && state.backgroundBreakStartTs == null) return
 
-        stopRaf()
+        stopWorker()
         const bugun = getLocalDateString()
         const { plannedMs: nextWorkPlannedMs } = deriveDers6015PhaseAndPlan(
           state.modeConfig,
@@ -660,10 +728,10 @@ export const useTimerStore = create<TimerState>()(
           bugun,
           'work',
         )
-        const currentElapsed = state.elapsedMs ?? 0
+        const now = Date.now()
         const rawBreak = state.backgroundBreakStartTs != null
-          ? performance.now() - state.backgroundBreakStartTs
-          : currentElapsed
+          ? now - state.backgroundBreakStartTs
+          : state.elapsedMs ?? 0
         const plannedBreak = state.backgroundBreakPlannedMs
           ?? (state.modeConfig.mode === 'ders60mola15' ? state.modeConfig.molaMs : MOLA_MS)
         const breakMola = Math.max(0, Math.min(rawBreak, plannedBreak))
@@ -675,6 +743,8 @@ export const useTimerStore = create<TimerState>()(
           plannedMs: nextWorkPlannedMs,
           remainingMs: nextWorkPlannedMs,
           lastTickTs: null,
+          expectedEndTime: undefined,
+          startWallTime: undefined,
           workBreakPhase: 'work',
           totalPauseDurationMs: 0,
           pauses: 0,
@@ -687,12 +757,22 @@ export const useTimerStore = create<TimerState>()(
         })
       },
 
+      /**
+       * Sekme tekrar görünür olduğunda çağrılır.
+       * Mutlak zaman kullanıldığı için sadece bir tick tetiklemek yeterli —
+       * remaining zaten Date.now() üzerinden hesaplanır.
+       */
       syncOnVisibilityChange: () => {
         const state = get()
-        if (state.status !== 'running' || state.lastTickTs == null) return
-        stopRaf()
-        const tick = createTick(get as GetState, set)
-        tick()
+        if (state.status !== 'running') return
+        processTick(get as GetState, set)
+      },
+
+      /** Alias: syncOnVisibilityChange ile aynı, visibility API fallback için */
+      syncTimer: () => {
+        const state = get()
+        if (state.status !== 'running') return
+        processTick(get as GetState, set)
       },
     }),
     {

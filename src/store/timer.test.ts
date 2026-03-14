@@ -1,15 +1,20 @@
 /**
  * Timer store birim testleri: start/pause/reset, sekme görünür olunca senkron (tüm modlar)
+ *
+ * Web Worker refactor sonrası: performance.now() yerine Date.now() kullanılır.
+ * Worker doğrudan test edilmez — store fonksiyonları syncOnVisibilityChange/syncTimer
+ * üzerinden dolaylı olarak test edilir.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useTimerStore, MODE_DEFAULTS } from './timer'
+import { getLocalDateString } from '../lib/time'
 
 const DERS_MS = 60 * 60 * 1000
 const MOLA_MS = 15 * 60 * 1000
 
 describe('timer store', () => {
   beforeEach(() => {
-    vi.spyOn(performance, 'now').mockReturnValue(0)
+    vi.spyOn(Date, 'now').mockReturnValue(0)
     useTimerStore.getState().reset()
   })
 
@@ -49,7 +54,7 @@ describe('timer store', () => {
       expect(useTimerStore.getState().status).toBe('running')
       expect(useTimerStore.getState().remainingMs).toBe(sureMs)
 
-      vi.mocked(performance.now).mockReturnValue(sureMs + 100)
+      vi.mocked(Date.now).mockReturnValue(sureMs + 100)
       useTimerStore.getState().syncOnVisibilityChange()
       expect(useTimerStore.getState().status).toBe('finished')
       expect(useTimerStore.getState().remainingMs).toBe(0)
@@ -70,7 +75,7 @@ describe('timer store', () => {
       expect(useTimerStore.getState().plannedMs).toBe(DERS_MS)
 
       // Çalışma süresi doluyor
-      vi.mocked(performance.now).mockReturnValue(DERS_MS)
+      vi.mocked(Date.now).mockReturnValue(DERS_MS)
       useTimerStore.getState().syncOnVisibilityChange()
 
       // Action A: status='finished' → FinishScreen gösterilir
@@ -90,12 +95,12 @@ describe('timer store', () => {
       useTimerStore.getState().start()
 
       // Ders bitiyor
-      vi.mocked(performance.now).mockReturnValue(DERS_MS)
+      vi.mocked(Date.now).mockReturnValue(DERS_MS)
       useTimerStore.getState().syncOnVisibilityChange()
 
       // Kullanıcı 2 dakika kayıt ekranında kaldı
       const saveScreenTime = 2 * 60 * 1000
-      vi.mocked(performance.now).mockReturnValue(DERS_MS + saveScreenTime)
+      vi.mocked(Date.now).mockReturnValue(DERS_MS + saveScreenTime)
       useTimerStore.getState().transitionToBreak()
 
       expect(useTimerStore.getState().workBreakPhase).toBe('break')
@@ -113,10 +118,10 @@ describe('timer store', () => {
       })
       useTimerStore.getState().start()
 
-      vi.mocked(performance.now).mockReturnValue(DERS_MS)
+      vi.mocked(Date.now).mockReturnValue(DERS_MS)
       useTimerStore.getState().syncOnVisibilityChange()
 
-      vi.mocked(performance.now).mockReturnValue(DERS_MS + 1000)
+      vi.mocked(Date.now).mockReturnValue(DERS_MS + 1000)
       useTimerStore.getState().transitionToBreak()
 
       // Break running — pause çağrılsa da status değişmemeli
@@ -134,13 +139,13 @@ describe('timer store', () => {
       })
       useTimerStore.getState().start()
 
-      vi.mocked(performance.now).mockReturnValue(DERS_MS)
+      vi.mocked(Date.now).mockReturnValue(DERS_MS)
       useTimerStore.getState().syncOnVisibilityChange()
 
-      vi.mocked(performance.now).mockReturnValue(DERS_MS + 1000)
+      vi.mocked(Date.now).mockReturnValue(DERS_MS + 1000)
       useTimerStore.getState().transitionToBreak()
 
-      vi.mocked(performance.now).mockReturnValue(DERS_MS + 5 * 60 * 1000)
+      vi.mocked(Date.now).mockReturnValue(DERS_MS + 5 * 60 * 1000)
       useTimerStore.getState().finishBreakEarly()
 
       expect(useTimerStore.getState().status).toBe('idle')
@@ -149,7 +154,8 @@ describe('timer store', () => {
     })
 
     it('start() aynı gün break fazını koruduğunda plannedMs mola süresi olur (regression)', () => {
-      const today = '2026-02-27'
+      // getLocalDateString() ile aynı günün string'ini kullan
+      const today = getLocalDateString()
       useTimerStore.getState().setModeConfig({
         mode: 'ders60mola15',
         calismaMs: DERS_MS,
@@ -192,7 +198,7 @@ describe('timer store', () => {
         elapsedMs: 0,
       })
 
-      vi.mocked(performance.now).mockReturnValue(MOLA_MS + 5 * 60 * 1000)
+      vi.mocked(Date.now).mockReturnValue(MOLA_MS + 5 * 60 * 1000)
       useTimerStore.getState().finishBreakEarly()
 
       const state = useTimerStore.getState()
@@ -207,22 +213,21 @@ describe('timer store', () => {
     it('pause sonrası status paused, running false', () => {
       useTimerStore.getState().setModeConfig({ mode: 'gerisayim', sureMs: 60000 })
       useTimerStore.getState().start()
-      vi.mocked(performance.now).mockReturnValue(10000)
+      vi.mocked(Date.now).mockReturnValue(10000)
       useTimerStore.getState().pause()
       const state = useTimerStore.getState()
       expect(state.status).toBe('paused')
       expect(state.running).toBe(false)
       expect(state.lastTickTs).toBeNull()
-      // elapsed artar (delta uygulanır); rAF ortamında tam değer test ortamına bağlı olabilir
       expect(state.elapsedMs).toBeGreaterThanOrEqual(0)
     })
 
     it('resume sonrası tekrar running', () => {
       useTimerStore.getState().setModeConfig({ mode: 'gerisayim', sureMs: 60000 })
       useTimerStore.getState().start()
-      vi.mocked(performance.now).mockReturnValue(5000)
+      vi.mocked(Date.now).mockReturnValue(5000)
       useTimerStore.getState().pause()
-      vi.mocked(performance.now).mockReturnValue(5000)
+      vi.mocked(Date.now).mockReturnValue(5000)
       useTimerStore.getState().resume()
       expect(useTimerStore.getState().status).toBe('running')
     })
@@ -233,11 +238,11 @@ describe('timer store', () => {
       useTimerStore.getState().start()
 
       // 10sn çalış, duraklat
-      vi.mocked(performance.now).mockReturnValue(10000)
+      vi.mocked(Date.now).mockReturnValue(10000)
       useTimerStore.getState().pause()
 
       // 5sn duraklat, devam et
-      vi.mocked(performance.now).mockReturnValue(15000)
+      vi.mocked(Date.now).mockReturnValue(15000)
       useTimerStore.getState().resume()
 
       const state = useTimerStore.getState()
@@ -259,7 +264,7 @@ describe('timer store', () => {
       })
       useTimerStore.getState().start()
 
-      vi.mocked(performance.now).mockReturnValue(10_000)
+      vi.mocked(Date.now).mockReturnValue(10_000)
       useTimerStore.getState().syncOnVisibilityChange()
 
       let state = useTimerStore.getState()
@@ -267,7 +272,7 @@ describe('timer store', () => {
       expect(state.denemeBreakStartTs).toBe(10_000)
       expect(state.currentSectionIndex).toBe(0)
 
-      vi.mocked(performance.now).mockReturnValue(13_000)
+      vi.mocked(Date.now).mockReturnValue(13_000)
       useTimerStore.getState().advanceFromDenemeBreak()
 
       state = useTimerStore.getState()
@@ -322,9 +327,9 @@ describe('timer store', () => {
       })
       useTimerStore.getState().start()
 
-      vi.mocked(performance.now).mockReturnValue(5_000)
+      vi.mocked(Date.now).mockReturnValue(5_000)
       useTimerStore.getState().syncOnVisibilityChange()
-      vi.mocked(performance.now).mockReturnValue(9_000)
+      vi.mocked(Date.now).mockReturnValue(9_000)
       useTimerStore.getState().advanceFromDenemeBreak()
 
       const state = useTimerStore.getState()

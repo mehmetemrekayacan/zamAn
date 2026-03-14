@@ -69,6 +69,7 @@ function createWindow(options = {}) {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
+      backgroundThrottling: false,
     },
     title: 'zamAn',
     autoHideMenuBar: true,
