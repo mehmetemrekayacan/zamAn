@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import type { SessionRecord } from '../types'
 import type { SessionSyncMap } from '../store/sessions'
 import { SyncStatusBadge } from './SyncStatusBadge'
+import { getSubjectLabel } from '../lib/utils'
 
 const MODE_LABELS: Record<string, string> = {
   serbest: 'Kronometre',
@@ -19,6 +20,12 @@ const MODE_EMOJIS: Record<string, string> = {
 export interface SessionHistoryProps {
   sessions: SessionRecord[]
   syncStatusById?: SessionSyncMap
+}
+
+/** Net sayısı: Doğru - Yanlış/4 */
+function calculateNet(session: SessionRecord): number | null {
+  if (typeof session.dogruSayisi !== 'number' || typeof session.yanlisSayisi !== 'number') return null
+  return session.dogruSayisi - session.yanlisSayisi / 4
 }
 
 export const SessionHistory = memo(function SessionHistory({
@@ -59,50 +66,79 @@ export const SessionHistory = memo(function SessionHistory({
 
       <div className="space-y-2">
         {visibleSessions.length > 0 ? (
-          visibleSessions.map((session, index) => (
-            <div
-              key={session.id}
-              className={`flex items-center gap-3 rounded-card-sm border border-[var(--card-border)]
-                         bg-surface-900/40 px-4 py-3 transition-all duration-300 hover:border-text-primary/10
-                         hover:bg-surface-900/60 animate-list-item
-                         ${session.id === newItemId ? 'ring-2 ring-accent-blue/30 ring-offset-1 ring-offset-surface-900' : ''}`}
-              style={{ animationDelay: `${index * 60}ms` }}
-            >
-              {/* Mod icon */}
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-blue/10 text-base">
-                {MODE_EMOJIS[session.mod] ?? '📋'}
-              </span>
+          visibleSessions.map((session, index) => {
+            const isDeneme = session.mod === 'deneme'
+            const denemeLabel = isDeneme ? getSubjectLabel(session) : null
+            const net = isDeneme ? calculateNet(session) : null
+            
+            // Double counting bug fix: sureGercek is total elapsed (including overtime).
+            // Normal duration = total duration - extra duration
+            const ekstraSureSn = session.ekstraSureMs != null ? Math.round(session.ekstraSureMs / 1000) : 0
+            const toplamSureSn = session.sureGercek
+            const normalSureSn = Math.max(0, toplamSureSn - ekstraSureSn)
 
-              {/* Detay */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-text-primary truncate">
-                    {MODE_LABELS[session.mod] ?? session.mod}
-                  </span>
-                  <SyncStatusBadge
-                    sessionId={session.id}
-                    status={syncStatusById?.[session.id]}
-                  />
-                  <span className="text-[11px] text-text-muted">
-                    {new Date(session.tarihISO).toLocaleDateString('tr-TR', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+            const normalDk = Math.round(normalSureSn / 60)
+            const ekstraDk = ekstraSureSn > 0 ? Math.round(ekstraSureSn / 60) : null
+
+            return (
+              <div
+                key={session.id}
+                className={`flex items-center gap-3 rounded-card-sm border border-[var(--card-border)]
+                           bg-surface-900/40 px-4 py-3 transition-all duration-300 hover:border-text-primary/10
+                           hover:bg-surface-900/60 animate-list-item
+                           ${session.id === newItemId ? 'ring-2 ring-accent-blue/30 ring-offset-1 ring-offset-surface-900' : ''}`}
+                style={{ animationDelay: `${index * 60}ms` }}
+              >
+                {/* Mod icon */}
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-blue/10 text-base">
+                  {MODE_EMOJIS[session.mod] ?? '📋'}
+                </span>
+
+                {/* Detay */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-text-primary truncate">
+                      {isDeneme ? denemeLabel : (MODE_LABELS[session.mod] ?? session.mod)}
+                    </span>
+                    <SyncStatusBadge
+                      sessionId={session.id}
+                      status={syncStatusById?.[session.id]}
+                    />
+                    <span className="text-[11px] text-text-muted">
+                      {new Date(session.tarihISO).toLocaleDateString('tr-TR', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <span className="text-xs text-text-secondary">
+                    {ekstraDk != null ? (
+                      <>
+                        {normalDk} dk{' '}
+                        <span className="text-orange-400 font-medium">+ {ekstraDk} dk ekstra</span>
+                      </>
+                    ) : (
+                      `${normalDk} dakika`
+                    )}
                   </span>
                 </div>
-                <span className="text-xs text-text-secondary">
-                  {Math.round(session.sureGercek / 60)} dakika
+
+                {/* Net sayısı (deneme modu) */}
+                {isDeneme && net != null && (
+                  <span className="shrink-0 rounded-full bg-emerald-500/12 px-2.5 py-1 text-xs font-bold text-emerald-400">
+                    {net % 1 === 0 ? net : net.toFixed(2)} Net
+                  </span>
+                )}
+
+                {/* Puan */}
+                <span className="shrink-0 rounded-full bg-accent-blue/12 px-3 py-1 text-xs font-bold text-accent-blue">
+                  +{session.puan}
                 </span>
               </div>
-
-              {/* Puan */}
-              <span className="shrink-0 rounded-full bg-accent-blue/12 px-3 py-1 text-xs font-bold text-accent-blue">
-                +{session.puan}
-              </span>
-            </div>
-          ))
+            )
+          })
         ) : (
           <p className="py-8 text-center text-sm text-text-muted">
             Henüz seans kaydı yok. İlk seansını başlat!

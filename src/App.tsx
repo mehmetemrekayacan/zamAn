@@ -117,6 +117,7 @@ function App() {
     finishEarly,
     transitionToBreak,
     finishBreakEarly,
+    isOvertime,
   } = useTimerStore()
 
   /* ── init ── */
@@ -177,7 +178,9 @@ function App() {
   }, [settings.vurguRengi])
 
   /* ── actions ── */
-  const timeToDisplay = plannedMs != null ? remainingMs ?? plannedMs : elapsedMs
+  const timeToDisplay = isOvertime && plannedMs != null
+    ? Math.max(0, elapsedMs - plannedMs) // Overtime: göster sadece fazla geçen süre
+    : plannedMs != null ? remainingMs ?? plannedMs : elapsedMs
 
   /* ── Dinamik tab başlığı: çalışırken sayaç göster ── */
   useEffect(() => {
@@ -296,6 +299,9 @@ function App() {
       yanlisSayisi: mode === 'deneme' ? denemeAnaliz?.yanlis : undefined,
       bosSayisi: mode === 'deneme' ? denemeAnaliz?.bos : undefined,
       ruhHali: sessionRuhHali ?? undefined,
+      ekstraSureMs: mode === 'deneme' && plannedMs != null && elapsedMs > plannedMs
+        ? elapsedMs - plannedMs
+        : undefined,
     }
     try {
       await addSession(session)
@@ -575,6 +581,7 @@ function App() {
               onReset={reset}
               isBreakMode={mode === 'ders60mola15' && workBreakPhase === 'break'}
               onFinishBreak={finishBreakEarly}
+              isOvertime={isOvertime}
             />
 
             {/* Mod seçici — Timer'ın hemen altında */}

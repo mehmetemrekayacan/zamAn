@@ -338,6 +338,138 @@ describe('timer store', () => {
     })
   })
 
+  describe('deneme — overtime (uzatma)', () => {
+    it('son bölüm bittiğinde otomatik bitmemeli — isOvertime = true olmalı', () => {
+      useTimerStore.getState().setModeConfig({
+        mode: 'deneme',
+        bolumler: [
+          { ad: 'Türkçe', surePlanMs: 10_000 },
+        ],
+        currentSectionIndex: 0,
+      })
+      useTimerStore.getState().start()
+
+      // Süre doluyor
+      vi.mocked(Date.now).mockReturnValue(10_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+
+      const state = useTimerStore.getState()
+      // status 'finished' olmamalı — overtime moduna geçmeli
+      expect(state.status).toBe('running')
+      expect(state.isOvertime).toBe(true)
+      expect(state.remainingMs).toBe(0)
+    })
+
+    it('overtime sırasında elapsedMs artmaya devam etmeli', () => {
+      useTimerStore.getState().setModeConfig({
+        mode: 'deneme',
+        bolumler: [
+          { ad: 'Matematik', surePlanMs: 10_000 },
+        ],
+        currentSectionIndex: 0,
+      })
+      useTimerStore.getState().start()
+
+      // Süre doluyor — overtime başlıyor
+      vi.mocked(Date.now).mockReturnValue(10_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+      expect(useTimerStore.getState().isOvertime).toBe(true)
+
+      // 5 saniye fazla geçiyor
+      vi.mocked(Date.now).mockReturnValue(15_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+
+      const state = useTimerStore.getState()
+      expect(state.elapsedMs).toBe(15_000) // plannedMs(10k) + overtime(5k)
+      expect(state.remainingMs).toBe(0)
+      expect(state.status).toBe('running')
+    })
+
+    it('overtime sırasında finishEarly çağrıldığında status finished olmalı', () => {
+      useTimerStore.getState().setModeConfig({
+        mode: 'deneme',
+        bolumler: [
+          { ad: 'Fen', surePlanMs: 10_000 },
+        ],
+        currentSectionIndex: 0,
+      })
+      useTimerStore.getState().start()
+
+      vi.mocked(Date.now).mockReturnValue(10_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+      expect(useTimerStore.getState().isOvertime).toBe(true)
+
+      vi.mocked(Date.now).mockReturnValue(13_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+      useTimerStore.getState().finishEarly()
+
+      const state = useTimerStore.getState()
+      expect(state.status).toBe('finished')
+      expect(state.isOvertime).toBe(false)
+      expect(state.wasEarlyFinish).toBe(false) // Overtime bitti = tam tamamlandı
+      expect(state.elapsedMs).toBe(13_000) // Toplam süre
+    })
+
+    it('çok bölümlü denemede ara bölüm bittiğinde overtime değil mola olmalı', () => {
+      useTimerStore.getState().setModeConfig({
+        mode: 'deneme',
+        bolumler: [
+          { ad: 'Türkçe', surePlanMs: 10_000 },
+          { ad: 'Matematik', surePlanMs: 20_000 },
+        ],
+        currentSectionIndex: 0,
+      })
+      useTimerStore.getState().start()
+
+      vi.mocked(Date.now).mockReturnValue(10_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+
+      const state = useTimerStore.getState()
+      // Ara bölüm — mola ekranı, overtime değil
+      expect(state.status).toBe('paused')
+      expect(state.isOvertime).toBe(false)
+      expect(state.denemeBreakStartTs).toBe(10_000)
+    })
+
+    it('overtime sırasında pause ve resume yapıldığında süre kaybolmamalı', () => {
+      useTimerStore.getState().setModeConfig({
+        mode: 'deneme',
+        bolumler: [
+          { ad: 'Fizik', surePlanMs: 10_000 },
+        ],
+        currentSectionIndex: 0,
+      })
+      useTimerStore.getState().start()
+
+      // 1. Süre dolar ve overtime başlar (Date.now: 10_000, expected: 10_000)
+      vi.mocked(Date.now).mockReturnValue(10_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+      expect(useTimerStore.getState().isOvertime).toBe(true)
+
+      // 2. 5 sn daha geçer (Date.now: 15_000, elapsed: 15_000) => Pause
+      vi.mocked(Date.now).mockReturnValue(15_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+      useTimerStore.getState().pause()
+      
+      expect(useTimerStore.getState().status).toBe('paused')
+      expect(useTimerStore.getState().elapsedMs).toBe(15_000)
+
+      // 3. 5 sn duraklatmada kalınır, sonra Resume (Date.now: 20_000, expectedEndTime 15_000 olmalı)
+      vi.mocked(Date.now).mockReturnValue(20_000)
+      useTimerStore.getState().resume()
+      
+      expect(useTimerStore.getState().status).toBe('running')
+      expect(useTimerStore.getState().elapsedMs).toBe(15_000) // resume anında süre artmaz
+
+      // 4. 2 sn daha çalışır (Date.now: 22_000)
+      vi.mocked(Date.now).mockReturnValue(22_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+
+      // Toplam süre: 15_000 (pause anında) + 2_000 = 17_000 olmalı
+      expect(useTimerStore.getState().elapsedMs).toBe(17_000)
+    })
+  })
+
   describe('MODE_DEFAULTS', () => {
     it('ders60mola15 varsayılan süreler', () => {
       const cfg = MODE_DEFAULTS.ders60mola15

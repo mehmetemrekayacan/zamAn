@@ -150,6 +150,7 @@ function processTick(get: GetState, set: SetState): void {
   if (finished && state.mode === 'deneme' && state.modeConfig.mode === 'deneme') {
     const nextIdx = (state.currentSectionIndex ?? 0) + 1
     if (state.modeConfig.bolumler[nextIdx]) {
+      // Ara bölüm bitti — mola ekranına geç
       set({
         status: 'paused',
         running: false,
@@ -158,8 +159,18 @@ function processTick(get: GetState, set: SetState): void {
         lastTickTs: null,
         expectedEndTime: undefined,
         denemeBreakStartTs: Date.now(),
+        isOvertime: false,
       })
       stopWorker()
+      return
+    }
+    // Son bölüm bitti — overtime moduna geç (otomatik bitirme YOK)
+    if (!state.isOvertime) {
+      set({
+        isOvertime: true,
+        remainingMs: 0,
+      })
+      // Timer çalışmaya devam etsin — worker durdurmuyoruz
       return
     }
   }
@@ -217,6 +228,19 @@ function processTick(get: GetState, set: SetState): void {
       backgroundBreakPlannedMs: undefined,
     })
     stopWorker()
+    return
+  }
+
+  // --- Overtime sırasında elapsed güncellemesi ---
+  if (state.isOvertime && state.mode === 'deneme') {
+    // Overtime'da expectedEndTime geçmiştir; elapsed = plannedMs + fazla süre
+    const overtimeExtra = state.expectedEndTime != null ? now - state.expectedEndTime : 0
+    const totalElapsed = (state.plannedMs ?? 0) + Math.max(0, overtimeExtra)
+    set({
+      elapsedMs: totalElapsed,
+      remainingMs: 0,
+      lastTickTs: now,
+    })
     return
   }
 
@@ -284,6 +308,7 @@ export const useTimerStore = create<TimerState>()(
       backgroundBreakPlannedMs: undefined,
       expectedEndTime: undefined,
       startWallTime: undefined,
+      isOvertime: false,
 
       setModeConfig: (config) => {
         stopWorker()
@@ -451,6 +476,7 @@ export const useTimerStore = create<TimerState>()(
           dersCycleDate,
           denemeBreakStartTs: null,
           wasEarlyFinish: undefined,
+          isOvertime: false,
           totalPauseDurationMs: 0,
           backgroundBreakStartTs: null,
           backgroundBreakPlannedMs: undefined,
@@ -471,7 +497,11 @@ export const useTimerStore = create<TimerState>()(
         let elapsed: number
         let remaining: number | undefined
 
-        if (state.plannedMs != null && state.expectedEndTime != null) {
+        if (state.isOvertime && state.mode === 'deneme') {
+          // Overtime sırasında: elapsedMs zaten processTick tarafından güncelleniyor
+          elapsed = state.elapsedMs
+          remaining = 0
+        } else if (state.plannedMs != null && state.expectedEndTime != null) {
           remaining = Math.max(0, state.expectedEndTime - now)
           elapsed = state.plannedMs - remaining
         } else {
@@ -485,7 +515,7 @@ export const useTimerStore = create<TimerState>()(
           elapsedMs: elapsed,
           remainingMs: remaining,
           lastTickTs: null,
-          expectedEndTime: undefined, // Pause'da iptal, resume'da yeniden hesap
+          expectedEndTime: state.isOvertime ? state.expectedEndTime : undefined, // Overtime'da expectedEndTime'ı koru (resume'da lazım)
           pauses: state.pauses + 1,
           pauseStartTs: now,
         })
@@ -499,8 +529,15 @@ export const useTimerStore = create<TimerState>()(
         const pauseDurationMs = now - pauseStartTs
         const newTotalPause = (state.totalPauseDurationMs ?? 0) + pauseDurationMs
 
-        // Kalan süreyi (pause sırasında kaydedilmiş) kullanarak yeni expectedEndTime hesapla
-        const newExpectedEndTime = state.remainingMs != null ? now + state.remainingMs : undefined
+        // Kalan süreyi (pause sırasında kaydedilmiş) kullanarak yeni expectedEndTime hesapla,
+        // ya da overtime modundaysak, pause edildiği andaki expectedEndTime'ı pause süresi kadar ileri ötele.
+        let newExpectedEndTime: number | undefined
+        if (state.isOvertime && state.expectedEndTime != null) {
+          newExpectedEndTime = state.expectedEndTime + pauseDurationMs
+        } else {
+          newExpectedEndTime = state.remainingMs != null ? now + state.remainingMs : undefined
+        }
+
         // Serbest mod: startWallTime'ı pause süresi kadar ileri al
         const newStartWallTime = state.startWallTime != null
           ? state.startWallTime + pauseDurationMs
@@ -550,6 +587,7 @@ export const useTimerStore = create<TimerState>()(
           denemeBreakStartTs: null,
           pauseStartTs: null,
           wasEarlyFinish: undefined,
+          isOvertime: false,
           totalPauseDurationMs: 0,
           backgroundBreakStartTs: null,
           backgroundBreakPlannedMs: undefined,
@@ -588,7 +626,10 @@ export const useTimerStore = create<TimerState>()(
 
         // Mutlak zamandan geçen süreyi hesapla
         let finalElapsed: number
-        if (state.status === 'running') {
+        if (state.isOvertime && state.mode === 'deneme') {
+          // Overtime: elapsedMs zaten processTick tarafından güncellenmiş (plannedMs + extra)
+          finalElapsed = state.elapsedMs
+        } else if (state.status === 'running') {
           if (state.plannedMs != null && state.expectedEndTime != null) {
             const remaining = Math.max(0, state.expectedEndTime - now)
             finalElapsed = state.plannedMs - remaining
@@ -641,7 +682,8 @@ export const useTimerStore = create<TimerState>()(
           lastTickTs: null,
           expectedEndTime: undefined,
           startWallTime: undefined,
-          wasEarlyFinish: true,
+          wasEarlyFinish: !state.isOvertime, // Overtime'da tam bitti sayılır
+          isOvertime: false,
           totalPauseDurationMs: totalPause,
         })
       },

@@ -39,6 +39,8 @@ export type TimerSnapshot = {
   status: TimerStatus
   /** Erken bitirme ile mi bitti? (Scoring için: true = kısmi, false = tam tamamlandı) */
   wasEarlyFinish?: boolean
+  /** Deneme modunda süre doldu ama kullanıcı henüz bitirmedi — uzatma/ekstra süre modu */
+  isOvertime?: boolean
 
   /* ── Wall-Clock vs Net-Time tracking ── */
   /** Birikmiş duraklatma süresi (ms). Net çalışma zamanına eklenmez, sadece final raporda kullanılır. */
@@ -84,6 +86,8 @@ export type SessionRecord = {
   yanlisSayisi?: number
   bosSayisi?: number
   bolumler?: { ad: string; surePlan?: number; sureGercek: number }[]
+  /** Deneme modunda uzatma/ekstra süre (ms) — plannedMs'in ötesinde geçen süre */
+  ekstraSureMs?: number
   platform?: { cihaz?: string; userAgentHash?: string }
   createdAt?: string
   updatedAt?: string

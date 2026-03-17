@@ -17,6 +17,8 @@ export interface TimerHeroProps {
   isBreakMode?: boolean
   /** ders60mola15: Molayı erken bitirip sonraki tura geçme */
   onFinishBreak?: () => void
+  /** deneme: Uzatma/ekstra süre modunda mı? */
+  isOvertime?: boolean
 }
 
 function formatPauseTime(ms: number): string {
@@ -63,6 +65,7 @@ export const TimerHero = memo(function TimerHero({
   onReset,
   isBreakMode = false,
   onFinishBreak,
+  isOvertime = false,
 }: TimerHeroProps) {
   const isRunning = status === 'running'
   const isPaused = status === 'paused'
@@ -156,6 +159,11 @@ export const TimerHero = memo(function TimerHero({
                   : ((dersCycle ?? 0) + 1).toString()}
               </span>
             )}
+            {isOvertime && (
+              <span className="ml-1 rounded-full bg-orange-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-orange-400 animate-pulse [animation-duration:2s]">
+                ⏰ Uzatma
+              </span>
+            )}
           </div>
 
           {isActive && pauses > 0 && (
@@ -169,23 +177,28 @@ export const TimerHero = memo(function TimerHero({
         <div className="relative flex flex-col items-center gap-6 px-6 py-8 sm:py-12">
           <div className="relative">
             {/* Running pulse ring */}
-            {isRunning && (
+            {isRunning && !isOvertime && (
               <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-accent-blue/10 [animation-duration:2s]" />
+            )}
+            {isRunning && isOvertime && (
+              <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-orange-500/10 [animation-duration:1.5s]" />
             )}
             <time
               className={`
                 relative font-mono timer-digits font-bold
                 text-6xl sm:text-7xl md:text-8xl lg:text-[7rem]
                 transition-colors duration-300
-                ${isRunning
-                  ? 'text-accent-blue drop-shadow-[0_0_40px_rgba(59,130,246,0.35)]'
-                  : isPaused
-                    ? 'text-accent-amber drop-shadow-[0_0_25px_rgba(245,158,11,0.25)]'
-                    : 'text-text-primary'
+                ${isOvertime
+                  ? 'text-orange-400 drop-shadow-[0_0_40px_rgba(249,115,22,0.4)]'
+                  : isRunning
+                    ? 'text-accent-blue drop-shadow-[0_0_40px_rgba(59,130,246,0.35)]'
+                    : isPaused
+                      ? 'text-accent-amber drop-shadow-[0_0_25px_rgba(245,158,11,0.25)]'
+                      : 'text-text-primary'
                 }
               `}
             >
-              {formatDuration(timeToDisplay)}
+              {isOvertime ? `+ ${formatDuration(timeToDisplay)}` : formatDuration(timeToDisplay)}
             </time>
           </div>
 
