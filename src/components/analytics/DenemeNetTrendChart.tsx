@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   CartesianGrid,
   Line,
@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import { useSessionsStore } from '../../store/sessions'
 import type { SessionRecord } from '../../types'
+import { getDenemeTemplateName } from '../../lib/utils'
 
 type NetPoint = {
   id: string
@@ -36,16 +37,51 @@ function hasDenemeNetValues(session: SessionRecord) {
 export function DenemeNetTrendChart() {
   const sessions = useSessionsStore((state) => state.sessions)
 
+  // Sadece ilgili değerlere sahip mod === 'deneme' seansları
+  const denemeSessions = useMemo(() => {
+    return sessions.filter(hasDenemeNetValues)
+  }, [sessions])
+
+  // Bugüne kadar çözülmüş tüm benzersiz şablon isimlerini bul
+  const templateStats = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const session of denemeSessions) {
+      const templateName = getDenemeTemplateName(session)
+      counts.set(templateName, (counts.get(templateName) || 0) + 1)
+    }
+    // En çok çözülenden en aza sıralı
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [denemeSessions])
+
+  const [selectedTemplateName, setSelectedTemplateName] = useState<string>('')
+
+  // Varsayılan olarak en çok verisi olan dersi seçelim
+  useEffect(() => {
+    if (templateStats.length > 0 && !selectedTemplateName) {
+      setSelectedTemplateName(templateStats[0].name)
+    } else if (templateStats.length > 0 && selectedTemplateName) {
+      // Eğer önceden seçili olan ders artık yoksa (silindiyse), yine en baştakini al
+      if (!templateStats.find((t) => t.name === selectedTemplateName)) {
+        setSelectedTemplateName(templateStats[0].name)
+      }
+    }
+  }, [templateStats, selectedTemplateName])
+
+  // Seçili derse göre filtrelenmiş Chart Verisi
   const data = useMemo<NetPoint[]>(() => {
-    return sessions
-      .filter(hasDenemeNetValues)
+    if (!selectedTemplateName) return []
+    
+    return denemeSessions
+      .filter((s) => getDenemeTemplateName(s) === selectedTemplateName)
       .map((session) => {
         const date = toDate(session)
-        if (!date) {
-          return null
-        }
+        if (!date) return null
 
-        const net = session.dogruSayisi! - session.yanlisSayisi! / 4
+        const dogru = session.dogruSayisi || 0
+        const yanlis = session.yanlisSayisi || 0
+        const net = dogru - (yanlis / 4)
 
         return {
           id: session.id,
@@ -59,50 +95,97 @@ export function DenemeNetTrendChart() {
       })
       .filter((item): item is NetPoint => item !== null)
       .sort((a, b) => a.dateMs - b.dateMs)
-  }, [sessions])
+  }, [denemeSessions, selectedTemplateName])
 
   return (
-    <div className="w-full rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">Deneme Sınavı Net Trendi</h3>
-        <span className="text-xs text-white/60">Net = Doğru - (Yanlış / 4)</span>
+    <div className="w-full rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col min-h-[380px]">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Deneme Sınavı Net Trendi</h3>
+          <span className="text-xs text-white/60">Net = Doğru - (Yanlış / 4)</span>
+        </div>
+
+        {/* Dinamik Dropdown - Dark Modern Tailwind */}
+        {templateStats.length > 0 && (
+          <div className="relative shrink-0">
+            <select
+              value={selectedTemplateName}
+              onChange={(e) => setSelectedTemplateName(e.target.value)}
+              className="appearance-none w-full sm:w-48 outline-none rounded-xl border border-white/10 bg-surface-800 px-4 py-2 pr-10 text-sm font-medium text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-accent-blue/50 transition truncate"
+            >
+              {templateStats.map((stat) => (
+                <option key={stat.name} value={stat.name} className="bg-surface-800 text-text-primary">
+                  {stat.name} ({stat.count})
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white/50">
+              <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                 <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+              </svg>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-            <XAxis
-              dataKey="label"
-              tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11 }}
-              axisLine={{ stroke: 'rgba(255,255,255,0.2)' }}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11 }}
-              axisLine={{ stroke: 'rgba(255,255,255,0.2)' }}
-              tickLine={false}
-            />
-            <Tooltip
-              contentStyle={{
-                background: 'rgba(17, 24, 39, 0.9)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '0.75rem',
-                color: '#fff',
-              }}
-              formatter={(value: number | string | undefined) => [Number(value ?? 0).toFixed(2), 'Net']}
-              labelFormatter={(label) => `Tarih: ${label}`}
-            />
-            <Line
-              type="monotone"
-              dataKey="net"
-              stroke="#34d399"
-              strokeWidth={2.5}
-              dot={{ r: 3, fill: '#34d399' }}
-              activeDot={{ r: 5 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+      <div className="w-full h-72 min-h-[300px] mt-2">
+        {/* Empty State */}
+        {templateStats.length === 0 ? (
+          <div className="h-full w-full flex flex-col items-center justify-center p-8 text-center rounded-xl border border-dashed border-white/10 bg-surface-900/40">
+            <span className="text-4xl mb-3 opacity-60">📉</span>
+            <p className="text-sm font-medium text-white/80">Net analizi yapılamıyor</p>
+            <p className="text-xs text-white/50 mt-1 max-w-[200px] mx-auto">
+              Henüz "Doğru/Yanlış" girilmiş bir deneme seansınız bulunmuyor.
+            </p>
+          </div>
+        ) : data.length < 2 ? (
+          <div className="h-full w-full flex flex-col items-center justify-center p-8 text-center rounded-xl border border-dashed border-white/10 bg-surface-900/40">
+            <span className="text-4xl mb-3 opacity-60">📉</span>
+            <p className="text-sm font-medium text-white/80">Yeterli veri yok</p>
+            <p className="text-xs text-white/50 mt-1 max-w-[200px] mx-auto">
+              Trend çizgisinin oluşması için bu derste en az 2 deneme verisi gerekiyor.
+            </p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <XAxis
+                dataKey="id"
+                tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11 }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.2)' }}
+                tickLine={false}
+                tickFormatter={(id) => data.find((d) => d.id === id)?.label || ''}
+              />
+              <YAxis
+                tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11 }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.2)' }}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: 'rgba(17, 24, 39, 0.9)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '0.75rem',
+                  color: '#fff',
+                }}
+                formatter={(value: number | string | undefined) => [Number(value ?? 0).toFixed(2), 'Net']}
+                labelFormatter={(id) => {
+                  const item = data.find((d) => d.id === id)
+                  return `Tarih: ${item?.label || ''}`
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="net"
+                stroke="#34d399"
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: '#34d399' }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   )

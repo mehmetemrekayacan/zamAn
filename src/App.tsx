@@ -4,8 +4,9 @@ import { useSessionsStore } from './store/sessions'
 import { useSettingsStore } from './store/settings'
 import { calculateScore, calculateStreak, getUnvan } from './lib/scoring'
 import { getTahmin150Saat } from './lib/tahmin'
+import { syncCloud } from './lib/cloudSync'
 import { getRozetler } from './lib/rozetler'
-import { initDb } from './lib/db'
+import { initDb, clearAllSessions } from './lib/db'
 import { initOfflineSync, processQueue } from './lib/offlineSync'
 import { formatDuration, formatMinutesHuman } from './lib/time'
 import { stopTitleFlash, unlockAudio } from './lib/notifications'
@@ -22,6 +23,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { Toast } from './components/Toast'
 import { AnalyticsPage } from './components/analytics/AnalyticsPage'
 import type { ModeConfig, SessionRecord, RuhHali, DenemeAnaliz } from './types'
+import { getSupabase } from './lib/supabase'
 
 /* ─── helpers ─── */
 
@@ -139,6 +141,58 @@ function App() {
   useEffect(() => {
     loadSessions()
   }, [loadSessions])
+
+  /* ── Auth State Cleanup & Sync ── */
+  useEffect(() => {
+    const supabase = getSupabase()
+    if (!supabase) return
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+      const currentUser = session?.user?.id
+      const previousUser = localStorage.getItem('zaman-last-user')
+
+      if (event === 'SIGNED_OUT') {
+        // Sadece ve kesinlikle Çıkışta Temizle
+        localStorage.removeItem('zaman-timer-storage')
+        localStorage.removeItem('zaman-settings-storage')
+        localStorage.removeItem('deneme-config')
+        localStorage.removeItem('zaman-ders60-pause-state')
+        
+        try {
+          await clearAllSessions()
+        } catch (e) {
+          console.error('Failed to clear sessions db', e)
+        }
+        
+        window.location.reload()
+      } else if (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && currentUser)) {
+        // Girişte veya uygulama ilk açıldığında aktif session varsa verileri çek
+        // Supabase Auth loop'unu bloklamamak (freeze olmaması) için anında (fire-and-forget) çağırıyoruz
+        ;(async () => {
+          try {
+            await syncCloud()
+            // IndexedDB güncellendi, store'u rehydrate edelim
+            await useSessionsStore.getState().loadSessions()
+            // Eğer kullanıcı yeni (önceki kullanıcıdan farklıysa) UI tazelemek istersen:
+            if (previousUser && currentUser !== previousUser) {
+              window.location.reload()
+            }
+          } catch (err) {
+            console.error('Failed to sync on login, proceeding without sync.', err)
+          }
+        })()
+      }
+
+      if (currentUser) {
+        localStorage.setItem('zaman-last-user', currentUser)
+      } else if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('zaman-last-user')
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
 
   /* ── effects ── */
   const todaySessions = useMemo(() => {
@@ -299,6 +353,9 @@ function App() {
       yanlisSayisi: mode === 'deneme' ? denemeAnaliz?.yanlis : undefined,
       bosSayisi: mode === 'deneme' ? denemeAnaliz?.bos : undefined,
       ruhHali: sessionRuhHali ?? undefined,
+      templateId: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateId : undefined,
+      templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateName : undefined,
+      bolumler: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler.map((b) => ({ ad: b.ad, surePlan: Math.round(b.surePlanMs / 1000), sureGercek: 0 })) : undefined,
       ekstraSureMs: mode === 'deneme' && plannedMs != null && elapsedMs > plannedMs
         ? elapsedMs - plannedMs
         : undefined,

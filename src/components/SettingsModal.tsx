@@ -80,9 +80,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setCloudLoading(true)
     setCloudError(null)
     setCloudPushPullMsg(null)
-    const r = await signUp(cloudEmail, cloudPassword, cloudIsim)
-    setCloudLoading(false)
-    if (r.ok) {
+    try {
+      const r = await signUp(cloudEmail, cloudPassword, cloudIsim)
+      if (!r.ok) {
+        throw new Error(r.error)
+      }
       if (r.message) {
         // E-posta onayı gerekiyor — kullanıcıya bilgilendir
         setCloudPushPullMsg(r.message)
@@ -90,18 +92,28 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         setCloudUser(r.user)
       }
       setCloudPassword('')
-    } else setCloudError(r.error)
+    } catch (err: any) {
+      setCloudError(err.message || 'Bilinmeyen bir hata oluştu.')
+    } finally {
+      setCloudLoading(false)
+    }
   }
 
   const handleGiris = async () => {
     setCloudLoading(true)
     setCloudError(null)
-    const r = await signIn(cloudEmail, cloudPassword)
-    setCloudLoading(false)
-    if (r.ok) {
+    try {
+      const r = await signIn(cloudEmail, cloudPassword)
+      if (!r.ok) {
+        throw new Error(r.error)
+      }
       setCloudUser(r.user)
       setCloudPassword('')
-    } else setCloudError(r.error)
+    } catch (err: any) {
+      setCloudError(err.message || 'Bilinmeyen bir hata oluştu.')
+    } finally {
+      setCloudLoading(false)
+    }
   }
 
   const handleCikis = async () => {

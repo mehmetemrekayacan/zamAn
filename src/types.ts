@@ -9,7 +9,7 @@ export type ModeConfig =
   | { mode: 'serbest' }
   | { mode: 'gerisayim'; sureMs: number }
   | { mode: 'ders60mola15'; calismaMs: number; molaMs: number }
-  | { mode: 'deneme'; bolumler: Section[]; currentSectionIndex?: number }
+  | { mode: 'deneme'; bolumler: Section[]; currentSectionIndex?: number; templateId?: string; templateName?: string }
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'finished'
 
@@ -92,4 +92,6 @@ export type SessionRecord = {
   createdAt?: string
   updatedAt?: string
   ruhHali?: RuhHali
+  templateId?: string
+  templateName?: string
 }
