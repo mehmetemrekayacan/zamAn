@@ -3,18 +3,26 @@ import { DENEME_TEMPLATES } from '../store/timer'
 
 /**
  * Deneme seansı için anlamlı etiket (başlık) türetir.
- * Varsa session.not alanı, yoksa bölüm adlarının birleşimi kullanılır.
+ * Varsa session.not alanı, yoksa templateName kullanılır.
  */
 export function getSubjectLabel(session: SessionRecord): string {
   if (session.not) return session.not
-  if (session.bolumler && session.bolumler.length > 0) {
-    return session.bolumler.map((b) => b.ad).join(' + ')
+  
+  if (session.mod === 'deneme') {
+    return getDenemeTemplateName(session)
   }
-  return 'Deneme'
+
+  const labels: Record<string, string> = {
+    serbest: 'Kronometre',
+    gerisayim: 'Zamanlayıcı',
+    ders60mola15: '60/15',
+    deneme: 'Deneme'
+  }
+  return labels[session.mod] || 'Seans'
 }
 
 /**
- * SessionRecord içindeki şablon adını bulur veya retro-fit mantığıyla tahmin eder.
+ * SessionRecord içindeki şablon adını bulur.
  */
 export function getDenemeTemplateName(session: SessionRecord): string {
   // 1. Eğer seansa özel kaydedilmiş şablon ismi varsa direkt dön.
@@ -26,17 +34,6 @@ export function getDenemeTemplateName(session: SessionRecord): string {
     if (template) return template.label
   }
 
-  // 3. İkisi de yoksa, bölüm adlarıyla (retro-fit) eşleştirme yapalım.
-  if (session.bolumler && session.bolumler.length > 0) {
-    const sectionNames = session.bolumler.map((b) => b.ad).join(',')
-    for (const t of DENEME_TEMPLATES) {
-      if (t.bolumler.map((b) => b.ad).join(',') === sectionNames) {
-        return t.label
-      }
-    }
-    // Eşleşme bulamazsa tüm bölümlerin isimlerini yan yana yaz.
-    return session.bolumler.map((b) => b.ad).join(' + ')
-  }
-
+  // 3. İkisi de yoksa direkt 'Genel Deneme' dön, bölüm isimlerini '+ ile birleştirme!'
   return 'Genel Deneme'
 }

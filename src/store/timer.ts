@@ -18,6 +18,8 @@ export const MODE_DEFAULTS: Record<Mode, ModeConfig> = {
   ders60mola15: { mode: 'ders60mola15', calismaMs: DERS_MS, molaMs: MOLA_MS },
   deneme: {
     mode: 'deneme',
+    templateId: 'oabt-ags',
+    templateName: 'ÖABT + AGS',
     bolumler: [
       { ad: 'AGS', surePlanMs: 110 * 60 * 1000 },
       { ad: 'ÖABT', surePlanMs: 90 * 60 * 1000 },

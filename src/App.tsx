@@ -354,7 +354,7 @@ function App() {
       bosSayisi: mode === 'deneme' ? denemeAnaliz?.bos : undefined,
       ruhHali: sessionRuhHali ?? undefined,
       templateId: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateId : undefined,
-      templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateName : undefined,
+      templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler[currentSectionIndex ?? 0]?.ad : undefined,
       bolumler: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler.map((b) => ({ ad: b.ad, surePlan: Math.round(b.surePlanMs / 1000), sureGercek: 0 })) : undefined,
       ekstraSureMs: mode === 'deneme' && plannedMs != null && elapsedMs > plannedMs
         ? elapsedMs - plannedMs
