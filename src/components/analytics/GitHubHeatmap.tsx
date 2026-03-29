@@ -28,11 +28,11 @@ function toValidDate(raw?: string) {
 }
 
 function levelFromMinutes(minutes: number) {
-  if (minutes <= 0) return 'bg-gray-800'
-  if (minutes < 30) return 'bg-emerald-900'
-  if (minutes < 90) return 'bg-emerald-700'
-  if (minutes < 180) return 'bg-emerald-600'
-  return 'bg-emerald-500'
+  if (minutes <= 0) return 'opacity-20'
+  if (minutes < 30) return 'opacity-40'
+  if (minutes < 90) return 'opacity-60'
+  if (minutes < 180) return 'opacity-80'
+  return 'opacity-100'
 }
 
 export function GitHubHeatmap() {
@@ -103,10 +103,10 @@ export function GitHubHeatmap() {
   }, [sessions])
 
   return (
-    <div className="w-full rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">İstikrar Haritası (365 Gün)</h3>
-        <span className="text-xs text-white/60">Toplam {totalMinutes} dk</span>
+        <h3 className="text-sm font-semibold text-foreground">İstikrar Haritası (365 Gün)</h3>
+        <span className="text-xs text-muted">Toplam {totalMinutes} dk</span>
       </div>
 
       <div className="overflow-x-auto">
@@ -117,6 +117,7 @@ export function GitHubHeatmap() {
                 <div
                   key={day.key}
                   className={`h-3.5 w-3.5 rounded-sm ${day.levelClass}`}
+                  style={{ backgroundColor: 'var(--success)' }}
                   title={`${day.date.toLocaleDateString('tr-TR')}: ${day.minutes} dk`}
                 />
               ))}
@@ -125,13 +126,13 @@ export function GitHubHeatmap() {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-end gap-2 text-[11px] text-white/60">
+      <div className="mt-4 flex items-center justify-end gap-2 text-[11px] text-muted">
         <span>Az</span>
-        <span className="h-3 w-3 rounded-sm bg-gray-800" />
-        <span className="h-3 w-3 rounded-sm bg-emerald-900" />
-        <span className="h-3 w-3 rounded-sm bg-emerald-700" />
-        <span className="h-3 w-3 rounded-sm bg-emerald-600" />
-        <span className="h-3 w-3 rounded-sm bg-emerald-500" />
+        <span className="h-3 w-3 rounded-sm opacity-20" style={{ backgroundColor: 'var(--success)' }} />
+        <span className="h-3 w-3 rounded-sm opacity-40" style={{ backgroundColor: 'var(--success)' }} />
+        <span className="h-3 w-3 rounded-sm opacity-60" style={{ backgroundColor: 'var(--success)' }} />
+        <span className="h-3 w-3 rounded-sm opacity-80" style={{ backgroundColor: 'var(--success)' }} />
+        <span className="h-3 w-3 rounded-sm opacity-100" style={{ backgroundColor: 'var(--success)' }} />
         <span>Çok</span>
       </div>
     </div>

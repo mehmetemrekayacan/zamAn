@@ -110,7 +110,7 @@ export const TimerHero = memo(function TimerHero({
         ripple.className = 'btn-ripple-ring'
         ripple.style.left = `${e.clientX - rect.left}px`
         ripple.style.top = `${e.clientY - rect.top}px`
-        ripple.style.color = isRunning ? 'rgba(245,158,11,0.3)' : 'rgba(59,130,246,0.3)'
+        ripple.style.color = isRunning ? 'var(--warning)' : 'var(--success)'
         btn.appendChild(ripple)
         setTimeout(() => ripple.remove(), 600)
       }
@@ -128,7 +128,7 @@ export const TimerHero = memo(function TimerHero({
         }`}
         style={{
           background:
-            'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(59,130,246,0.10), transparent 70%)',
+            'radial-gradient(ellipse 60% 50% at 50% 40%, color-mix(in srgb, var(--info) 14%, transparent), transparent 70%)',
         }}
       />
 
@@ -137,9 +137,9 @@ export const TimerHero = memo(function TimerHero({
           relative overflow-hidden rounded-[20px] border backdrop-blur-md
           shadow-2xl transition-all duration-500
           ${isRunning
-            ? 'border-accent-blue/30 bg-[var(--card-bg)] shadow-accent-blue/15'
+            ? 'border-success/35 bg-[var(--card-bg)] shadow-success/20'
             : isPaused
-              ? 'border-accent-amber/30 bg-[var(--card-bg)] shadow-accent-amber/10'
+              ? 'border-warning/35 bg-[var(--card-bg)] shadow-warning/20'
               : 'border-[var(--card-border)] bg-[var(--card-bg)] shadow-black/20'
           }
         `}
@@ -152,7 +152,7 @@ export const TimerHero = memo(function TimerHero({
               {MODE_LABELS[mode]}
             </span>
             {mode === 'ders60mola15' && (
-              <span className="ml-1 rounded-full bg-accent-amber/20 px-2.5 py-0.5 text-[11px] font-semibold text-accent-amber">
+              <span className="ml-1 rounded-full bg-info/20 px-2.5 py-0.5 text-[11px] font-semibold text-info">
                 {workBreakPhase === 'break' ? 'Mola' : 'Çalışma'} · Tur{' '}
                 {workBreakPhase === 'break'
                   ? (dersCycle ?? 1).toString()
@@ -160,7 +160,7 @@ export const TimerHero = memo(function TimerHero({
               </span>
             )}
             {isOvertime && (
-              <span className="ml-1 rounded-full bg-orange-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-orange-400 animate-pulse [animation-duration:2s]">
+              <span className="ml-1 rounded-full bg-danger/20 px-2.5 py-0.5 text-[11px] font-semibold text-danger animate-pulse [animation-duration:2s]">
                 ⏰ Uzatma
               </span>
             )}
@@ -178,10 +178,10 @@ export const TimerHero = memo(function TimerHero({
           <div className="relative">
             {/* Running pulse ring */}
             {isRunning && !isOvertime && (
-              <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-accent-blue/10 [animation-duration:2s]" />
+              <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-success/15 [animation-duration:2s]" />
             )}
             {isRunning && isOvertime && (
-              <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-orange-500/10 [animation-duration:1.5s]" />
+              <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-danger/15 [animation-duration:1.5s]" />
             )}
             <time
               className={`
@@ -189,11 +189,11 @@ export const TimerHero = memo(function TimerHero({
                 text-6xl sm:text-7xl md:text-8xl lg:text-[7rem]
                 transition-colors duration-300
                 ${isOvertime
-                  ? 'text-orange-400 drop-shadow-[0_0_40px_rgba(249,115,22,0.4)]'
+                  ? 'text-danger'
                   : isRunning
-                    ? 'text-accent-blue drop-shadow-[0_0_40px_rgba(59,130,246,0.35)]'
+                    ? 'text-success'
                     : isPaused
-                      ? 'text-accent-amber drop-shadow-[0_0_25px_rgba(245,158,11,0.25)]'
+                      ? 'text-warning'
                       : 'text-text-primary'
                 }
               `}
@@ -204,9 +204,9 @@ export const TimerHero = memo(function TimerHero({
 
           {/* Duraklatma sayacı — sağ alt köşe */}
           {isPaused && (
-            <div className="absolute bottom-3 right-4 flex items-center gap-1.5 rounded-full bg-accent-amber/15 border border-accent-amber/30 px-3 py-1.5 backdrop-blur-sm animate-pulse [animation-duration:2s]">
-              <span className="text-[11px] font-medium text-accent-amber/80">⏸ Duraklatıldı:</span>
-              <span className="font-mono text-xs font-bold text-accent-amber tabular-nums">
+            <div className="absolute bottom-3 right-4 flex items-center gap-1.5 rounded-full bg-warning/15 border border-warning/35 px-3 py-1.5 backdrop-blur-sm animate-pulse [animation-duration:2s]">
+              <span className="text-[11px] font-medium text-warning/85">⏸ Duraklatıldı:</span>
+              <span className="font-mono text-xs font-bold text-warning tabular-nums">
                 {formatPauseTime(pauseElapsedMs)}
               </span>
             </div>
@@ -227,7 +227,7 @@ export const TimerHero = memo(function TimerHero({
                   min-w-[200px] rounded-full px-8 py-3.5 text-base font-bold
                   shadow-lg transition-all duration-200
                   active:scale-[0.97] hover:-translate-y-0.5
-                  bg-emerald-500 text-surface-900 shadow-emerald-500/30 hover:shadow-emerald-500/50
+                  bg-info text-info-foreground shadow-info/30 hover:bg-info/90 hover:shadow-info/45
                   ${pulse ? 'animate-btn-pulse' : ''}
                 `}
               >
@@ -250,10 +250,10 @@ export const TimerHero = memo(function TimerHero({
                     active:scale-[0.97] hover:-translate-y-0.5
                     ${pulse ? 'animate-btn-pulse' : ''}
                     ${isRunning
-                      ? 'bg-accent-amber text-surface-900 shadow-amber-500/30 hover:shadow-amber-500/50'
+                      ? 'bg-warning text-warning-foreground shadow-warning/30 hover:bg-warning/90 hover:shadow-warning/45'
                       : isPaused
-                        ? 'bg-accent-blue text-surface-900 shadow-cyan-500/30 hover:shadow-cyan-500/50'
-                        : 'bg-accent-blue text-surface-900 shadow-cyan-500/40 hover:shadow-cyan-500/60'
+                        ? 'bg-success text-success-foreground shadow-success/30 hover:bg-success/90 hover:shadow-success/45'
+                        : 'bg-success text-success-foreground shadow-success/40 hover:bg-success/90 hover:shadow-success/55'
                     }
                   `}
                 >
@@ -268,9 +268,9 @@ export const TimerHero = memo(function TimerHero({
                 {isActive && (
                   <button
                     onClick={onFinishEarly}
-                    className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-5 py-3.5 text-base
-                               font-semibold text-emerald-400 transition-all duration-200
-                               hover:bg-emerald-500/20 hover:border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-500/15
+                    className="rounded-full border border-danger/35 bg-danger/12 px-5 py-3.5 text-base
+                               font-semibold text-danger transition-all duration-200
+                               hover:bg-danger/18 hover:border-danger/55 hover:shadow-lg hover:shadow-danger/20
                                active:scale-[0.97]"
                     title="Seansı erken bitir ve kaydet"
                   >
@@ -288,7 +288,7 @@ export const TimerHero = memo(function TimerHero({
                     onClick={onReset}
                     className="rounded-full border border-text-primary/15 bg-surface-700/50 px-6 py-3.5 text-base
                                font-medium text-text-primary transition-all duration-200
-                               hover:border-accent-red/40 hover:text-accent-red active:scale-[0.97]"
+                               hover:border-secondary/45 hover:text-secondary active:scale-[0.97]"
                   >
                     Sıfırla
                   </button>

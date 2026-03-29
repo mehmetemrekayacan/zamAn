@@ -4,7 +4,7 @@ export interface QuickStat {
   label: string
   value: string
   hint: string
-  accent?: 'blue' | 'amber' | 'cyan'
+  tone?: 'primary' | 'info' | 'warning' | 'success'
 }
 
 export interface QuickStatsBarProps {
@@ -12,9 +12,10 @@ export interface QuickStatsBarProps {
 }
 
 const accentMap = {
-  blue: 'text-accent-blue',
-  amber: 'text-accent-amber',
-  cyan: 'text-accent-cyan',
+  primary: 'text-primary',
+  info: 'text-info',
+  warning: 'text-warning',
+  success: 'text-success',
 }
 
 /**
@@ -39,7 +40,7 @@ export const QuickStatsBar = memo(function QuickStatsBar({
           <p className="section-label">
             {s.label}
           </p>
-          <p className={`font-display text-xl font-bold sm:text-2xl ${accentMap[s.accent ?? 'blue']}`}>
+          <p className={`font-display text-xl font-bold sm:text-2xl ${accentMap[s.tone ?? 'primary']}`}>
             {s.value}
           </p>
           <p className="text-[11px] text-text-muted">{s.hint}</p>

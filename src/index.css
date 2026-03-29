@@ -18,6 +18,32 @@
   --accent-red: #ef4444;
   --accent-green: #10b981;
 
+  /* Semantic color tokens (WCAG compliant) */
+  --foreground: #eef0f4;
+  --background: #0a0f1a;
+  --card: #0f1629;
+  --card-foreground: #eef0f4;
+  --muted: #7b879e;
+  --muted-foreground: #7b879e;
+  
+  /* Chart-specific colors */
+  --chart-text: #eef0f4;
+  --chart-grid: rgba(238, 240, 244, 0.08);
+  
+  /* Primary accent (default orange) */
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+  --secondary: #6366f1;
+  --secondary-foreground: #ffffff;
+  --success: #10b981;
+  --success-foreground: #052e21;
+  --warning: #f59e0b;
+  --warning-foreground: #1f1300;
+  --danger: #ef4444;
+  --danger-foreground: #ffffff;
+  --info: #06b6d4;
+  --info-foreground: #042f3a;
+
   /* Card system tokens */
   --card-bg: rgba(15, 22, 41, 0.65);
   --card-border: rgba(238, 240, 244, 0.06);
@@ -76,6 +102,32 @@ body {
   --accent-red: #dc2626;
   --accent-green: #059669;
 
+  /* Semantic color tokens (WCAG compliant) */
+  --foreground: #111827;
+  --background: #f8f9fb;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --muted: #6b7280;
+  --muted-foreground: #6b7280;
+  
+  /* Chart-specific colors — CRITICAL for light theme visibility */
+  --chart-text: #111827;
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  
+  /* Primary accent (default orange) */
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+  --secondary: #4f46e5;
+  --secondary-foreground: #ffffff;
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --danger: #dc2626;
+  --danger-foreground: #ffffff;
+  --info: #0284c7;
+  --info-foreground: #ffffff;
+
   --card-bg: rgba(255, 255, 255, 0.8);
   --card-border: rgba(0, 0, 0, 0.06);
   --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
@@ -106,6 +158,32 @@ body {
   --accent-amber: #00ff00;
   --accent-red: #ff00ff;
   --accent-green: #00ff00;
+
+  /* Semantic color tokens */
+  --foreground: #ffffff;
+  --background: #000000;
+  --card: #0a0a0a;
+  --card-foreground: #ffffff;
+  --muted: #cccccc;
+  --muted-foreground: #cccccc;
+  
+  /* Chart-specific colors */
+  --chart-text: #ffffff;
+  --chart-grid: rgba(255, 255, 255, 0.15);
+  
+  /* Primary accent (high contrast yellow) */
+  --primary: #ffff00;
+  --primary-foreground: #000000;
+  --secondary: #00ffff;
+  --secondary-foreground: #000000;
+  --success: #00ff00;
+  --success-foreground: #000000;
+  --warning: #ff9900;
+  --warning-foreground: #000000;
+  --danger: #ff00ff;
+  --danger-foreground: #000000;
+  --info: #00aaff;
+  --info-foreground: #000000;
 
   --card-bg: rgba(10, 10, 10, 0.9);
   --card-border: rgba(255, 255, 255, 0.15);
@@ -250,20 +328,6 @@ body {
 }
 .animate-mode-switch {
   animation: mode-switch 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Vurgu rengi (ayarlardan) – buton/çubuk vurguları */
-[data-vurgu="mor"] {
-  --accent-blue: #8b5cf6;
-  --accent-cyan: #a78bfa;
-}
-[data-vurgu="yeşil"] {
-  --accent-blue: #10b981;
-  --accent-cyan: #34d399;
-}
-[data-vurgu="pembe"] {
-  --accent-blue: #ec4899;
-  --accent-cyan: #f472b6;
 }
 
 /* ─── Modern Card System ─── */

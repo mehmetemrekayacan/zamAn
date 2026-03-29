@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export type Theme = 'light' | 'dark' | 'high-contrast'
-export type VurguRengi = 'mavi' | 'mor' | 'yeşil' | 'pembe'
 
 export interface Settings {
   sesAçık: boolean
@@ -15,8 +14,6 @@ export interface Settings {
   kullaniciAdi: string
   /** KPSS / alan sınavı tarihi (YYYY-MM-DD). X gün kaldı için. */
   sinavTarihi: string | null
-  /** Vurgu rengi: butonlar, çubuklar, rozetler */
-  vurguRengi: VurguRengi
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -28,7 +25,6 @@ const DEFAULT_SETTINGS: Settings = {
   kısayollar: { startStop: 'Space', reset: 'KeyR', modGeçiş: 'KeyM' },
   kullaniciAdi: '',
   sinavTarihi: null,
-  vurguRengi: 'mavi',
 }
 
 export type SettingsState = Settings & {

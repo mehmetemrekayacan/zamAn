@@ -4,24 +4,66 @@ export default {
   theme: {
     extend: {
       colors: {
+        foreground: 'var(--foreground)',
+        background: 'var(--background)',
+        card: {
+          DEFAULT: 'var(--card)',
+          foreground: 'var(--card-foreground)',
+        },
+        muted: {
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
+        },
+        primary: {
+          DEFAULT: 'var(--primary)',
+          foreground: 'var(--primary-foreground)',
+        },
+        secondary: {
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)',
+        },
+        success: {
+          DEFAULT: 'var(--success)',
+          foreground: 'var(--success-foreground)',
+        },
+        warning: {
+          DEFAULT: 'var(--warning)',
+          foreground: 'var(--warning-foreground)',
+        },
+        danger: {
+          DEFAULT: 'var(--danger)',
+          foreground: 'var(--danger-foreground)',
+        },
+        info: {
+          DEFAULT: 'var(--info)',
+          foreground: 'var(--info-foreground)',
+        },
+        'card-foreground': 'var(--card-foreground)',
+        'muted-foreground': 'var(--muted-foreground)',
+        'primary-foreground': 'var(--primary-foreground)',
+        'secondary-foreground': 'var(--secondary-foreground)',
+        'success-foreground': 'var(--success-foreground)',
+        'warning-foreground': 'var(--warning-foreground)',
+        'danger-foreground': 'var(--danger-foreground)',
+        'info-foreground': 'var(--info-foreground)',
         surface: {
-          900: 'var(--surface-900, #0a0f1a)',
-          800: 'var(--surface-800, #0f1629)',
-          700: 'var(--surface-700, #151d32)',
-          600: 'var(--surface-600, #1c2744)',
-          500: 'var(--surface-500, #243352)',
+          900: 'var(--surface-900)',
+          800: 'var(--surface-800)',
+          700: 'var(--surface-700)',
+          600: 'var(--surface-600)',
+          500: 'var(--surface-500)',
         },
         text: {
-          primary: 'var(--text-primary, #eef0f4)',
-          secondary: 'var(--text-secondary, #c1c8d8)',
-          muted: 'var(--text-muted, #7b879e)',
+          primary: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          muted: 'var(--text-muted)',
         },
         accent: {
-          blue: 'var(--accent-blue, #3b82f6)',
-          cyan: 'var(--accent-cyan, #06b6d4)',
-          amber: 'var(--accent-amber, #f59e0b)',
-          red: 'var(--accent-red, #ef4444)',
-          green: 'var(--accent-green, #10b981)',
+          blue: 'var(--accent-blue)',
+          cyan: 'var(--accent-cyan)',
+          amber: 'var(--accent-amber)',
+          red: 'var(--accent-red)',
+          green: 'var(--accent-green)',
         },
       },
       fontFamily: {

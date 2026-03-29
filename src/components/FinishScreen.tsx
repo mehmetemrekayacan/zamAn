@@ -20,9 +20,9 @@ const ScoreRow = ({
   accent: 'blue' | 'red' | 'amber'
 }) => {
   const colorMap = {
-    blue: 'text-accent-blue',
-    red: 'text-accent-red',
-    amber: 'text-accent-amber',
+    blue: 'text-primary',
+    red: 'text-primary',
+    amber: 'text-primary',
   }
   const signedValue = value >= 0 ? `+${value}` : `${value}`
   return (
@@ -120,10 +120,10 @@ export function FinishScreen({
           <h1 className="font-display text-3xl font-semibold text-text-primary">Başarılı! 🎉</h1>
         </header>
 
-        <div className="rounded-card border border-accent-blue/50 bg-gradient-to-br from-surface-800 to-surface-900 p-6 shadow-lg shadow-blue-500/20">
+        <div className="rounded-card border border-primary/50 bg-gradient-to-br from-surface-800 to-surface-900 p-6 shadow-lg shadow-primary/20">
           <div className="text-center">
             <p className="text-text-muted mb-2">Toplam Puan</p>
-            <p className="font-display text-6xl font-bold text-accent-blue">{score.totalScore}</p>
+            <p className="font-display text-6xl font-bold text-primary">{score.totalScore}</p>
           </div>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -145,19 +145,19 @@ export function FinishScreen({
 
         {/* Arka plandaki mola banner — non-intrusive indicator */}
         {hasBackgroundBreak && breakRemainingMs > 0 && (
-          <div className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 backdrop-blur-sm">
+          <div className="flex items-center justify-between rounded-2xl border border-primary/30 bg-primary/10 px-5 py-3 backdrop-blur-sm">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-              <span className="text-sm font-medium text-emerald-300">Mola arka planda başladı</span>
+              <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+              <span className="text-sm font-medium text-primary">Mola arka planda başladı</span>
             </div>
-            <span className="font-mono text-lg font-bold tabular-nums text-emerald-400">
+            <span className="font-mono text-lg font-bold tabular-nums text-primary">
               {formatSeconds(Math.round(breakRemainingMs / 1000))}
             </span>
           </div>
         )}
         {hasBackgroundBreak && breakRemainingMs <= 0 && (
-          <div className="flex items-center gap-2 rounded-2xl border border-accent-amber/30 bg-accent-amber/10 px-5 py-3">
-            <span className="text-sm font-medium text-accent-amber">Mola süresi doldu — kayıt sonrası yeni tura geçeceksiniz</span>
+          <div className="flex items-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 px-5 py-3">
+            <span className="text-sm font-medium text-primary">Mola süresi doldu — kayıt sonrası yeni tura geçeceksiniz</span>
           </div>
         )}
 
@@ -174,7 +174,7 @@ export function FinishScreen({
             {hasPauses && (
               <div>
                 <p className="text-xs text-text-muted">Toplam Süre (duraklamalar dahil)</p>
-                <p className="font-semibold text-accent-amber">{formatSeconds(Math.round(totalDurationMs / 1000))}</p>
+                <p className="font-semibold text-primary">{formatSeconds(Math.round(totalDurationMs / 1000))}</p>
               </div>
             )}
             <div>
@@ -195,7 +195,7 @@ export function FinishScreen({
         </div>
 
         {isDeneme && onDenemeAnalizChange && (
-          <div className="space-y-3 rounded-card border border-accent-amber/30 bg-accent-amber/5 p-4">
+          <div className="space-y-3 rounded-card border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-text-primary">Deneme analizi (opsiyonel)</p>
             <p className="text-xs text-text-muted">Doğru / yanlış / boş sayılarını gir; net ve trend istatistiklerde görünsün.</p>
             <div className="grid grid-cols-3 gap-3">
@@ -207,7 +207,7 @@ export function FinishScreen({
                   max={999}
                   value={analiz.dogru}
                   onChange={(e) => setAnaliz({ dogru: clampNum(parseInt(e.target.value, 10) || 0, 0, 999) })}
-                  className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-accent-blue/50 focus:outline-none"
+                  className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-primary/50 focus:outline-none"
                 />
               </div>
               <div>
@@ -218,7 +218,7 @@ export function FinishScreen({
                   max={999}
                   value={analiz.yanlis}
                   onChange={(e) => setAnaliz({ yanlis: clampNum(parseInt(e.target.value, 10) || 0, 0, 999) })}
-                  className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-accent-blue/50 focus:outline-none"
+                  className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-primary/50 focus:outline-none"
                 />
               </div>
               <div>
@@ -229,13 +229,13 @@ export function FinishScreen({
                   max={999}
                   value={analiz.bos}
                   onChange={(e) => setAnaliz({ bos: clampNum(parseInt(e.target.value, 10) || 0, 0, 999) })}
-                  className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-accent-blue/50 focus:outline-none"
+                  className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-primary/50 focus:outline-none"
                 />
               </div>
             </div>
             {(analiz.dogru > 0 || analiz.yanlis > 0 || analiz.bos > 0) && (
               <p className="text-xs text-text-muted">
-                Net (D − Y/4) = <span className="font-semibold text-accent-amber">{((analiz.dogru || 0) - (analiz.yanlis || 0) / 4).toFixed(2)}</span>
+                Net (D − Y/4) = <span className="font-semibold text-primary">{((analiz.dogru || 0) - (analiz.yanlis || 0) / 4).toFixed(2)}</span>
               </p>
             )}
           </div>
@@ -251,7 +251,7 @@ export function FinishScreen({
                   type="button"
                   onClick={() => onRuhHaliChange(sessionRuhHali === o.value ? null : o.value)}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                    sessionRuhHali === o.value ? 'border-accent-amber/60 bg-accent-amber/20 text-text-primary' : 'border-text-primary/10 bg-surface-700/50 text-text-muted hover:border-accent-amber/40'
+                    sessionRuhHali === o.value ? 'border-primary/60 bg-primary/20 text-primary' : 'border-text-primary/10 bg-surface-700/50 text-text-muted hover:border-primary/40'
                   }`}
                 >
                   {o.emoji} {o.label}
@@ -266,7 +266,7 @@ export function FinishScreen({
             value={sessionNote}
             onChange={(e) => onSessionNoteChange(e.target.value)}
             placeholder="Bu seans hakkında bir not yaz... (ör. 'Çok iyi konsantré oldum')"
-            className="w-full rounded-card border border-text-primary/10 bg-surface-800/50 px-4 py-3 text-text-primary placeholder-text-muted focus:border-accent-blue/50 focus:outline-none"
+            className="w-full rounded-card border border-text-primary/10 bg-surface-800/50 px-4 py-3 text-text-primary placeholder-text-muted focus:border-primary/50 focus:outline-none"
             rows={3}
           />
         </div>
@@ -274,13 +274,13 @@ export function FinishScreen({
         <div className="flex gap-3">
           <button
             onClick={onSave}
-            className="flex-1 rounded-full bg-accent-blue px-6 py-3 font-semibold text-surface-900 shadow-lg shadow-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/40 active:scale-[0.98] transition"
+            className="flex-1 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/40 active:scale-[0.98] transition"
           >
             Kaydet ve Devam Et
           </button>
           <button
             onClick={onCancel}
-            className="rounded-full border border-text-primary/10 px-6 py-3 font-semibold text-text-primary hover:border-accent-blue/60 active:scale-[0.98] transition"
+            className="rounded-full border border-text-primary/10 px-6 py-3 font-semibold text-text-primary hover:border-primary/60 active:scale-[0.98] transition"
           >
             İptal
           </button>

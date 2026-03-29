@@ -58,7 +58,7 @@ export const CareerPanel = memo(function CareerPanel({
           <button
             type="button"
             onClick={() => setIsTitlesModalOpen(true)}
-            className="mb-4 inline-flex w-full items-center justify-center rounded-card-sm border border-accent-blue/50 bg-accent-blue/15 px-3 py-2.5 text-sm font-semibold text-accent-blue transition hover:bg-accent-blue/25"
+            className="mb-4 inline-flex w-full items-center justify-center rounded-card-sm border border-secondary/45 bg-secondary px-3 py-2.5 text-sm font-semibold text-secondary-foreground transition hover:bg-secondary/90"
           >
             Tüm Ünvanları Gör
           </button>
@@ -67,11 +67,11 @@ export const CareerPanel = memo(function CareerPanel({
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="text-xs text-text-muted">İlerleme</span>
-                <span className="text-xs font-semibold text-accent-blue">%{ilerlemeYuzde}</span>
+                <span className="text-xs font-semibold text-success">%{ilerlemeYuzde}</span>
               </div>
               <div className="h-2.5 rounded-full bg-surface-700 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-accent-blue to-accent-cyan transition-all duration-500"
+                  className="h-full rounded-full bg-success transition-all duration-500"
                   style={{ width: `${ilerlemeYuzde}%` }}
                 />
               </div>
@@ -96,11 +96,11 @@ export const CareerPanel = memo(function CareerPanel({
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-text-secondary">Seans Sayısı</span>
-            <span className="font-semibold text-accent-amber">{monthSessions}</span>
+            <span className="font-semibold text-info">{monthSessions}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-text-secondary">Ort. Puan</span>
-            <span className="font-semibold text-accent-cyan">{avgScoreMonth}</span>
+            <span className="font-semibold text-success">{avgScoreMonth}</span>
           </div>
         </dl>
         </div>
@@ -122,7 +122,7 @@ export const CareerPanel = memo(function CareerPanel({
               key={rozet.id}
               className={`flex flex-col items-center rounded-card-sm p-2.5 text-center transition-all duration-200 ${
                 rozet.kazanildi
-                  ? 'border border-accent-amber/30 bg-accent-amber/10 hover:bg-accent-amber/15 hover:scale-105'
+                  ? 'border border-success/35 bg-success/12 hover:bg-success/20 hover:scale-105'
                   : 'border border-[var(--card-border)] bg-surface-700/20 opacity-40'
               }`}
               title={rozet.aciklama}

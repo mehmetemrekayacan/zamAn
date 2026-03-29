@@ -86,11 +86,11 @@ export const SessionHistory = memo(function SessionHistory({
                 className={`flex items-center gap-3 rounded-card-sm border border-[var(--card-border)]
                            bg-surface-900/40 px-4 py-3 transition-all duration-300 hover:border-text-primary/10
                            hover:bg-surface-900/60 animate-list-item
-                           ${session.id === newItemId ? 'ring-2 ring-accent-blue/30 ring-offset-1 ring-offset-surface-900' : ''}`}
+                           ${session.id === newItemId ? 'ring-2 ring-primary/30 ring-offset-1 ring-offset-surface-900' : ''}`}
                 style={{ animationDelay: `${index * 60}ms` }}
               >
                 {/* Mod icon */}
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-blue/10 text-base">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-base">
                   {MODE_EMOJIS[session.mod] ?? '📋'}
                 </span>
 
@@ -117,7 +117,7 @@ export const SessionHistory = memo(function SessionHistory({
                     {ekstraDk != null ? (
                       <>
                         {normalDk} dk{' '}
-                        <span className="text-orange-400 font-medium">+ {ekstraDk} dk ekstra</span>
+                        <span className="text-primary font-medium">+ {ekstraDk} dk ekstra</span>
                       </>
                     ) : (
                       `${normalDk} dakika`
@@ -127,13 +127,13 @@ export const SessionHistory = memo(function SessionHistory({
 
                 {/* Net sayısı (deneme modu) */}
                 {isDeneme && net != null && (
-                  <span className="shrink-0 rounded-full bg-emerald-500/12 px-2.5 py-1 text-xs font-bold text-emerald-400">
+                  <span className="shrink-0 rounded-full bg-primary/12 px-2.5 py-1 text-xs font-bold text-primary">
                     {net % 1 === 0 ? net : net.toFixed(2)} Net
                   </span>
                 )}
 
                 {/* Puan */}
-                <span className="shrink-0 rounded-full bg-accent-blue/12 px-3 py-1 text-xs font-bold text-accent-blue">
+                <span className="shrink-0 rounded-full bg-primary/12 px-3 py-1 text-xs font-bold text-primary">
                   +{session.puan}
                 </span>
               </div>

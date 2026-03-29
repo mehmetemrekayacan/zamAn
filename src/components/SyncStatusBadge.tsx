@@ -13,7 +13,7 @@ export function SyncStatusBadge({
     return (
       <span
         data-session-id={sessionId}
-        className="inline-flex items-center gap-1 rounded-full border border-accent-amber/30 bg-accent-amber/10 px-2 py-0.5 text-[10px] font-semibold text-accent-amber"
+        className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning"
         title="Senkron bekleniyor"
       >
         <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -29,7 +29,7 @@ export function SyncStatusBadge({
     return (
       <span
         data-session-id={sessionId}
-        className="inline-flex items-center gap-1 rounded-full border border-accent-red/35 bg-accent-red/10 px-2 py-0.5 text-[10px] font-semibold text-accent-red"
+        className="inline-flex items-center gap-1 rounded-full border border-danger/35 bg-danger/10 px-2 py-0.5 text-[10px] font-semibold text-danger"
         title="Senkron başarısız"
       >
         <span className="text-[11px]">⚠</span>
@@ -41,7 +41,7 @@ export function SyncStatusBadge({
   return (
     <span
       data-session-id={sessionId}
-      className="inline-flex items-center gap-1 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400"
+      className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success"
       title="Senkronlandı"
     >
       <span className="text-[11px]">✓</span>

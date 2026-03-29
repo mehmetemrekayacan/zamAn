@@ -44,14 +44,14 @@ export function TitlesModal({ isOpen, onClose, currentScore }: TitlesModalProps)
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-text-primary/15 bg-surface-700/40 px-3 py-1 text-sm text-text-muted transition hover:border-accent-blue/40 hover:text-text-primary"
+            className="rounded-full border border-text-primary/15 bg-surface-700/40 px-3 py-1 text-sm text-text-muted transition hover:border-secondary/45 hover:text-secondary"
           >
             Kapat
           </button>
         </div>
 
         <div className="border-b border-text-primary/10 bg-surface-700/30 px-5 py-3 text-sm text-text-secondary">
-          Toplam puanın: <span className="font-semibold text-accent-blue">{safeScore}</span>
+          Toplam puanın: <span className="font-semibold text-info">{safeScore}</span>
         </div>
 
         <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
@@ -64,9 +64,9 @@ export function TitlesModal({ isOpen, onClose, currentScore }: TitlesModalProps)
                 key={title.name}
                 className={`flex items-center justify-between rounded-card-sm border px-3 py-2.5 transition ${
                   isCurrent
-                    ? 'border-accent-blue/60 bg-accent-blue/12 shadow-[0_0_0_1px_rgba(56,189,248,0.25)]'
+                    ? 'border-info/55 bg-info/12 ring-1 ring-info/35'
                     : unlocked
-                      ? 'border-emerald-400/35 bg-emerald-400/10'
+                      ? 'border-success/35 bg-success/10'
                       : 'border-text-primary/10 bg-surface-700/30 opacity-55 grayscale'
                 }`}
               >
@@ -77,11 +77,11 @@ export function TitlesModal({ isOpen, onClose, currentScore }: TitlesModalProps)
 
                 <div className="ml-3 flex items-center gap-2">
                   {isCurrent && (
-                    <span className="rounded-full bg-accent-blue/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-accent-blue">
+                    <span className="rounded-full bg-info/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-info">
                       AKTIF
                     </span>
                   )}
-                  <span className={`text-lg ${unlocked ? 'text-emerald-300' : 'text-text-muted'}`}>
+                  <span className={`text-lg ${unlocked ? 'text-success' : 'text-text-muted'}`}>
                     {unlocked ? '✓' : '🔒'}
                   </span>
                 </div>

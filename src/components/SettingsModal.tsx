@@ -15,7 +15,6 @@ import {
 import { processQueue } from '../lib/offlineSync'
 import { exportData, exportFileName, importFromFile } from '../lib/sync'
 import { useSettingsStore } from '../store/settings'
-import type { VurguRengi } from '../store/settings'
 import { useSessionsStore } from '../store/sessions'
 import { usePwaInstallStore } from '../store/pwaInstall'
 import { isElectron, toggleAlwaysOnTop, toggleMiniPlayer } from '../lib/electronBridge'
@@ -33,7 +32,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const kısayollar = useSettingsStore((s) => s.kısayollar)
   const kullaniciAdi = useSettingsStore((s) => s.kullaniciAdi ?? '')
   const sinavTarihi = useSettingsStore((s) => s.sinavTarihi ?? null)
-  const vurguRengi = useSettingsStore((s) => s.vurguRengi ?? 'mavi')
   const setSetting = useSettingsStore((s) => s.setSetting)
   const [temizleniyor, setTemizleniyor] = useState(false)
   const [disaAktariyor, setDisaAktariyor] = useState(false)
@@ -236,9 +234,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           <div className="space-y-3">
             <h3 className="text-base font-semibold text-text-primary">Bildirimler</h3>
 
-            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border border-text-primary/10 bg-surface-700/50 hover:border-accent-blue/30">
+            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border border-text-primary/10 bg-surface-700/50 hover:border-primary/30">
               <div className="flex items-center gap-2 min-w-0">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-accent-blue flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9 9a2 2 0 114 0 2 2 0 11-4 0z" />
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
@@ -247,7 +245,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <button
                 onClick={() => setSetting('sesAçık', !sesAçık)}
                 className={`w-10 h-5 sm:w-11 sm:h-6 rounded-full transition flex-shrink-0 ml-2 ${
-                  sesAçık ? 'bg-accent-blue' : 'bg-surface-600'
+                  sesAçık ? 'bg-primary' : 'bg-surface-600'
                 }`}
               >
                 <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white transition transform ${
@@ -256,9 +254,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               </button>
             </div>
 
-            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border border-text-primary/10 bg-surface-700/50 hover:border-accent-blue/30">
+            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border border-text-primary/10 bg-surface-700/50 hover:border-primary/30">
               <div className="flex items-center gap-2 min-w-0">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-accent-amber flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5z" />
                 </svg>
                 <label className="text-sm sm:text-base text-text-primary cursor-pointer whitespace-nowrap">Titreşim</label>
@@ -266,7 +264,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <button
                 onClick={() => setSetting('titreşimAçık', !titreşimAçık)}
                 className={`w-10 h-5 sm:w-11 sm:h-6 rounded-full transition flex-shrink-0 ml-2 ${
-                  titreşimAçık ? 'bg-accent-amber' : 'bg-surface-600'
+                  titreşimAçık ? 'bg-primary' : 'bg-surface-600'
                 }`}
               >
                 <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white transition transform ${
@@ -275,9 +273,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               </button>
             </div>
 
-            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border border-text-primary/10 bg-surface-700/50 hover:border-accent-blue/30">
+            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border border-text-primary/10 bg-surface-700/50 hover:border-primary/30">
               <div className="flex items-center gap-2 min-w-0">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-accent-green flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.076l-3.5-4a1 1 0 010-1.152l3.5-4a1 1 0 011.617-.076zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.113-.84-4.13-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
                 </svg>
                 <label className="text-sm sm:text-base text-text-primary cursor-pointer whitespace-nowrap" title="Seans sırasında ses kapalı">Sessiz mod</label>
@@ -285,7 +283,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <button
                 onClick={() => setSetting('sessizMod', !sessizMod)}
                 className={`w-10 h-5 sm:w-11 sm:h-6 rounded-full transition flex-shrink-0 ml-2 ${
-                  sessizMod ? 'bg-green-500' : 'bg-surface-600'
+                  sessizMod ? 'bg-primary' : 'bg-surface-600'
                 }`}
               >
                 <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white transition transform ${
@@ -294,9 +292,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               </button>
             </div>
 
-            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border border-text-primary/10 bg-surface-700/50 hover:border-accent-blue/30">
+            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg border border-text-primary/10 bg-surface-700/50 hover:border-primary/30">
               <div className="flex items-center gap-2 min-w-0">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-accent-cyan flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10 2a6 6 0 00-6 6v3.586L4.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L7 11.586V8a5 5 0 0110 0v1h2V8a7 7 0 00-7-7z" />
                 </svg>
                 <label className="text-sm sm:text-base text-text-primary cursor-pointer whitespace-nowrap">Tarayıcı Bildirimi</label>
@@ -315,7 +313,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   }
                 }}
                 className={`w-10 h-5 sm:w-11 sm:h-6 rounded-full transition flex-shrink-0 ml-2 ${
-                  bildirimİzni === 'granted' ? 'bg-accent-cyan' : 'bg-surface-600'
+                  bildirimİzni === 'granted' ? 'bg-primary' : 'bg-surface-600'
                 }`}
               >
                 <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white transition transform ${
@@ -335,7 +333,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   value={kullaniciAdi}
                   onChange={(e) => setSetting('kullaniciAdi', e.target.value)}
                   placeholder="ör. Luna"
-                  className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-accent-blue/50 focus:outline-none"
+                  className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-primary/50 focus:outline-none"
                 />
               </div>
               <div>
@@ -344,42 +342,23 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   type="date"
                   value={sinavTarihi ?? ''}
                   onChange={(e) => setSetting('sinavTarihi', e.target.value || null)}
-                  className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary text-sm focus:border-accent-blue/50 focus:outline-none"
+                  className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary text-sm focus:border-primary/50 focus:outline-none"
                 />
-              </div>
-              <div>
-                <label className="block text-xs text-text-muted mb-2">Vurgu rengi</label>
-                <div className="flex gap-2 flex-wrap">
-                  {(['mavi', 'mor', 'yeşil', 'pembe'] as VurguRengi[]).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setSetting('vurguRengi', r)}
-                      className={`rounded-lg border px-3 py-2 text-sm font-medium capitalize transition ${
-                        vurguRengi === r
-                          ? 'border-accent-blue/60 bg-accent-blue/20 text-text-primary'
-                          : 'border-text-primary/10 bg-surface-700/50 text-text-muted hover:border-accent-blue/30'
-                      }`}
-                    >
-                      {r === 'yeşil' ? 'Yeşil' : r === 'mor' ? 'Mor' : r === 'pembe' ? 'Pembe' : 'Mavi'}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
           </div>
 
           <div className="space-y-2 pt-3 border-t border-text-primary/10">
             <h3 className="text-base font-semibold text-text-primary">Görünüm</h3>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {(['dark', 'light', 'high-contrast'] as const).map((themeOption) => (
                 <button
                   key={themeOption}
                   onClick={() => setSetting('tema', themeOption)}
                   className={`w-full p-2 sm:p-3 rounded-lg border transition text-left text-sm sm:text-base ${
                     tema === themeOption
-                      ? 'border-accent-blue/60 bg-accent-blue/10 text-text-primary font-semibold'
-                      : 'border-text-primary/10 bg-surface-700/50 text-text-muted hover:border-accent-blue/30'
+                      ? 'border-primary/60 bg-primary text-primary-foreground font-semibold'
+                      : 'border-text-primary/10 bg-surface-700/50 text-text-muted hover:border-primary/30'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -387,7 +366,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       {themeOption === 'dark' ? '🌙 Koyu Tema' : themeOption === 'light' ? '☀️ Açık Tema' : '⚡ Yüksek Kontrast'}
                     </span>
                     {tema === themeOption && (
-                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-accent-blue flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     )}
@@ -421,7 +400,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                           })
                         }
                       }}
-                      className="px-2 py-1 text-xs bg-accent-blue/20 hover:bg-accent-blue/30 border border-accent-blue/50 rounded text-accent-blue transition whitespace-nowrap"
+                      className="px-2 py-1 text-xs bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-primary transition whitespace-nowrap"
                     >
                       Değiştir
                     </button>
@@ -447,7 +426,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       type="button"
                       onClick={handleBulutaKaydet}
                       disabled={cloudLoading}
-                      className="flex-1 rounded-lg border border-accent-blue/50 bg-accent-blue/10 hover:bg-accent-blue/20 px-3 py-2 text-sm font-medium text-accent-blue transition disabled:opacity-50"
+                      className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                     >
                       {cloudLoading ? '…' : '⬆ Gönder'}
                     </button>
@@ -455,7 +434,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       type="button"
                       onClick={handleBuluttanCek}
                       disabled={cloudLoading}
-                      className="flex-1 rounded-lg border border-accent-green/50 bg-accent-green/10 hover:bg-accent-green/20 px-3 py-2 text-sm font-medium text-accent-green transition disabled:opacity-50"
+                      className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                     >
                       {cloudLoading ? '…' : '⬇ Çek'}
                     </button>
@@ -475,12 +454,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       } else setCloudError(r.error)
                     }}
                     disabled={cloudLoading}
-                    className="w-full rounded-lg border border-accent-cyan/50 bg-accent-cyan/10 hover:bg-accent-cyan/20 px-3 py-2 text-sm font-medium text-accent-cyan transition disabled:opacity-50"
+                    className="w-full rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                   >
                     {cloudLoading ? '…' : '🔄 Çift yönlü sync'}
                   </button>
                   {pendingCount > 0 && (
-                    <p className="text-xs text-accent-amber">⏳ {pendingCount} bekleyen işlem kuyruktadır.</p>
+                    <p className="text-xs text-primary">⏳ {pendingCount} bekleyen işlem kuyruktadır.</p>
                   )}
                   <div className="rounded-lg border border-text-primary/10 bg-surface-700/40 p-3 space-y-2">
                     <div className="flex items-center justify-between">
@@ -488,7 +467,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       <span className="text-[11px] text-text-muted">Canlı durum</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-md border border-accent-amber/30 bg-accent-amber/10 px-2 py-1.5 text-accent-amber">
+                      <div className="rounded-md border border-primary/35 bg-primary/10 px-2 py-1.5 text-primary">
                         Bekleyen: <strong>{pendingCount}</strong>
                       </div>
                       <div className="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-red-400">
@@ -501,17 +480,17 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         type="button"
                         onClick={handleForceSync}
                         disabled={forceSyncLoading || cloudLoading}
-                        className="w-full rounded-lg border border-accent-cyan/50 bg-accent-cyan/10 hover:bg-accent-cyan/20 px-3 py-2 text-sm font-medium text-accent-cyan transition disabled:opacity-50"
+                        className="w-full rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                       >
                         {forceSyncLoading ? '…' : 'Şimdi Eşitle (Force Sync)'}
                       </button>
                     ) : pendingCount === 0 ? (
-                      <p className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                      <p className="inline-flex items-center gap-1 text-xs text-primary">
                         <span>✓</span>
                         Tüm verileriniz bulutla eşitlendi.
                       </p>
                     ) : (
-                      <p className="text-xs text-accent-amber">Bekleyen kayıtlar internet/işlem sırasına göre otomatik eşitlenecek.</p>
+                      <p className="text-xs text-primary">Bekleyen kayıtlar internet/işlem sırasına göre otomatik eşitlenecek.</p>
                     )}
 
                     {lastForceSyncAt && (
@@ -523,7 +502,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   {lastSync && (
                     <p className="text-xs text-text-muted">Son sync: {new Date(lastSync).toLocaleString('tr-TR')}</p>
                   )}
-                  {cloudPushPullMsg && <p className="text-xs text-accent-green">{cloudPushPullMsg}</p>}
+                  {cloudPushPullMsg && <p className="text-xs text-primary">{cloudPushPullMsg}</p>}
                   <button
                     type="button"
                     onClick={handleCikis}
@@ -540,31 +519,31 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     placeholder="İsim (kayıt için)"
                     value={cloudIsim}
                     onChange={(e) => setCloudIsim(e.target.value)}
-                    className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-accent-blue/50 focus:outline-none"
+                    className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-primary/50 focus:outline-none"
                   />
                   <input
                     type="email"
                     placeholder="E-posta"
                     value={cloudEmail}
                     onChange={(e) => setCloudEmail(e.target.value)}
-                    className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-accent-blue/50 focus:outline-none"
+                    className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-primary/50 focus:outline-none"
                   />
                   <input
                     type="password"
                     placeholder="Şifre"
                     value={cloudPassword}
                     onChange={(e) => setCloudPassword(e.target.value)}
-                    className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-accent-blue/50 focus:outline-none"
+                    className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-primary/50 focus:outline-none"
                   />
                   {cloudError && <p className="text-xs text-red-400">{cloudError}</p>}
-                  {cloudPushPullMsg && <p className="text-xs text-accent-green whitespace-pre-line">{cloudPushPullMsg}</p>}
-                  {healthMsg && <p className="text-xs text-accent-amber">{healthMsg}</p>}
+                  {cloudPushPullMsg && <p className="text-xs text-primary whitespace-pre-line">{cloudPushPullMsg}</p>}
+                  {healthMsg && <p className="text-xs text-primary">{healthMsg}</p>}
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={handleKayit}
                       disabled={cloudLoading}
-                      className="flex-1 rounded-lg border border-accent-blue/50 bg-accent-blue/10 hover:bg-accent-blue/20 px-3 py-2 text-sm font-medium text-accent-blue transition disabled:opacity-50"
+                      className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                     >
                       {cloudLoading ? '…' : 'Kayıt ol'}
                     </button>
@@ -572,7 +551,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       type="button"
                       onClick={handleGiris}
                       disabled={cloudLoading}
-                      className="flex-1 rounded-lg border border-accent-green/50 bg-accent-green/10 hover:bg-accent-green/20 px-3 py-2 text-sm font-medium text-accent-green transition disabled:opacity-50"
+                      className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                     >
                       {cloudLoading ? '…' : 'Giriş yap'}
                     </button>
@@ -592,7 +571,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 type="button"
                 onClick={handleDisaAktar}
                 disabled={disaAktariyor}
-                className="flex-1 rounded-lg border border-accent-blue/50 bg-accent-blue/10 hover:bg-accent-blue/20 px-3 py-2 text-sm font-medium text-accent-blue transition disabled:opacity-50"
+                className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
               >
                 {disaAktariyor ? '…' : 'Dışa aktar'}
               </button>
@@ -600,7 +579,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={iceAktariyor}
-                className="flex-1 rounded-lg border border-accent-green/50 bg-accent-green/10 hover:bg-accent-green/20 px-3 py-2 text-sm font-medium text-accent-green transition disabled:opacity-50"
+                className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
               >
                 {iceAktariyor ? '…' : 'İçe aktar'}
               </button>
@@ -638,7 +617,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   const accepted = await promptInstall()
                   if (accepted) window.location.reload()
                 }}
-                className="w-full rounded-lg border border-accent-cyan/50 bg-accent-cyan/10 hover:bg-accent-cyan/20 px-3 py-2 text-sm font-medium text-accent-cyan transition"
+                className="w-full rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition"
               >
                 📱 Uygulamayı Yükle
               </button>
@@ -656,7 +635,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <button
                   type="button"
                   onClick={() => toggleAlwaysOnTop(true)}
-                  className="flex-1 rounded-lg border border-accent-amber/50 bg-accent-amber/10 hover:bg-accent-amber/20 px-3 py-2 text-sm font-medium text-accent-amber transition"
+                  className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition"
                 >
                   📌 Her Zaman Üstte
                 </button>
@@ -672,7 +651,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <button
                   type="button"
                   onClick={() => toggleMiniPlayer(true)}
-                  className="flex-1 rounded-lg border border-accent-cyan/50 bg-accent-cyan/10 hover:bg-accent-cyan/20 px-3 py-2 text-sm font-medium text-accent-cyan transition"
+                  className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition"
                 >
                   🔲 Mini Player
                 </button>
@@ -694,7 +673,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="border-t border-text-primary/10 px-4 sm:px-6 py-4 bg-surface-800">
           <button
             onClick={onClose}
-            className="w-full rounded-full bg-accent-blue/20 hover:bg-accent-blue/30 border border-accent-blue/50 px-4 py-2 text-accent-blue font-semibold transition text-sm"
+                    className="w-full rounded-full bg-primary hover:bg-primary/90 border border-primary/60 px-4 py-2 text-primary-foreground font-semibold transition text-sm"
           >
             Kapat
           </button>

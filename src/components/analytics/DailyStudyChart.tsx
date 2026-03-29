@@ -80,40 +80,40 @@ export function DailyStudyChart() {
   }, [sessions])
 
   return (
-    <div className="w-full rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">Son 1 Ay Günlük Çalışma Süresi</h3>
-        <span className="text-xs text-white/60">Dakika</span>
+        <h3 className="text-sm font-semibold text-foreground">Son 1 Ay Günlük Çalışma Süresi</h3>
+        <span className="text-xs text-muted">Dakika</span>
       </div>
 
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis
               dataKey="dayLabel"
-              tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11 }}
+              tick={{ fill: 'var(--chart-text)', fontSize: 11 }}
               interval={4}
-              axisLine={{ stroke: 'rgba(255,255,255,0.2)' }}
+              axisLine={{ stroke: 'var(--chart-grid)' }}
               tickLine={false}
             />
             <YAxis
-              tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11 }}
-              axisLine={{ stroke: 'rgba(255,255,255,0.2)' }}
+              tick={{ fill: 'var(--chart-text)', fontSize: 11 }}
+              axisLine={{ stroke: 'var(--chart-grid)' }}
               tickLine={false}
             />
             <Tooltip
-              cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+              cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }}
               contentStyle={{
-                background: 'rgba(17, 24, 39, 0.9)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'var(--card)',
+                border: '1px solid var(--card-border)',
                 borderRadius: '0.75rem',
-                color: '#fff',
+                color: 'var(--card-foreground)',
               }}
               formatter={(value: number | string | undefined) => [`${Number(value ?? 0)} dk`, 'Çalışma']}
               labelFormatter={(label) => `Gün: ${label}`}
             />
-            <Bar dataKey="minutes" radius={[8, 8, 0, 0]} fill="#34d399" />
+            <Bar dataKey="minutes" radius={[8, 8, 0, 0]} fill="var(--primary)" />
           </BarChart>
         </ResponsiveContainer>
       </div>

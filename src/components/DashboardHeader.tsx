@@ -29,12 +29,12 @@ export const DashboardHeader = memo(function DashboardHeader({
           {unvanEmoji} {unvanText}
         </h1>
         {kalan != null && kalan > 0 && (
-          <p className="mt-3 text-sm text-accent-amber">
+          <p className="mt-3 text-sm text-primary">
             📅 Sınava <span className="font-semibold">{kalan}</span> gün kaldı
           </p>
         )}
         {kalan === 0 && (
-          <p className="mt-3 text-sm font-semibold text-accent-red">
+          <p className="mt-3 text-sm font-semibold text-primary">
             🔥 Sınav bugün! Başarılar!
           </p>
         )}
@@ -44,8 +44,8 @@ export const DashboardHeader = memo(function DashboardHeader({
       <button
         onClick={onSettingsClick}
         className="group relative rounded-card-sm bg-[var(--card-bg)] p-2.5 border border-[var(--card-border)]
-                   hover:border-accent-blue/40 hover:bg-accent-blue/10 backdrop-blur-sm transition-all duration-200
-                   text-text-muted hover:text-accent-blue"
+                   hover:border-primary/40 hover:bg-primary/10 backdrop-blur-sm transition-all duration-200
+                   text-text-muted hover:text-primary"
         title="Ayarlar"
       >
         <svg className="w-5 h-5 transition-transform group-hover:rotate-90 duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">

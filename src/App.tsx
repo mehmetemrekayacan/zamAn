@@ -222,15 +222,6 @@ function App() {
     }
   }, [settings.tema])
 
-  useEffect(() => {
-    const root = document.documentElement
-    if (settings.vurguRengi && settings.vurguRengi !== 'mavi') {
-      root.setAttribute('data-vurgu', settings.vurguRengi)
-    } else {
-      root.removeAttribute('data-vurgu')
-    }
-  }, [settings.vurguRengi])
-
   /* ── actions ── */
   const timeToDisplay = isOvertime && plannedMs != null
     ? Math.max(0, elapsedMs - plannedMs) // Overtime: göster sadece fazla geçen süre
@@ -528,14 +519,14 @@ function App() {
           type="button"
           data-no-drag="true"
           onClick={() => toggleMiniPlayer(false)}
-          className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-text-primary/20 bg-surface-700/70 text-text-muted transition hover:border-accent-blue/60 hover:text-text-primary"
+          className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-text-primary/20 bg-surface-700/70 text-text-muted transition hover:border-secondary/60 hover:text-text-primary"
           title="Genişlet"
         >
           ↗
         </button>
 
         <div className="flex h-screen w-full flex-col items-center justify-center gap-3 px-3">
-          <time className="font-mono text-4xl font-bold tabular-nums text-accent-blue">
+          <time className="font-mono text-4xl font-bold tabular-nums text-primary">
             {formatDuration(timeToDisplay)}
           </time>
 
@@ -543,7 +534,7 @@ function App() {
             <button
               type="button"
               onClick={primaryAction}
-              className="rounded-full bg-accent-blue px-4 py-1.5 text-xs font-semibold text-surface-900 transition hover:shadow-lg hover:shadow-cyan-500/30"
+              className="rounded-full bg-success px-4 py-1.5 text-xs font-semibold text-success-foreground transition hover:shadow-lg hover:shadow-success/30"
             >
               {primaryLabel}
             </button>
@@ -561,7 +552,7 @@ function App() {
                 <button
                   type="button"
                   onClick={finishEarly}
-                  className="rounded-full border border-accent-amber/50 bg-accent-amber/15 px-3 py-1.5 text-xs font-semibold text-accent-amber transition hover:bg-accent-amber/25"
+                  className="rounded-full border border-danger/50 bg-danger/15 px-3 py-1.5 text-xs font-semibold text-danger transition hover:bg-danger/25"
                 >
                   Bitir
                 </button>
@@ -592,8 +583,8 @@ function App() {
               onClick={() => setActiveView('timer')}
               className={`w-full rounded-full px-3 py-2 text-center text-xs font-semibold transition sm:text-sm ${
                 activeView === 'timer'
-                  ? 'bg-accent-blue text-surface-900'
-                  : 'text-text-muted hover:text-text-primary'
+                  ? 'bg-secondary text-secondary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Zamanlayıcı
@@ -603,8 +594,8 @@ function App() {
               onClick={() => setActiveView('analytics')}
               className={`w-full rounded-full px-3 py-2 text-center text-xs font-semibold transition sm:text-sm ${
                 activeView === 'analytics'
-                  ? 'bg-accent-blue text-surface-900'
-                  : 'text-text-muted hover:text-text-primary'
+                  ? 'bg-secondary text-secondary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               İstatistikler
@@ -617,10 +608,10 @@ function App() {
             {/* Hızlı istatistik çubuğu */}
             <QuickStatsBar
               stats={[
-                { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} seans`, accent: 'blue' },
-                { label: 'Bu Hafta', value: formatMinutesHuman(summary.weekMinutes), hint: `${summary.weekSessions} seans`, accent: 'cyan' },
-                { label: 'Seri', value: `${summary.streak}`, hint: 'ardışık gün', accent: 'amber' },
-                { label: 'Puan', value: `${summary.todayScore}`, hint: 'bugün', accent: 'blue' },
+                { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} seans`, tone: 'primary' },
+                { label: 'Bu Hafta', value: formatMinutesHuman(summary.weekMinutes), hint: `${summary.weekSessions} seans`, tone: 'info' },
+                { label: 'Seri', value: `${summary.streak}`, hint: 'ardışık gün', tone: 'warning' },
+                { label: 'Puan', value: `${summary.todayScore}`, hint: 'bugün', tone: 'success' },
               ]}
             />
 
@@ -696,7 +687,7 @@ function App() {
                   <span className="text-text-muted">·</span>
                   <span>{summary.lastSessions.length} seans</span>
                   <span className="text-text-muted">·</span>
-                  <span className="text-accent-blue font-semibold">{summary.toplamKariyerPuan} puan</span>
+                  <span className="text-info font-semibold">{summary.toplamKariyerPuan} puan</span>
                 </span>
               }
             >
@@ -788,7 +779,7 @@ function ModeConfigPanel({
 }) {
   if (modeConfig.mode === 'gerisayim') {
     return (
-      <div className="mx-auto w-full max-w-lg rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-5">
+      <div className="mx-auto w-full max-w-lg rounded-2xl border border-info/25 bg-info/10 p-5">
         <p className="mb-4 text-sm font-semibold text-text-primary">⏳ Zamanlayıcı Süresi</p>
         <div className="flex gap-3">
           {[
@@ -811,7 +802,7 @@ function ModeConfigPanel({
                   const s = f.label === 'Saniye' ? val : countdownSeconds
                   setModeConfig({ mode: 'gerisayim', sureMs: (h * 3600 + m * 60 + s) * 1000 })
                 }}
-                className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-3 py-2.5 text-center text-text-primary focus:border-accent-blue/50 focus:outline-none"
+                className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-3 py-2.5 text-center text-text-primary focus:border-info/50 focus:outline-none"
               />
             </div>
           ))}
@@ -822,7 +813,7 @@ function ModeConfigPanel({
 
   if (modeConfig.mode === 'deneme') {
     return (
-      <div className="mx-auto w-full max-w-2xl rounded-2xl border border-accent-amber/20 bg-accent-amber/5 p-5">
+      <div className="mx-auto w-full max-w-2xl rounded-2xl border border-warning/25 bg-warning/10 p-5">
         <p className="mb-4 text-sm font-semibold text-text-primary">📋 Sınav Bölümleri</p>
 
         {/* Mevcut bölümler */}
@@ -835,8 +826,8 @@ function ModeConfigPanel({
                 onClick={() => jumpToSection(idx)}
                 className={`flex w-full items-center justify-between rounded-xl border px-4 py-2.5 text-left transition ${
                   isActive
-                    ? 'border-accent-amber/50 bg-accent-amber/10 text-text-primary font-semibold'
-                    : 'border-text-primary/5 text-text-muted hover:border-accent-blue/30'
+                    ? 'border-warning/50 bg-warning/10 text-text-primary font-semibold'
+                    : 'border-text-primary/5 text-text-muted hover:border-info/30'
                 }`}
               >
                 <span className="text-sm">{bolum.ad}</span>
@@ -851,7 +842,7 @@ function ModeConfigPanel({
                       setSectionSeconds(Math.floor((bolum.surePlanMs % 60000) / 1000))
                       setEditingSectionIndex(idx)
                     }}
-                    className="cursor-pointer text-xs text-accent-blue hover:text-accent-blue/80"
+                    className="cursor-pointer text-xs text-info hover:text-info/80"
                   >
                     ✏️
                   </span>
@@ -864,7 +855,7 @@ function ModeConfigPanel({
                         bolumler: newBolumler.length > 0 ? newBolumler : [{ ad: 'Bölüm 1', surePlanMs: 30 * 60 * 1000 }],
                       })
                     }}
-                    className="cursor-pointer text-xs text-accent-red hover:text-accent-red/80"
+                    className="cursor-pointer text-xs text-danger hover:text-danger/80"
                   >
                     🗑️
                   </span>
@@ -883,7 +874,7 @@ function ModeConfigPanel({
               value={sectionName}
               onChange={(e) => setSectionName(e.target.value)}
               placeholder="ör. Türkçe, Matematik..."
-              className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-3 py-2.5 text-text-primary placeholder-text-muted focus:border-accent-blue/50 focus:outline-none"
+              className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-3 py-2.5 text-text-primary placeholder-text-muted focus:border-info/50 focus:outline-none"
             />
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -900,7 +891,7 @@ function ModeConfigPanel({
                   max={f.max}
                   value={f.value}
                   onChange={(e) => f.set(Math.max(0, Math.min(f.max, parseInt(e.target.value) || 0)))}
-                  className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-2 py-2.5 text-center text-text-primary focus:border-accent-blue/50 focus:outline-none"
+                  className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-2 py-2.5 text-center text-text-primary focus:border-info/50 focus:outline-none"
                 />
               </div>
             ))}
@@ -924,7 +915,7 @@ function ModeConfigPanel({
                   setSectionSeconds(0)
                 }
               }}
-              className="flex-1 rounded-full bg-accent-amber px-4 py-2.5 text-sm font-semibold text-surface-900 hover:shadow-lg hover:shadow-amber-500/30 transition"
+              className="flex-1 rounded-full bg-warning px-4 py-2.5 text-sm font-semibold text-warning-foreground hover:shadow-lg hover:shadow-warning/30 transition"
             >
               {editingSectionIndex !== null ? '✓ Güncelle' : '+ Ekle'}
             </button>
@@ -937,7 +928,7 @@ function ModeConfigPanel({
                   setSectionMinutes(30)
                   setSectionSeconds(0)
                 }}
-                className="rounded-full border border-text-primary/10 px-4 py-2.5 text-sm font-semibold text-text-primary hover:border-accent-blue/60 transition"
+                className="rounded-full border border-text-primary/10 px-4 py-2.5 text-sm font-semibold text-text-primary hover:border-secondary/60 transition"
               >
                 İptal
               </button>

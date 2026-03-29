@@ -42,8 +42,8 @@ export const ModeSelector = memo(function ModeSelector({
               group flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium
               transition-all duration-200 hover:-translate-y-px
               ${active
-                ? `border-accent-blue/60 bg-accent-blue/15 text-accent-blue shadow-md shadow-accent-blue/10 ${animating ? 'animate-mode-switch' : ''}`
-                : 'border-text-primary/10 bg-surface-800/50 text-text-muted hover:border-accent-blue/30 hover:text-text-primary'
+                ? `border-secondary/40 bg-secondary text-secondary-foreground shadow-md shadow-secondary/25 ${animating ? 'animate-mode-switch' : ''}`
+                : 'border-text-primary/10 bg-surface-800/50 text-text-muted hover:border-info/35 hover:text-text-primary'
               }
             `}
           >

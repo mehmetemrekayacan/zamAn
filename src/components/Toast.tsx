@@ -44,10 +44,10 @@ export function Toast({ message, visible, onDismiss, duration = 3000, type = 'in
 
   const bg =
     type === 'success'
-      ? 'bg-emerald-500/95'
+      ? 'bg-primary/95'
       : type === 'celebration'
-        ? 'bg-accent-amber/95'
-        : 'bg-accent-blue/95'
+        ? 'bg-primary/95'
+        : 'bg-primary/95'
 
   const progressBg =
     type === 'success'
