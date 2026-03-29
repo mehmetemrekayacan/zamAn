@@ -8,8 +8,8 @@ import type { Mode, ModeConfig, Section, WorkBreakPhase, TimerSnapshot, TimerSta
 // ders60mola15: 60 dakika ders, 15 dakika mola
 
 
-const DERS_MS = 6 * 1000
-const MOLA_MS = 50 * 1000
+const DERS_MS = 60 * 60 * 1000
+const MOLA_MS = 15 * 60 * 1000
 
 const DERS60_PAUSE_STORAGE_KEY = 'zaman-ders60-pause-state'
 
