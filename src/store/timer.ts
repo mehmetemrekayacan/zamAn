@@ -1,14 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getLocalDateString } from '../lib/time'
+import { notifyOvertimeStarted } from '../lib/notifications'
 import type { Mode, ModeConfig, Section, WorkBreakPhase, TimerSnapshot, TimerStatus } from '../types'
 
 // Test için: 10 sn ders, 5 sn mola (normal: 60*60*1000, 15*60*1000)
 // ders60mola15: 60 dakika ders, 15 dakika mola
 
 
-const DERS_MS = 60 * 60 * 1000
-const MOLA_MS = 15 * 60 * 1000
+const DERS_MS = 6 * 1000
+const MOLA_MS = 5 * 1000
 
 const DERS60_PAUSE_STORAGE_KEY = 'zaman-ders60-pause-state'
 
@@ -82,6 +83,17 @@ function deriveDers6015PhaseAndPlan(
   }
 }
 
+function getPomodoroStateForToday(
+  state: { pomodoroRound?: number; lastPomodoroDate?: string | null },
+  today: string,
+): { pomodoroRound: number; lastPomodoroDate: string } {
+  const currentRound = Math.max(1, state.pomodoroRound ?? 1)
+  if (!state.lastPomodoroDate || state.lastPomodoroDate !== today) {
+    return { pomodoroRound: 1, lastPomodoroDate: today }
+  }
+  return { pomodoroRound: currentRound, lastPomodoroDate: state.lastPomodoroDate }
+}
+
 /* ═══════════════════════════════════════
    Web Worker Entegrasyonu
    ═══════════════════════════════════════ */
@@ -123,8 +135,14 @@ function stopWorker(): void {
    Tick / Zaman Hesaplama (Absolute Time)
    ═══════════════════════════════════════ */
 
-type GetState = () => TimerSnapshot & { modeConfig: ModeConfig }
-type SetState = (partial: Partial<TimerSnapshot & { modeConfig: ModeConfig }>) => void
+type TimerCoreState = TimerSnapshot & {
+  modeConfig: ModeConfig
+  pomodoroRound: number
+  lastPomodoroDate: string
+}
+
+type GetState = () => TimerCoreState
+type SetState = (partial: Partial<TimerCoreState>) => void
 
 function processTick(get: GetState, set: SetState): void {
   const state = get()
@@ -168,6 +186,7 @@ function processTick(get: GetState, set: SetState): void {
     }
     // Son bölüm bitti — overtime moduna geç (otomatik bitirme YOK)
     if (!state.isOvertime) {
+      notifyOvertimeStarted()
       set({
         isOvertime: true,
         remainingMs: 0,
@@ -182,29 +201,27 @@ function processTick(get: GetState, set: SetState): void {
     const phase = state.workBreakPhase ?? 'work'
     const isWork = phase === 'work'
     const currentMola = state.molaToplamMs ?? 0
-    const nextDersCycle = isWork ? (state.dersCycle ?? 0) + 1 : (state.dersCycle ?? 0)
     const bugun = getLocalDateString()
-    const molaMs = getPlannedMs(state.modeConfig, 'break', state.currentSectionIndex ?? 0) ?? MOLA_MS
 
     if (isWork) {
-      const netWorkMs = state.modeConfig.calismaMs ?? DERS_MS
+      if (!state.isOvertime) {
+        notifyOvertimeStarted()
+        set({
+          isOvertime: true,
+          remainingMs: 0,
+          lastPomodoroDate: bugun,
+        })
+        return
+      }
+
+      // Overtime sırasında her tikte elapsed'i artır; UI'nin +süreyi canlı göstermesini sağlar.
+      const overtimeExtra = state.expectedEndTime != null ? now - state.expectedEndTime : 0
+      const totalElapsed = (state.plannedMs ?? 0) + Math.max(0, overtimeExtra)
       set({
-        status: 'finished',
-        running: false,
-        elapsedMs: netWorkMs,
+        elapsedMs: totalElapsed,
         remainingMs: 0,
-        lastTickTs: null,
-        expectedEndTime: undefined,
-        startWallTime: undefined,
-        wasEarlyFinish: false,
-        workBreakPhase: 'work',
-        dersCycle: nextDersCycle,
-        dersCycleDate: bugun,
-        molaToplamMs: currentMola,
-        backgroundBreakStartTs: Date.now(),
-        backgroundBreakPlannedMs: molaMs,
+        lastTickTs: now,
       })
-      stopWorker()
       return
     }
 
@@ -219,7 +236,6 @@ function processTick(get: GetState, set: SetState): void {
       expectedEndTime: undefined,
       startWallTime: undefined,
       workBreakPhase: 'work',
-      dersCycle: nextDersCycle,
       dersCycleDate: bugun,
       molaToplamMs: currentMola + elapsed,
       totalPauseDurationMs: 0,
@@ -234,7 +250,7 @@ function processTick(get: GetState, set: SetState): void {
   }
 
   // --- Overtime sırasında elapsed güncellemesi ---
-  if (state.isOvertime && state.mode === 'deneme') {
+  if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15')) {
     // Overtime'da expectedEndTime geçmiştir; elapsed = plannedMs + fazla süre
     const overtimeExtra = state.expectedEndTime != null ? now - state.expectedEndTime : 0
     const totalElapsed = (state.plannedMs ?? 0) + Math.max(0, overtimeExtra)
@@ -263,6 +279,8 @@ function processTick(get: GetState, set: SetState): void {
 
 export type TimerState = TimerSnapshot & {
   modeConfig: ModeConfig
+  pomodoroRound: number
+  lastPomodoroDate: string
   start: (config?: ModeConfig) => void
   pause: () => void
   resume: () => void
@@ -311,11 +329,14 @@ export const useTimerStore = create<TimerState>()(
       expectedEndTime: undefined,
       startWallTime: undefined,
       isOvertime: false,
+      pomodoroRound: 1,
+      lastPomodoroDate: getLocalDateString(),
 
       setModeConfig: (config) => {
         stopWorker()
         const state = get()
         const bugun = getLocalDateString()
+        const pomodoroState = getPomodoroStateForToday(state, bugun)
         const denemeRawIdx = config.mode === 'deneme' ? config.currentSectionIndex ?? 0 : 0
         const sectionIdx = config.mode === 'deneme'
           ? Math.max(0, Math.min(denemeRawIdx, Math.max(0, config.bolumler.length - 1)))
@@ -345,7 +366,7 @@ export const useTimerStore = create<TimerState>()(
         }
 
         let workBreakPhase: WorkBreakPhase | undefined = normalizedConfig.mode === 'ders60mola15' ? 'work' : undefined
-        let dersCycle: number | undefined = normalizedConfig.mode === 'ders60mola15' ? 0 : undefined
+        let dersCycle: number | undefined = normalizedConfig.mode === 'ders60mola15' ? Math.max(0, pomodoroState.pomodoroRound - 1) : undefined
         let molaToplamMs: number | undefined = normalizedConfig.mode === 'ders60mola15' ? 0 : undefined
         let dersCycleDate: string | null = normalizedConfig.mode === 'ders60mola15' ? bugun : null
         let elapsedMs = 0
@@ -381,7 +402,7 @@ export const useTimerStore = create<TimerState>()(
           } catch { /* ignore */ }
         }
 
-        const updates: Partial<TimerSnapshot & { modeConfig: ModeConfig }> = {
+        const updates: Partial<TimerCoreState> = {
           modeConfig: normalizedConfig,
           mode: normalizedConfig.mode,
           plannedMs: elapsedMs > 0 ? restoredPlannedMs : plannedMs,
@@ -395,6 +416,8 @@ export const useTimerStore = create<TimerState>()(
           startWallTime: undefined,
           currentSectionIndex,
           denemeBreakStartTs: null,
+          pomodoroRound: pomodoroState.pomodoroRound,
+          lastPomodoroDate: pomodoroState.lastPomodoroDate,
         }
         if (normalizedConfig.mode === 'ders60mola15') {
           updates.workBreakPhase = workBreakPhase
@@ -435,6 +458,7 @@ export const useTimerStore = create<TimerState>()(
         const state = get()
         const cfg = config ?? state.modeConfig ?? MODE_DEFAULTS.serbest
         const bugun = getLocalDateString()
+        const pomodoroState = getPomodoroStateForToday(state, bugun)
         const sectionIdx = cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : 0
         const { phase: derivedPhase, plannedMs } = deriveDers6015PhaseAndPlan(cfg, {
           modeConfig: state.modeConfig,
@@ -446,7 +470,7 @@ export const useTimerStore = create<TimerState>()(
         const now = Date.now()
 
         let workBreakPhase: WorkBreakPhase | undefined = cfg.mode === 'ders60mola15' ? derivedPhase : undefined
-        let dersCycle: number | undefined = cfg.mode === 'ders60mola15' ? 0 : undefined
+        let dersCycle: number | undefined = cfg.mode === 'ders60mola15' ? Math.max(0, pomodoroState.pomodoroRound - 1) : undefined
         let molaToplamMs: number | undefined = cfg.mode === 'ders60mola15' ? 0 : undefined
         let dersCycleDate: string | null = cfg.mode === 'ders60mola15' ? bugun : null
 
@@ -479,6 +503,8 @@ export const useTimerStore = create<TimerState>()(
           denemeBreakStartTs: null,
           wasEarlyFinish: undefined,
           isOvertime: false,
+          pomodoroRound: pomodoroState.pomodoroRound,
+          lastPomodoroDate: pomodoroState.lastPomodoroDate,
           totalPauseDurationMs: 0,
           backgroundBreakStartTs: null,
           backgroundBreakPlannedMs: undefined,
@@ -499,7 +525,7 @@ export const useTimerStore = create<TimerState>()(
         let elapsed: number
         let remaining: number | undefined
 
-        if (state.isOvertime && state.mode === 'deneme') {
+        if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15')) {
           // Overtime sırasında: elapsedMs zaten processTick tarafından güncelleniyor
           elapsed = state.elapsedMs
           remaining = 0
@@ -564,12 +590,14 @@ export const useTimerStore = create<TimerState>()(
         const sectionIdx = cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : 0
         const plannedMs = getPlannedMs(cfg, 'work', sectionIdx)
         const bugun = getLocalDateString()
+        const pomodoroState = getPomodoroStateForToday(state, bugun)
         stopWorker()
 
         const isDers60Mola15 = cfg.mode === 'ders60mola15'
         /** Reset: ders60mola15 modunda aynı gündeki dersCycle'ı koru, gün değişmişse sıfırla */
         const preservedDersCycle = isDers60Mola15 && state.dersCycleDate === bugun
-          ? (state.dersCycle ?? 0) : 0
+          ? (state.dersCycle ?? Math.max(0, pomodoroState.pomodoroRound - 1))
+          : Math.max(0, pomodoroState.pomodoroRound - 1)
         set({
           status: 'idle',
           running: false,
@@ -590,6 +618,8 @@ export const useTimerStore = create<TimerState>()(
           pauseStartTs: null,
           wasEarlyFinish: undefined,
           isOvertime: false,
+          pomodoroRound: pomodoroState.pomodoroRound,
+          lastPomodoroDate: pomodoroState.lastPomodoroDate,
           totalPauseDurationMs: 0,
           backgroundBreakStartTs: null,
           backgroundBreakPlannedMs: undefined,
@@ -628,7 +658,7 @@ export const useTimerStore = create<TimerState>()(
 
         // Mutlak zamandan geçen süreyi hesapla
         let finalElapsed: number
-        if (state.isOvertime && state.mode === 'deneme') {
+        if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15')) {
           // Overtime: elapsedMs zaten processTick tarafından güncellenmiş (plannedMs + extra)
           finalElapsed = state.elapsedMs
         } else if (state.status === 'running') {
@@ -671,6 +701,34 @@ export const useTimerStore = create<TimerState>()(
               backgroundBreakPlannedMs: undefined,
               molaToplamMs: (state.molaToplamMs ?? 0) + finalElapsed,
               dersCycleDate: bugun,
+            })
+            return
+          }
+
+          if (state.workBreakPhase === 'work' && state.isOvertime) {
+            const bugun = getLocalDateString()
+            const currentRound = getPomodoroStateForToday(state, bugun)
+            const nextRound = currentRound.pomodoroRound + 1
+            const molaMs = getPlannedMs(state.modeConfig, 'break', state.currentSectionIndex ?? 0) ?? MOLA_MS
+            set({
+              status: 'finished',
+              running: false,
+              elapsedMs: finalElapsed,
+              remainingMs: 0,
+              lastTickTs: null,
+              expectedEndTime: undefined,
+              startWallTime: undefined,
+              wasEarlyFinish: false,
+              isOvertime: false,
+              totalPauseDurationMs: totalPause,
+              workBreakPhase: 'work',
+              dersCycle: Math.max(0, nextRound - 1),
+              dersCycleDate: bugun,
+              pomodoroRound: nextRound,
+              lastPomodoroDate: bugun,
+              molaToplamMs: state.molaToplamMs ?? 0,
+              backgroundBreakStartTs: Date.now(),
+              backgroundBreakPlannedMs: molaMs,
             })
             return
           }
@@ -828,6 +886,8 @@ export const useTimerStore = create<TimerState>()(
         workBreakPhase: state.workBreakPhase,
         molaToplamMs: state.molaToplamMs,
         totalPauseDurationMs: state.totalPauseDurationMs,
+        pomodoroRound: state.pomodoroRound,
+        lastPomodoroDate: state.lastPomodoroDate,
       }),
     }
   )

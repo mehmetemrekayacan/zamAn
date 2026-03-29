@@ -18,10 +18,14 @@ const BASE_POINTS_PER_MINUTE = 10
 const COMPLETION_BONUS = 50
 const MIN_ELAPSED_MS = 60_000 // 1 dakika baraj
 const MAX_PAUSE_PENALTY = 15
+const POMODORO_OVERTIME_POINTS_PER_MINUTE = 5
+const DERS6015_DEFAULT_PLANNED_MS = 60 * 60_000
 
 export interface ScoreBreakdown {
   /** Dakika × 10 */
   baseScore: number
+  /** ders60mola15: overtime dakika bonusu */
+  overtimeBonus: number
   /** Planlı modu eksiksiz tamamlama bonusu */
   completionBonus: number
   /** Tur çarpanı (1.0, 1.2, 1.4 …) */
@@ -98,9 +102,12 @@ export function calculateScore(
   isFullCompletion: boolean,
   todayCompletedRounds: number = 0,
   streakDays: number = 0,
+  plannedMs?: number,
+  overtimeDurationMs?: number,
 ): ScoreBreakdown {
   const empty: ScoreBreakdown = {
     baseScore: 0,
+    overtimeBonus: 0,
     completionBonus: 0,
     roundMultiplier: 1,
     roundBonusPoints: 0,
@@ -115,6 +122,15 @@ export function calculateScore(
   const minutes = Math.floor(elapsedMs / 60_000)
   const baseScore = minutes * BASE_POINTS_PER_MINUTE
 
+  // 60/15 overtime bonusu: dakika başına +5
+  let overtimeBonus = 0
+  if (mode === 'ders60mola15') {
+    const resolvedPlannedMs = plannedMs ?? DERS6015_DEFAULT_PLANNED_MS
+    const overtimeMs = Math.max(0, overtimeDurationMs ?? (elapsedMs - resolvedPlannedMs))
+    const overtimeMinutes = Math.floor(overtimeMs / 60_000)
+    overtimeBonus = overtimeMinutes * POMODORO_OVERTIME_POINTS_PER_MINUTE
+  }
+
   // Tamamlama bonusu: sadece planlı modlarda (serbest hariç) tam tamamlama
   const completionBonus = isFullCompletion && mode !== 'serbest' ? COMPLETION_BONUS : 0
 
@@ -125,7 +141,7 @@ export function calculateScore(
   const roundMultiplier = 1 + todayCompletedRounds * 0.2
 
   // Ara toplam (çarpan öncesi)
-  const subtotal = Math.max(0, baseScore + completionBonus - pausePenalty)
+  const subtotal = Math.max(0, baseScore + overtimeBonus + completionBonus - pausePenalty)
   const afterRound = subtotal * roundMultiplier
   const roundBonusPoints = Math.round(afterRound - subtotal)
 
@@ -136,6 +152,7 @@ export function calculateScore(
 
   return {
     baseScore,
+    overtimeBonus,
     completionBonus,
     roundMultiplier,
     roundBonusPoints,

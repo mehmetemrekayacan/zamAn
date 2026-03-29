@@ -2,6 +2,8 @@
  * Notification, sound, and vibration utilities for session completion
  */
 
+import { useSettingsStore } from '../store/settings'
+
 export interface NotificationOptions {
   title?: string
   body?: string
@@ -101,6 +103,40 @@ export const playSuccessSound = async (): Promise<void> => {
     }
   } catch (error) {
     console.warn('Success sound not available:', error)
+  }
+}
+
+/** Overtime başlangıcı için çift uyarı bip sesi (başarı sesinden farklı). */
+export const playOvertimeWarningSound = async (): Promise<void> => {
+  if (typeof window === 'undefined') return
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    const audioContext = new Ctx()
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume()
+    }
+
+    const now = audioContext.currentTime
+    const beeps = [980, 740]
+    const duration = 0.12
+    const gap = 0.09
+
+    for (let i = 0; i < beeps.length; i++) {
+      const osc = audioContext.createOscillator()
+      const gain = audioContext.createGain()
+      osc.connect(gain)
+      gain.connect(audioContext.destination)
+      osc.frequency.value = beeps[i]
+      osc.type = 'square'
+      const start = now + i * (duration + gap)
+      gain.gain.setValueAtTime(0.28, start)
+      gain.gain.exponentialRampToValueAtTime(0.01, start + duration)
+      osc.start(start)
+      osc.stop(start + duration)
+    }
+  } catch (error) {
+    console.warn('Overtime warning sound not available:', error)
   }
 }
 
@@ -286,6 +322,30 @@ export const notifySessionComplete = (options: NotificationOptions = {}): void =
 
   if (isBackground) {
     startTitleFlash()
+  }
+}
+
+/** 60/15 ve deneme modlarında süre planı dolduğunda tek seferlik overtime bildirimi. */
+export const notifyOvertimeStarted = (): void => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+  const settings = useSettingsStore.getState()
+  const enableSound = !settings.sessizMod && settings.sesAçık
+  const enableVibration = !settings.sessizMod && settings.titreşimAçık
+  const enableBrowserNotification = settings.bildirimİzni === 'granted'
+
+  if (enableSound) {
+    void playOvertimeWarningSound()
+  }
+
+  if (enableVibration) {
+    void triggerVibration([120, 80, 180])
+  }
+
+  if (enableBrowserNotification) {
+    showBrowserNotification('Süre Doldu!', {
+      body: 'Planlanan süre bitti, uzatma devrede.',
+      enableBrowserNotification: true,
+    })
   }
 }
 
