@@ -1,4 +1,5 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
+import { TitlesModal } from './TitlesModal'
 
 export interface CareerPanelProps {
   toplamPuan: number
@@ -27,10 +28,13 @@ export const CareerPanel = memo(function CareerPanel({
   avgScoreMonth,
   rozetler,
 }: CareerPanelProps) {
+  const [isTitlesModalOpen, setIsTitlesModalOpen] = useState(false)
+
   return (
-    <div className="space-y-5">
-      {/* Kariyer kartı */}
-      <div className="card p-5">
+    <>
+      <div className="space-y-5">
+        {/* Kariyer kartı */}
+        <div className="card p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="section-label">Profil</p>
@@ -51,28 +55,36 @@ export const CareerPanel = memo(function CareerPanel({
           </div>
         </div>
 
-        {ilerlemeYuzde != null && (
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-xs text-text-muted">İlerleme</span>
-              <span className="text-xs font-semibold text-accent-blue">%{ilerlemeYuzde}</span>
-            </div>
-            <div className="h-2.5 rounded-full bg-surface-700 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-accent-blue to-accent-cyan transition-all duration-500"
-                style={{ width: `${ilerlemeYuzde}%` }}
-              />
-            </div>
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={() => setIsTitlesModalOpen(true)}
+            className="mb-4 inline-flex w-full items-center justify-center rounded-card-sm border border-accent-blue/50 bg-accent-blue/15 px-3 py-2.5 text-sm font-semibold text-accent-blue transition hover:bg-accent-blue/25"
+          >
+            Tüm Ünvanları Gör
+          </button>
 
-        {tahmin && (
-          <p className="mt-3 text-xs text-text-muted">💡 {tahmin}</p>
-        )}
-      </div>
+          {ilerlemeYuzde != null && (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs text-text-muted">İlerleme</span>
+                <span className="text-xs font-semibold text-accent-blue">%{ilerlemeYuzde}</span>
+              </div>
+              <div className="h-2.5 rounded-full bg-surface-700 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-accent-blue to-accent-cyan transition-all duration-500"
+                  style={{ width: `${ilerlemeYuzde}%` }}
+                />
+              </div>
+            </div>
+          )}
 
-      {/* Aylık istatistikler */}
-      <div className="card p-5">
+          {tahmin && (
+            <p className="mt-3 text-xs text-text-muted">💡 {tahmin}</p>
+          )}
+        </div>
+
+        {/* Aylık istatistikler */}
+        <div className="card p-5">
         <div className="mb-4">
           <p className="section-label">Bu Ay</p>
           <h3 className="section-title text-lg">İstatistikler</h3>
@@ -91,10 +103,10 @@ export const CareerPanel = memo(function CareerPanel({
             <span className="font-semibold text-accent-cyan">{avgScoreMonth}</span>
           </div>
         </dl>
-      </div>
+        </div>
 
-      {/* Rozetler */}
-      <div className="card p-5">
+        {/* Rozetler */}
+        <div className="card p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="section-label">Başarılar</p>
@@ -122,7 +134,13 @@ export const CareerPanel = memo(function CareerPanel({
             </div>
           ))}
         </div>
+        </div>
       </div>
-    </div>
+      <TitlesModal
+        isOpen={isTitlesModalOpen}
+        onClose={() => setIsTitlesModalOpen(false)}
+        currentScore={toplamPuan}
+      />
+    </>
   )
 })

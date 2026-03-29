@@ -162,21 +162,75 @@ export function calculateScore(
   }
 }
 
-/** Ünvan eşikleri: ~120 gün düzenli çalışma (5h/gün, 1 deneme) son ünvana ulaştırır. Sınavdan ~40 gün önce. */
-export const UNVAN_ESIKLERI: {
-  puan: number
-  unvan: string
-  profilEmoji: string
-  temaClass: string
-  aciklama: string
-}[] = [
-  { puan: 0, unvan: 'İlk Adım', profilEmoji: '🌱', temaClass: 'tier-caylak', aciklama: 'Sınav yolculuğunun başlangıcı' },
-  { puan: 2500, unvan: 'Sınav Adayı', profilEmoji: '📖', temaClass: 'tier-ady', aciklama: 'KPSS ve alan sınavlarına adım adım hazırlanıyorsun' },
-  { puan: 7500, unvan: 'Öğretmen Adayı', profilEmoji: '📐', temaClass: 'tier-gozcu', aciklama: 'İlköğretim matematik öğretmenliği yolunda ilerliyorsun' },
-  { puan: 15000, unvan: 'Matematik Uzmanı', profilEmoji: '⭐', temaClass: 'tier-uzman', aciklama: 'Alan bilgisi ve öğretim becerisi güçleniyor' },
-  { puan: 30000, unvan: 'İlköğretim Matematikçi', profilEmoji: '🏆', temaClass: 'tier-kahraman', aciklama: 'Hedef mesleğe çok yakınsın!' },
-  { puan: 45000, unvan: 'Usta Öğretmen', profilEmoji: '👑', temaClass: 'tier-efsane', aciklama: 'İlköğretim matematiğinde usta seviye' },
+export interface TitleTier {
+  name: string
+  minScore: number
+}
+
+/**
+ * Genel ünvan ilerlemesi (~3 aylık yoğun çalışmada son seviyeye yaklaşır).
+ * Bu dizi diğer bileşenlerde kullanılabilmesi için dışa aktarılır.
+ */
+export const TITLES: TitleTier[] = [
+  { name: 'Çaylak', minScore: 0 },
+  { name: 'Acemi Çalışkan', minScore: 250 },
+  { name: 'Odaklanmış Öğrenci', minScore: 750 },
+  { name: 'İstikrarlı Çırak', minScore: 1500 },
+  { name: 'Gelişen Zihin', minScore: 2500 },
+  { name: 'Azimli Yolcu', minScore: 4000 },
+  { name: 'Bilgi Arayıcı', minScore: 6000 },
+  { name: 'Kararlı Savaşçı', minScore: 8500 },
+  { name: 'Disiplin Ustası', minScore: 11500 },
+  { name: 'Başarı Avcısı', minScore: 15000 },
+  { name: 'Zaman Bükücü', minScore: 19000 },
+  { name: 'Odak Şövalyesi', minScore: 23500 },
+  { name: 'Çalışma Makinesi', minScore: 28500 },
+  { name: 'Bilgelik Sırdaşı', minScore: 34000 },
+  { name: 'Sınav Fatihi', minScore: 40000 },
+  { name: 'Üstün Zekâ', minScore: 46500 },
+  { name: 'Elit Stratejist', minScore: 53500 },
+  { name: 'Yenilmez İrade', minScore: 61000 },
+  { name: 'Efsanevi Odak', minScore: 69000 },
+  { name: 'Zirvenin Hâkimi', minScore: 78000 },
 ]
+
+const TITLE_EMOJIS = ['🌱', '🧩', '📘', '🛠️', '🧠', '🧭', '🔎', '⚔️', '🧱', '🎯', '⏳', '🛡️', '⚙️', '📚', '🏅', '💡', '♟️', '🔥', '🌟', '👑'] as const
+
+function getTierClassByIndex(index: number): string {
+  if (index <= 2) return 'tier-caylak'
+  if (index <= 6) return 'tier-ady'
+  if (index <= 10) return 'tier-gozcu'
+  if (index <= 14) return 'tier-uzman'
+  if (index <= 17) return 'tier-kahraman'
+  return 'tier-efsane'
+}
+
+function getTitleMeta(index: number) {
+  const title = TITLES[index]
+  return {
+    profilEmoji: TITLE_EMOJIS[index] ?? '🏅',
+    temaClass: getTierClassByIndex(index),
+    aciklama: `${title.name} seviyesine ulaştın.`,
+  }
+}
+
+export function getCurrentTitle(totalScore: number): TitleTier {
+  const score = Math.max(0, totalScore)
+  let current = TITLES[0]
+  for (let i = 0; i < TITLES.length; i++) {
+    if (score >= TITLES[i].minScore) {
+      current = TITLES[i]
+    } else {
+      break
+    }
+  }
+  return current
+}
+
+export function getNextTitle(totalScore: number): TitleTier | null {
+  const score = Math.max(0, totalScore)
+  return TITLES.find((title) => title.minScore > score) ?? null
+}
 
 export interface UnvanBilgisi {
   unvan: string
@@ -194,34 +248,37 @@ export interface UnvanBilgisi {
  * Toplam kariyer puanına göre mevcut ünvan ve bir sonrakine yakınlık
  */
 export function getUnvan(toplamPuan: number): UnvanBilgisi {
-  const esikler = UNVAN_ESIKLERI
-  let mevcut = esikler[0]
-  let sonraki: (typeof esikler)[0] | null = null
-  for (let i = 0; i < esikler.length; i++) {
-    if (toplamPuan >= esikler[i].puan) mevcut = esikler[i]
-    if (esikler[i].puan > toplamPuan && !sonraki) sonraki = esikler[i]
-  }
+  const score = Math.max(0, toplamPuan)
+  const mevcut = getCurrentTitle(score)
+  const sonraki = getNextTitle(score)
+
+  const mevcutIndex = TITLES.findIndex((title) => title.name === mevcut.name)
+  const mevcutMeta = getTitleMeta(Math.max(0, mevcutIndex))
+
   let ilerlemeYuzde: number | null = null
   if (sonraki) {
-    const aralik = sonraki.puan - mevcut.puan
-    const gidilen = toplamPuan - mevcut.puan
+    const aralik = sonraki.minScore - mevcut.minScore
+    const gidilen = score - mevcut.minScore
     ilerlemeYuzde = aralik > 0 ? Math.min(100, Math.round((gidilen / aralik) * 100)) : 100
   }
-  const ileridekiler = esikler.filter((e) => e.puan > toplamPuan)
+  const ileridekiler = TITLES
+    .map((title, index) => ({ title, index }))
+    .filter(({ title }) => title.minScore > score)
+
   return {
-    unvan: mevcut.unvan,
-    toplamPuan,
-    sonrakiUnvan: sonraki?.unvan ?? null,
-    sonrakiPuan: sonraki?.puan ?? null,
+    unvan: mevcut.name,
+    toplamPuan: score,
+    sonrakiUnvan: sonraki?.name ?? null,
+    sonrakiPuan: sonraki?.minScore ?? null,
     ilerlemeYuzde,
-    profilEmoji: mevcut.profilEmoji,
-    temaClass: mevcut.temaClass,
+    profilEmoji: mevcutMeta.profilEmoji,
+    temaClass: mevcutMeta.temaClass,
     ileridekiler: ileridekiler.map((e) => ({
-      puan: e.puan,
-      unvan: e.unvan,
-      profilEmoji: e.profilEmoji,
-      temaClass: e.temaClass,
-      aciklama: e.aciklama,
+      puan: e.title.minScore,
+      unvan: e.title.name,
+      profilEmoji: getTitleMeta(e.index).profilEmoji,
+      temaClass: getTitleMeta(e.index).temaClass,
+      aciklama: getTitleMeta(e.index).aciklama,
     })),
   }
 }
