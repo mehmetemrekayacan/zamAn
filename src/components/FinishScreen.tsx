@@ -54,11 +54,15 @@ export interface FinishScreenProps {
   /* ── Wall-Clock vs Net-Time rapor alanları ── */
   /** Toplam birikmiş duraklatma süresi (ms) */
   totalPauseDurationMs?: number
-  /** Arka plandaki mola başlangıç zamanı (performance.now()) — live countdown için */
+  /** Arka plandaki mola başlangıç zamanı (Date.now() epoch ms) — live countdown için */
   backgroundBreakStartTs?: number | null
   /** Arka plandaki mola planlanan süresi (ms) */
   backgroundBreakPlannedMs?: number
 }
+
+const isValidEpochMs = (value: number | null | undefined): value is number => (
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+)
 
 const RUH_HALI_OPTS: { value: RuhHali; label: string; emoji: string }[] = [
   { value: 'iyi', label: 'İyi', emoji: '😊' },
@@ -93,14 +97,20 @@ export function FinishScreen({
   }
 
   /* ── Arka plandaki mola countdown — her saniye güncellenir ── */
-  const hasBackgroundBreak = backgroundBreakStartTs != null && backgroundBreakPlannedMs != null
+  const hasBackgroundBreak = isValidEpochMs(backgroundBreakStartTs)
+    && typeof backgroundBreakPlannedMs === 'number'
+    && Number.isFinite(backgroundBreakPlannedMs)
+    && backgroundBreakPlannedMs > 0
   const [breakRemainingMs, setBreakRemainingMs] = useState(0)
 
   useEffect(() => {
-    if (!hasBackgroundBreak || backgroundBreakStartTs == null || backgroundBreakPlannedMs == null) return
+    if (!hasBackgroundBreak || !isValidEpochMs(backgroundBreakStartTs) || backgroundBreakPlannedMs == null) {
+      setBreakRemainingMs(0)
+      return
+    }
 
     const update = () => {
-      const elapsed = performance.now() - backgroundBreakStartTs
+      const elapsed = Math.max(0, Date.now() - backgroundBreakStartTs)
       setBreakRemainingMs(Math.max(0, backgroundBreakPlannedMs - elapsed))
     }
     update()

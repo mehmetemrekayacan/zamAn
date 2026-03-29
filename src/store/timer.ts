@@ -9,7 +9,7 @@ import type { Mode, ModeConfig, Section, WorkBreakPhase, TimerSnapshot, TimerSta
 
 
 const DERS_MS = 6 * 1000
-const MOLA_MS = 5 * 1000
+const MOLA_MS = 50 * 1000
 
 const DERS60_PAUSE_STORAGE_KEY = 'zaman-ders60-pause-state'
 
