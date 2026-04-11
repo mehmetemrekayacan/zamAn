@@ -547,7 +547,7 @@ function App() {
                 onClick={finishBreakEarly}
                 className="rounded-full border border-emerald-500/50 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
               >
-                Molayı Bitir
+                Molayı Bitir.
               </button>
             ) : (
               (status === 'running' || status === 'paused') && (
