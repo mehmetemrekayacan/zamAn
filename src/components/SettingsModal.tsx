@@ -670,13 +670,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           )}
         </div>
 
-        <div className="border-t border-text-primary/10 px-4 sm:px-6 py-4 bg-surface-800">
+        <div className="border-t border-text-primary/10 px-4 sm:px-6 py-4 bg-surface-800 space-y-3">
           <button
             onClick={onClose}
-                    className="w-full rounded-full bg-primary hover:bg-primary/90 border border-primary/60 px-4 py-2 text-primary-foreground font-semibold transition text-sm"
+            className="w-full rounded-full bg-primary hover:bg-primary/90 border border-primary/60 px-4 py-2 text-primary-foreground font-semibold transition text-sm"
           >
             Kapat
           </button>
+          <p className="text-center text-[11px] text-text-muted/50 select-none">
+            v{__APP_VERSION__}
+          </p>
         </div>
       </div>
     </div>

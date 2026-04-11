@@ -20,6 +20,7 @@ import { CareerPanel } from './components/CareerPanel'
 import { BottomSheet } from './components/BottomSheet'
 import { FinishScreen } from './components/FinishScreen'
 import { SettingsModal } from './components/SettingsModal'
+import { UpdatePrompt } from './components/UpdatePrompt'
 import { Toast } from './components/Toast'
 import { AnalyticsPage } from './components/analytics/AnalyticsPage'
 import type { ModeConfig, SessionRecord, RuhHali, DenemeAnaliz } from './types'
@@ -726,6 +727,9 @@ function App() {
           duration={2500}
           onDismiss={dismissToast}
         />
+
+        {/* PWA Güncelleme Banner'ı */}
+        <UpdatePrompt />
       </div>
     </div>
   )
