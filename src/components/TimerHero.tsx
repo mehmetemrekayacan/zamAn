@@ -160,8 +160,8 @@ export const TimerHero = memo(function TimerHero({
               </span>
             )}
             {isOvertime && (
-              <span className="ml-1 rounded-full bg-danger/20 px-2.5 py-0.5 text-[11px] font-semibold text-danger animate-pulse [animation-duration:2s]">
-                ⏰ Uzatma
+              <span className="ml-1 rounded-full bg-warning/25 px-2.5 py-0.5 text-[11px] font-semibold text-warning animate-pulse [animation-duration:1.2s]">
+                ⏰ Uzatma Süresi
               </span>
             )}
           </div>
@@ -181,7 +181,7 @@ export const TimerHero = memo(function TimerHero({
               <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-success/15 [animation-duration:2s]" />
             )}
             {isRunning && isOvertime && (
-              <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-danger/15 [animation-duration:1.5s]" />
+              <div className="pointer-events-none absolute -inset-6 animate-ping rounded-full bg-warning/20 [animation-duration:1.5s]" />
             )}
             <time
               className={`
@@ -189,7 +189,7 @@ export const TimerHero = memo(function TimerHero({
                 text-6xl sm:text-7xl md:text-8xl lg:text-[7rem]
                 transition-colors duration-300
                 ${isOvertime
-                  ? 'text-danger'
+                  ? 'text-warning drop-shadow-[0_0_12px_var(--warning)]'
                   : isRunning
                     ? 'text-success'
                     : isPaused

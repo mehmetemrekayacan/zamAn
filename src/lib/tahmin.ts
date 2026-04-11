@@ -1,14 +1,20 @@
-/** "Bu tempoda X günde 150 saate ulaşırsın" benzeri tahmin */
-export function getTahmin150Saat(monthSeconds: number): string | null {
-  if (monthSeconds <= 0) return null
-  const hedefSn = 150 * 3600
-  const kalanSn = Math.max(0, hedefSn - monthSeconds)
-  const ayBasindanBugune = new Date().getDate()
-  if (ayBasindanBugune <= 0) return null
-  const gunlukOrt = monthSeconds / ayBasindanBugune
+/** "Bu tempoda X günde 150 saate ulaşırsın" benzeri tahmin.
+ *  Tüm seanslar üzerinden benzersiz aktif gün sayısı (unique active days) kullanılır. */
+export function getTahmin150Saat(
+  sessions: { tarihISO: string; sureGercek: number }[]
+): string | null {
+  if (sessions.length === 0) return null
+  const hedefSn = 150 * 3600 // 540 000 sn = 150 saat
+  const toplamSn = sessions.reduce((acc, s) => acc + (s.sureGercek ?? 0), 0)
+  if (toplamSn <= 0) return null
+  if (toplamSn >= hedefSn) return '150 saate ulaştın! Tebrikler 🎉'
+  // Benzersiz aktif gün sayısı
+  const uniqueDays = new Set(sessions.map((s) => s.tarihISO.split('T')[0])).size
+  if (uniqueDays === 0) return null
+  const gunlukOrt = toplamSn / uniqueDays // gerçek günlük ortalama (sn/gün)
   if (gunlukOrt <= 0) return null
+  const kalanSn = hedefSn - toplamSn
   const tahminiGun = Math.ceil(kalanSn / gunlukOrt)
-  if (tahminiGun <= 0) return 'Bu ay 150 saate ulaştın! 🎉'
   return `Bu tempoda yaklaşık ${tahminiGun} günde 150 saate ulaşırsın.`
 }
 

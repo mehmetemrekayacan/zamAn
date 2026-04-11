@@ -63,6 +63,7 @@ function App() {
   const showToast = useCallback((message: string, type: 'success' | 'info' | 'celebration' = 'info') => {
     setToast({ message, type, key: Date.now() })
   }, [])
+  const dismissToast = useCallback(() => setToast(null), [])
 
   // Countdown config
   const [countdownHours, setCountdownHours] = useState(0)
@@ -428,7 +429,7 @@ function App() {
     const toplamKariyerPuan = sessions.reduce((acc, s) => acc + (s.puan || 0), 0)
     const unvan = getUnvan(toplamKariyerPuan)
     const monthSeconds = monthSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)
-    const tahmin = getTahmin150Saat(monthSeconds)
+    const tahmin = getTahmin150Saat(sessions)
 
     const gunlukSnByDate: Record<string, number> = {}
     sessions.forEach((s) => {
@@ -723,7 +724,7 @@ function App() {
           visible={!!toast}
           type={toast?.type ?? 'info'}
           duration={2500}
-          onDismiss={() => setToast(null)}
+          onDismiss={dismissToast}
         />
       </div>
     </div>
