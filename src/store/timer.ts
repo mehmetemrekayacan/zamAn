@@ -168,23 +168,7 @@ function processTick(get: GetState, set: SetState): void {
 
   // --- Deneme mod geçişi ---
   if (finished && state.mode === 'deneme' && state.modeConfig.mode === 'deneme') {
-    const nextIdx = (state.currentSectionIndex ?? 0) + 1
-    if (state.modeConfig.bolumler[nextIdx]) {
-      // Ara bölüm bitti — mola ekranına geç
-      set({
-        status: 'paused',
-        running: false,
-        elapsedMs: state.plannedMs ?? elapsed,
-        remainingMs: 0,
-        lastTickTs: null,
-        expectedEndTime: undefined,
-        denemeBreakStartTs: Date.now(),
-        isOvertime: false,
-      })
-      stopWorker()
-      return
-    }
-    // Son bölüm bitti — overtime moduna geç (otomatik bitirme YOK)
+    // Hangi bölümde olursa olsun — süre bitince doğrudan overtime'a geç, asla duraklatma
     if (!state.isOvertime) {
       notifyOvertimeStarted()
       set({
