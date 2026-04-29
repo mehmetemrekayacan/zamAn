@@ -284,6 +284,10 @@ export type TimerState = TimerSnapshot & {
   transitionToBreak: () => void
   /** ders60mola15: Mola sırasında erken bitirip sonraki tura geçer */
   finishBreakEarly: () => void
+  /** Persist edilen runtime bilgileriyle yarım kalan seansı hesaplayıp günceller */
+  recoverSession: () => void
+  /** Kurtarılan seansı iptal edip timer'ı idle'a çeker */
+  discardRecoveredSession: () => void
 }
 
 export const useTimerStore = create<TimerState>()(
@@ -860,10 +864,34 @@ export const useTimerStore = create<TimerState>()(
         if (state.status !== 'running') return
         processTick(get as GetState, set)
       },
+
+      recoverSession: () => {
+        const state = get()
+        if (state.status !== 'running' && state.status !== 'paused') return
+        set({
+          status: 'paused',
+          running: false,
+          lastTickTs: null,
+          pauseStartTs: null,
+        })
+      },
+
+      discardRecoveredSession: () => {
+        get().reset()
+      },
     }),
     {
       name: 'timer-storage',
       partialize: (state) => ({
+        status: state.status === 'running' || state.status === 'paused' ? state.status : 'idle',
+        mode: state.mode,
+        elapsedMs: state.elapsedMs,
+        plannedMs: state.plannedMs,
+        remainingMs: state.remainingMs,
+        currentSectionIndex: state.currentSectionIndex,
+        isOvertime: state.isOvertime,
+        expectedEndTime: state.expectedEndTime,
+        startWallTime: state.startWallTime,
         modeConfig: state.modeConfig,
         dersCycle: state.dersCycle,
         dersCycleDate: state.dersCycleDate,

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import { MODE_DEFAULTS, useTimerStore } from './store/timer'
 import { useSessionsStore } from './store/sessions'
 import { useSettingsStore } from './store/settings'
@@ -23,6 +23,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { Toast } from './components/Toast'
 import { AnalyticsPage } from './components/analytics/AnalyticsPage'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import type { ModeConfig, SessionRecord, RuhHali, DenemeAnaliz } from './types'
 import { getSupabase } from './lib/supabase'
 
@@ -49,12 +50,15 @@ const MODE_LABELS: Record<string, string> = {
 /* ─── App ─── */
 
 function App() {
+  const didRunRecoveryCheckRef = useRef(false)
+
   /* ── local state ── */
   const [sessionNote, setSessionNote] = useState('')
   const [sessionRuhHali, setSessionRuhHali] = useState<RuhHali | null>(null)
   const [denemeAnaliz, setDenemeAnaliz] = useState<DenemeAnaliz | null>(null)
   const [showFinishScreen, setShowFinishScreen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false)
   const [isMiniPlayerMode, setIsMiniPlayerMode] = useState(false)
   const [activeView, setActiveView] = useState<'timer' | 'analytics'>('timer')
   const [lastSessionScore, setLastSessionScore] = useState<ReturnType<typeof calculateScore> | null>(null)
@@ -122,6 +126,8 @@ function App() {
     transitionToBreak,
     finishBreakEarly,
     isOvertime,
+    recoverSession,
+    discardRecoveredSession,
   } = useTimerStore()
 
   /* ── init ── */
@@ -144,11 +150,44 @@ function App() {
     loadSessions()
   }, [loadSessions])
 
+  useEffect(() => {
+    if (didRunRecoveryCheckRef.current) return
+    didRunRecoveryCheckRef.current = true
+
+    const timerState = useTimerStore.getState()
+    const hasRecoverableSession = timerState.status === 'running' || timerState.status === 'paused'
+    if (!hasRecoverableSession) return
+
+    recoverSession()
+    setShowRecoveryModal(true)
+  }, [recoverSession])
+
+  const handleRecoveryFinish = useCallback(() => {
+    useTimerStore.setState({
+      status: 'finished',
+      running: false,
+      remainingMs: 0,
+      expectedEndTime: undefined,
+      startWallTime: undefined,
+      wasEarlyFinish: false,
+    })
+    setShowRecoveryModal(false)
+  }, [])
+
+  const handleRecoveryContinue = useCallback(() => {
+    setShowRecoveryModal(false)
+  }, [])
+
+  const handleRecoveryDiscard = useCallback(() => {
+    discardRecoveredSession()
+    setShowRecoveryModal(false)
+  }, [discardRecoveredSession])
+
   /* ── Auth State Cleanup & Sync ── */
   useEffect(() => {
     const supabase = getSupabase()
     if (!supabase) return
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       const currentUser = session?.user?.id
       const previousUser = localStorage.getItem('zaman-last-user')
 
@@ -717,6 +756,42 @@ function App() {
 
         {/* Settings Modal */}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+
+        {/* Session Recovery Modal */}
+        {showRecoveryModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+            <div className="w-full max-w-md rounded-card border border-text-primary/10 bg-surface-800 p-6 shadow-2xl">
+              <h3 className="font-display text-xl text-text-primary">Oturum Kurtarma</h3>
+              <p className="mt-3 text-sm text-text-muted">
+                Son kapatmanızda bir seans açık kaldı. Ne yapmak istersiniz?
+              </p>
+
+              <div className="mt-6 flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={handleRecoveryFinish}
+                  className="w-full rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                >
+                  Kaydet ve Bitir
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRecoveryContinue}
+                  className="w-full rounded-full border border-text-primary/15 bg-surface-700/50 px-5 py-2.5 text-sm font-semibold text-text-primary transition hover:border-primary/50"
+                >
+                  Kaldığım Yerden Devam Et
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRecoveryDiscard}
+                  className="w-full rounded-full border border-danger/50 bg-danger/10 px-5 py-2.5 text-sm font-semibold text-danger transition hover:bg-danger/20"
+                >
+                  Sil / Çöpe At
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Global Toast */}
         <Toast
