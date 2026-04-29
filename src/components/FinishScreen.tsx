@@ -216,6 +216,7 @@ export function FinishScreen({
                   min={0}
                   max={999}
                   value={analiz.dogru}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => setAnaliz({ dogru: clampNum(parseInt(e.target.value, 10) || 0, 0, 999) })}
                   onWheel={(e) => e.currentTarget.blur()}
                   className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-primary/50 focus:outline-none"
@@ -228,6 +229,7 @@ export function FinishScreen({
                   min={0}
                   max={999}
                   value={analiz.yanlis}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => setAnaliz({ yanlis: clampNum(parseInt(e.target.value, 10) || 0, 0, 999) })}
                   onWheel={(e) => e.currentTarget.blur()}
                   className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-primary/50 focus:outline-none"
@@ -240,6 +242,7 @@ export function FinishScreen({
                   min={0}
                   max={999}
                   value={analiz.bos}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => setAnaliz({ bos: clampNum(parseInt(e.target.value, 10) || 0, 0, 999) })}
                   onWheel={(e) => e.currentTarget.blur()}
                   className="w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2 text-center text-text-primary focus:border-primary/50 focus:outline-none"
