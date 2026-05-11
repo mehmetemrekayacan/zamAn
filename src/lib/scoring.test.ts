@@ -74,6 +74,10 @@ describe('scoring v2', () => {
       const s = calculateScore(90 * 60_000, 'deneme', 0, true)
       expect(s.completionBonus).toBe(50)
     })
+    it('EXAM_SIMULATOR tam tamamlama → +50 bonus', () => {
+      const s = calculateScore(90 * 60_000, 'EXAM_SIMULATOR', 0, true)
+      expect(s.completionBonus).toBe(50)
+    })
   })
 
   describe('calculateScore — tur çarpanı', () => {
@@ -143,14 +147,14 @@ describe('scoring v2', () => {
   })
 
   describe('getUnvan', () => {
-    it('0 puan → İlk Adım', () => {
-      expect(getUnvan(0).unvan).toBe('İlk Adım')
+    it('0 puan → Çaylak', () => {
+      expect(getUnvan(0).unvan).toBe('Çaylak')
     })
-    it('2500 puan → Sınav Adayı', () => {
-      expect(getUnvan(2500).unvan).toBe('Sınav Adayı')
+    it('2500 puan → Gelişen Zihin', () => {
+      expect(getUnvan(2500).unvan).toBe('Gelişen Zihin')
     })
-    it('45000 puan → Usta Öğretmen', () => {
-      expect(getUnvan(45000).unvan).toBe('Usta Öğretmen')
+    it('45000 puan → Sınav Fatihi', () => {
+      expect(getUnvan(45000).unvan).toBe('Sınav Fatihi')
     })
   })
 })

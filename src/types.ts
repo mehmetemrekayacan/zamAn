@@ -1,4 +1,4 @@
-export type Mode = 'serbest' | 'gerisayim' | 'ders60mola15' | 'deneme'
+export type Mode = 'serbest' | 'gerisayim' | 'ders60mola15' | 'deneme' | 'EXAM_SIMULATOR'
 
 export type Section = { ad: string; surePlanMs: number }
 
@@ -10,6 +10,7 @@ export type ModeConfig =
   | { mode: 'gerisayim'; sureMs: number }
   | { mode: 'ders60mola15'; calismaMs: number; molaMs: number }
   | { mode: 'deneme'; bolumler: Section[]; currentSectionIndex?: number; templateId?: string; templateName?: string }
+  | { mode: 'EXAM_SIMULATOR'; startTimeHHmm: string; sureMs: number }
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'finished'
 

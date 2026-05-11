@@ -4,6 +4,7 @@ import type { ModeConfig } from '../types'
 const modes = [
   { id: 'serbest' as const, emoji: '⏱️', title: 'Kronometre', desc: 'Serbest zamanlama' },
   { id: 'gerisayim' as const, emoji: '⏳', title: 'Zamanlayıcı', desc: 'Geri sayım' },
+  { id: 'EXAM_SIMULATOR' as const, emoji: '🕒', title: 'Simülasyon', desc: 'Sınav Saati' },
   { id: 'ders60mola15' as const, emoji: '🍅', title: '60 / 15', desc: 'Ders / mola döngüsü' },
   { id: 'deneme' as const, emoji: '📋', title: 'Deneme', desc: 'Sınav simülasyonu' },
 ] as const

@@ -5,16 +5,36 @@ import { vi } from 'vitest'
 
 const noop = () => {}
 
-if (typeof globalThis.localStorage === 'undefined') {
+function createMemoryStorage(): Storage {
   const store: Record<string, string> = {}
-  globalThis.localStorage = {
+  return {
     getItem: (key: string) => store[key] ?? null,
     setItem: (key: string, value: string) => { store[key] = value },
     removeItem: (key: string) => { delete store[key] },
     clear: () => { for (const k of Object.keys(store)) delete store[k] },
     key: (i: number) => Object.keys(store)[i] ?? null,
-    length: 0,
+    get length() { return Object.keys(store).length },
   }
+}
+
+if (typeof globalThis.localStorage === 'undefined') {
+  globalThis.localStorage = createMemoryStorage()
+}
+
+if (typeof globalThis.sessionStorage === 'undefined') {
+  globalThis.sessionStorage = createMemoryStorage()
+}
+
+if (typeof globalThis.window === 'undefined') {
+  globalThis.window = globalThis as typeof globalThis & Window
+}
+
+if (!globalThis.window.localStorage) {
+  globalThis.window.localStorage = globalThis.localStorage
+}
+
+if (!globalThis.window.sessionStorage) {
+  globalThis.window.sessionStorage = globalThis.sessionStorage
 }
 
 if (typeof globalThis.requestAnimationFrame === 'undefined') {

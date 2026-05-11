@@ -131,8 +131,10 @@ export function calculateScore(
     overtimeBonus = overtimeMinutes * POMODORO_OVERTIME_POINTS_PER_MINUTE
   }
 
-  // Tamamlama bonusu: sadece planlı modlarda (serbest hariç) tam tamamlama
-  const completionBonus = isFullCompletion && mode !== 'serbest' ? COMPLETION_BONUS : 0
+  // Tamamlama bonusu: planlı modlarda tam tamamlama
+  const plannedModes: Mode[] = ['gerisayim', 'ders60mola15', 'deneme', 'EXAM_SIMULATOR']
+  const isPlannedMode = plannedModes.includes(mode)
+  const completionBonus = isFullCompletion && isPlannedMode ? COMPLETION_BONUS : 0
 
   // Duraklatma cezası
   const pausePenalty = calculatePausePenalty(pauses)

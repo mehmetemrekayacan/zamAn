@@ -15,6 +15,7 @@ export function getSubjectLabel(session: SessionRecord): string {
   const labels: Record<string, string> = {
     serbest: 'Kronometre',
     gerisayim: 'Zamanlayıcı',
+    EXAM_SIMULATOR: 'Sınav Saati',
     ders60mola15: '60/15',
     deneme: 'Deneme'
   }
@@ -33,6 +34,8 @@ export function getDenemeTemplateName(session: SessionRecord): string {
     const template = DENEME_TEMPLATES.find((t) => t.id === session.templateId)
     if (template) return template.label
   }
+
+  if (session.mod === 'EXAM_SIMULATOR') return 'Sınav Saati'
 
   // 3. İkisi de yoksa direkt 'Genel Deneme' dön, bölüm isimlerini '+ ile birleştirme!'
   return 'Genel Deneme'

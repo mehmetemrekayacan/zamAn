@@ -6,6 +6,7 @@ import { formatSeconds } from '../lib/time'
 const modes = [
   { id: 'serbest' as const, title: 'Kronometre' },
   { id: 'gerisayim' as const, title: 'Zamanlayıcı' },
+  { id: 'EXAM_SIMULATOR' as const, title: 'Sınav Saati' },
   { id: 'ders60mola15' as const, title: '60 dk ders / 15 dk mola' },
   { id: 'deneme' as const, title: 'Deneme Sınavı' },
 ]
@@ -88,7 +89,7 @@ export function FinishScreen({
   backgroundBreakStartTs,
   backgroundBreakPlannedMs,
 }: FinishScreenProps) {
-  const isDeneme = mode === 'deneme'
+  const isDeneme = mode === 'deneme' || mode === 'EXAM_SIMULATOR'
   const analiz = denemeAnaliz ?? { dogru: 0, yanlis: 0, bos: 0 }
   const setAnaliz = (next: Partial<DenemeAnalizType>) => {
     if (onDenemeAnalizChange) {

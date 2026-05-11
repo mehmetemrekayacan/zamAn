@@ -28,8 +28,8 @@ function toDate(session: SessionRecord) {
   return date
 }
 
-function hasDenemeNetValues(session: SessionRecord) {
-  return session.mod === 'deneme'
+function hasExamNetValues(session: SessionRecord) {
+  return (session.mod === 'deneme' || session.mod === 'EXAM_SIMULATOR')
     && typeof session.dogruSayisi === 'number'
     && typeof session.yanlisSayisi === 'number'
 }
@@ -37,9 +37,9 @@ function hasDenemeNetValues(session: SessionRecord) {
 export function DenemeNetTrendChart() {
   const sessions = useSessionsStore((state) => state.sessions)
 
-  // Sadece ilgili değerlere sahip mod === 'deneme' seansları
+  // Sadece ilgili değerlere sahip deneme veya sinav seanslari
   const denemeSessions = useMemo(() => {
-    return sessions.filter(hasDenemeNetValues)
+    return sessions.filter(hasExamNetValues)
   }, [sessions])
 
   // Bugüne kadar çözülmüş tüm benzersiz şablon isimlerini bul
@@ -98,7 +98,7 @@ export function DenemeNetTrendChart() {
     <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 flex flex-col min-h-[380px]">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Deneme Sınavı Net Trendi</h3>
+          <h3 className="text-sm font-semibold text-foreground">Deneme ve Sınav Net Trendi</h3>
           <span className="text-xs text-muted">Net = Doğru - (Yanlış / 4)</span>
         </div>
 
@@ -132,7 +132,7 @@ export function DenemeNetTrendChart() {
             <span className="text-4xl mb-3 opacity-60">📉</span>
             <p className="text-sm font-medium text-foreground/80">Net analizi yapılamıyor</p>
             <p className="text-xs text-muted mt-1 max-w-[200px] mx-auto">
-              Henüz "Doğru/Yanlış" girilmiş bir deneme seansınız bulunmuyor.
+              Henüz "Doğru/Yanlış" girilmiş bir deneme veya sınav seansınız bulunmuyor.
             </p>
           </div>
         ) : data.length < 2 ? (
@@ -140,7 +140,7 @@ export function DenemeNetTrendChart() {
             <span className="text-4xl mb-3 opacity-60">📉</span>
             <p className="text-sm font-medium text-foreground/80">Yeterli veri yok</p>
             <p className="text-xs text-muted mt-1 max-w-[200px] mx-auto">
-              Trend çizgisinin oluşması için bu derste en az 2 deneme verisi gerekiyor.
+              Trend çizgisinin oluşması için bu derste en az 2 deneme veya sınav verisi gerekiyor.
             </p>
           </div>
         ) : (

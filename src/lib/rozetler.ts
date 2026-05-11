@@ -76,7 +76,7 @@ function enUzunSeri(sessions: SessionRecord[]): number {
 
 export function getRozetler(summary: SummaryForRozet): Rozet[] {
   const { gunluk5SaatGunSayisi, streak, toplamKariyerPuan, monthSeconds, sessions } = summary
-  const denemeSayisi = sessions.filter((s) => s.mod === 'deneme').length
+  const denemeSayisi = sessions.filter((s) => s.mod === 'deneme' || s.mod === 'EXAM_SIMULATOR').length
 
   const gunlukSnByDate: Record<string, number> = {}
   sessions.forEach((s) => {

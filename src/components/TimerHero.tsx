@@ -1,9 +1,11 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { formatDuration } from '../lib/time'
+import { formatDuration, getVirtualWallClockTime } from '../lib/time'
 import type { TimerStatus, WorkBreakPhase, Mode } from '../types'
 
 export interface TimerHeroProps {
   timeToDisplay: number
+  elapsedMs: number
+  remainingMs?: number
   status: TimerStatus
   mode: Mode
   workBreakPhase?: WorkBreakPhase
@@ -19,6 +21,12 @@ export interface TimerHeroProps {
   onFinishBreak?: () => void
   /** deneme: Uzatma/ekstra süre modunda mı? */
   isOvertime?: boolean
+  /** exam simulator: sanal başlangıç saati (HH:mm) */
+  examStartTime?: string
+  /** exam simulator: süre (dakika) */
+  examDurationMinutes?: number
+  onExamStartTimeChange?: (value: string) => void
+  onExamDurationMinutesChange?: (value: number) => void
 }
 
 function formatPauseTime(ms: number): string {
@@ -31,6 +39,7 @@ function formatPauseTime(ms: number): string {
 const MODE_LABELS: Record<string, string> = {
   serbest: 'Kronometre',
   gerisayim: 'Zamanlayıcı',
+  EXAM_SIMULATOR: 'Sınav Saati',
   ders60mola15: '60/15 Pomodoro',
   deneme: 'Deneme Sınavı',
 }
@@ -38,6 +47,7 @@ const MODE_LABELS: Record<string, string> = {
 const MODE_EMOJIS: Record<string, string> = {
   serbest: '⏱️',
   gerisayim: '⏳',
+  EXAM_SIMULATOR: '🕒',
   ders60mola15: '🍅',
   deneme: '📋',
 }
@@ -54,6 +64,8 @@ const MODE_EMOJIS: Record<string, string> = {
  */
 export const TimerHero = memo(function TimerHero({
   timeToDisplay,
+  elapsedMs,
+  remainingMs,
   status,
   mode,
   workBreakPhase,
@@ -66,10 +78,19 @@ export const TimerHero = memo(function TimerHero({
   isBreakMode = false,
   onFinishBreak,
   isOvertime = false,
+  examStartTime,
+  examDurationMinutes,
+  onExamStartTimeChange,
+  onExamDurationMinutesChange,
 }: TimerHeroProps) {
   const isRunning = status === 'running'
   const isPaused = status === 'paused'
   const isActive = isRunning || isPaused
+  const isExamMode = mode === 'EXAM_SIMULATOR'
+  const showExamConfig = isExamMode && status === 'idle' && Boolean(onExamStartTimeChange) && Boolean(onExamDurationMinutesChange)
+  const resolvedExamStartTime = examStartTime ?? '14:45'
+  const virtualClockTime = getVirtualWallClockTime(resolvedExamStartTime, elapsedMs)
+  const remainingLabel = formatDuration(remainingMs ?? timeToDisplay)
 
   /* ── Duraklatma sayacı: pause süresi ── */
   const [pauseElapsedMs, setPauseElapsedMs] = useState(0)
@@ -188,7 +209,7 @@ export const TimerHero = memo(function TimerHero({
                 relative font-mono timer-digits font-bold
                 text-6xl sm:text-7xl md:text-8xl lg:text-[7rem]
                 transition-colors duration-300
-                ${isOvertime
+                ${isOvertime && !isExamMode
                   ? 'text-warning drop-shadow-[0_0_12px_var(--warning)]'
                   : isRunning
                     ? 'text-success'
@@ -198,9 +219,48 @@ export const TimerHero = memo(function TimerHero({
                 }
               `}
             >
-              {isOvertime ? `+ ${formatDuration(timeToDisplay)}` : formatDuration(timeToDisplay)}
+              {isExamMode
+                ? virtualClockTime
+                : (isOvertime ? `+ ${formatDuration(timeToDisplay)}` : formatDuration(timeToDisplay))}
             </time>
           </div>
+
+          {isExamMode && isActive && (
+            <p className="text-sm text-text-muted">
+              Kalan süre: <span className="font-mono text-text-primary">{remainingLabel}</span>
+            </p>
+          )}
+
+          {showExamConfig && (
+            <div className="mt-6 w-full max-w-md rounded-2xl border border-text-primary/10 bg-surface-800/60 p-4">
+              <p className="mb-3 text-xs font-semibold text-text-muted">Sınav Saati Simülasyonu</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-xs text-text-muted">Sanal Başlangıç Saati</label>
+                  <input
+                    type="time"
+                    value={resolvedExamStartTime}
+                    step={60}
+                    onChange={(e) => onExamStartTimeChange?.(e.target.value)}
+                    className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-3 py-2.5 text-center text-text-primary focus:border-info/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs text-text-muted">Süre (Dakika)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={examDurationMinutes ?? 90}
+                    onChange={(e) => {
+                      const next = Math.max(1, parseInt(e.target.value, 10) || 0)
+                      onExamDurationMinutesChange?.(next)
+                    }}
+                    className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-3 py-2.5 text-center text-text-primary focus:border-info/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Duraklatma sayacı — sağ alt köşe */}
           {isPaused && (

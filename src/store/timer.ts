@@ -16,6 +16,7 @@ const DERS60_PAUSE_STORAGE_KEY = 'zaman-ders60-pause-state'
 export const MODE_DEFAULTS: Record<Mode, ModeConfig> = {
   serbest: { mode: 'serbest' },
   gerisayim: { mode: 'gerisayim', sureMs: 40 * 60 * 1000 },
+  EXAM_SIMULATOR: { mode: 'EXAM_SIMULATOR', startTimeHHmm: '14:45', sureMs: 90 * 60 * 1000 },
   ders60mola15: { mode: 'ders60mola15', calismaMs: DERS_MS, molaMs: MOLA_MS },
   deneme: {
     mode: 'deneme',
@@ -52,6 +53,8 @@ export const DENEME_TEMPLATES: { id: string; label: string; bolumler: Section[] 
 const getPlannedMs = (config: ModeConfig, phase: WorkBreakPhase = 'work', currentSectionIndex = 0): number | undefined => {
   switch (config.mode) {
     case 'gerisayim':
+      return config.sureMs
+    case 'EXAM_SIMULATOR':
       return config.sureMs
     case 'serbest':
       return undefined
@@ -155,7 +158,7 @@ function processTick(get: GetState, set: SetState): void {
   let remaining: number | undefined
 
   if (state.plannedMs != null && state.expectedEndTime != null) {
-    // Geri sayımlı modlar (gerisayim, ders60mola15, deneme)
+    // Geri sayımlı modlar (gerisayim, EXAM_SIMULATOR, ders60mola15, deneme)
     remaining = Math.max(0, state.expectedEndTime - now)
     elapsed = state.plannedMs - remaining
   } else {
@@ -168,7 +171,28 @@ function processTick(get: GetState, set: SetState): void {
 
   // --- Deneme mod geçişi ---
   if (finished && state.mode === 'deneme' && state.modeConfig.mode === 'deneme') {
-    // Hangi bölümde olursa olsun — süre bitince doğrudan overtime'a geç, asla duraklatma
+    const currentIndex = state.currentSectionIndex ?? 0
+    const lastIndex = Math.max(0, state.modeConfig.bolumler.length - 1)
+    const isLastSection = currentIndex >= lastIndex
+
+    if (!isLastSection) {
+      // Ara bölüm bitti → mola ekranı
+      set({
+        status: 'paused',
+        running: false,
+        elapsedMs: elapsed,
+        remainingMs: 0,
+        lastTickTs: null,
+        expectedEndTime: undefined,
+        startWallTime: undefined,
+        denemeBreakStartTs: now,
+        isOvertime: false,
+      })
+      stopWorker()
+      return
+    }
+
+    // Son bölüm bitti → overtime'a geç
     if (!state.isOvertime) {
       notifyOvertimeStarted()
       set({
@@ -189,12 +213,22 @@ function processTick(get: GetState, set: SetState): void {
 
     if (isWork) {
       if (!state.isOvertime) {
-        notifyOvertimeStarted()
+        const breakPlannedMs = getPlannedMs(state.modeConfig, 'break', state.currentSectionIndex ?? 0) ?? MOLA_MS
         set({
-          isOvertime: true,
+          status: 'finished',
+          running: false,
+          elapsedMs: elapsed,
           remainingMs: 0,
+          lastTickTs: null,
+          expectedEndTime: undefined,
+          startWallTime: undefined,
+          wasEarlyFinish: false,
+          isOvertime: false,
+          backgroundBreakStartTs: now,
+          backgroundBreakPlannedMs: breakPlannedMs,
           lastPomodoroDate: bugun,
         })
+        stopWorker()
         return
       }
 

@@ -7,12 +7,14 @@ import { getSubjectLabel } from '../lib/utils'
 const MODE_LABELS: Record<string, string> = {
   serbest: 'Kronometre',
   gerisayim: 'Zamanlayıcı',
+  EXAM_SIMULATOR: 'Sınav Saati',
   ders60mola15: '60/15',
   deneme: 'Deneme',
 }
 const MODE_EMOJIS: Record<string, string> = {
   serbest: '⏱️',
   gerisayim: '⏳',
+  EXAM_SIMULATOR: '🕒',
   ders60mola15: '🍅',
   deneme: '📋',
 }
@@ -45,8 +47,9 @@ interface SessionDetailModalProps {
 
 function SessionDetailModal({ session, onClose }: SessionDetailModalProps) {
   const isDeneme = session.mod === 'deneme'
+  const hasExamStats = isDeneme || session.mod === 'EXAM_SIMULATOR'
   const denemeLabel = isDeneme ? getSubjectLabel(session) : null
-  const net = isDeneme ? calculateNet(session) : null
+  const net = hasExamStats ? calculateNet(session) : null
 
   const ekstraSureSn = session.ekstraSureMs != null ? Math.round(session.ekstraSureMs / 1000) : 0
   const toplamSureSn = session.sureGercek
@@ -121,7 +124,7 @@ function SessionDetailModal({ session, onClose }: SessionDetailModalProps) {
             <span className="font-semibold text-primary">+{session.puan}</span>
           </div>
 
-          {isDeneme && net != null && (
+          {hasExamStats && net != null && (
             <div className="flex justify-between">
               <span className="text-text-muted">Net</span>
               <span className="font-semibold text-primary">
@@ -130,7 +133,7 @@ function SessionDetailModal({ session, onClose }: SessionDetailModalProps) {
             </div>
           )}
 
-          {isDeneme && typeof session.dogruSayisi === 'number' && (
+          {hasExamStats && typeof session.dogruSayisi === 'number' && (
             <div className="flex justify-between gap-4 rounded-xl bg-surface-700/50 px-3 py-2 text-xs">
               <span className="text-green-400">✓ {session.dogruSayisi} Doğru</span>
               <span className="text-red-400">✗ {session.yanlisSayisi ?? 0} Yanlış</span>
@@ -192,8 +195,9 @@ export const SessionHistory = memo(function SessionHistory({
           {visibleSessions.length > 0 ? (
             visibleSessions.map((session, index) => {
               const isDeneme = session.mod === 'deneme'
+              const hasExamStats = isDeneme || session.mod === 'EXAM_SIMULATOR'
               const denemeLabel = isDeneme ? getSubjectLabel(session) : null
-              const net = isDeneme ? calculateNet(session) : null
+              const net = hasExamStats ? calculateNet(session) : null
 
               const ekstraSureSn = session.ekstraSureMs != null ? Math.round(session.ekstraSureMs / 1000) : 0
               const toplamSureSn = session.sureGercek
@@ -256,8 +260,8 @@ export const SessionHistory = memo(function SessionHistory({
                     </div>
                   </div>
 
-                  {/* Net sayısı (deneme modu) */}
-                  {isDeneme && net != null && (
+                  {/* Net sayısı (deneme/sinav modu) */}
+                  {hasExamStats && net != null && (
                     <span className="shrink-0 rounded-full bg-primary/12 px-2.5 py-1 text-xs font-bold text-primary">
                       {net % 1 === 0 ? net : net.toFixed(2)} Net
                     </span>

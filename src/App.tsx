@@ -43,8 +43,15 @@ const clonePreset = (config: ModeConfig): ModeConfig => {
 const MODE_LABELS: Record<string, string> = {
   serbest: 'Kronometre',
   gerisayim: 'Zamanlayıcı',
+  EXAM_SIMULATOR: 'Sınav Saati',
   ders60mola15: '60/15',
   deneme: 'Deneme',
+}
+
+const normalizeExamStartTime = (value: string, fallback: string): string => {
+  if (!value) return fallback
+  if (!/^\d{2}:\d{2}$/.test(value)) return fallback
+  return value
 }
 
 /* ─── App ─── */
@@ -268,6 +275,28 @@ function App() {
     ? Math.max(0, elapsedMs - plannedMs) // Overtime: göster sadece fazla geçen süre
     : plannedMs != null ? remainingMs ?? plannedMs : elapsedMs
 
+  const examConfig = modeConfig.mode === 'EXAM_SIMULATOR' ? modeConfig : null
+  const examStartTime = examConfig?.startTimeHHmm ?? '14:45'
+  const examDurationMinutes = Math.max(1, Math.round((examConfig?.sureMs ?? 90 * 60 * 1000) / 60000))
+
+  const handleExamStartTimeChange = useCallback((value: string) => {
+    const normalized = normalizeExamStartTime(value, examStartTime)
+    setModeConfig({
+      mode: 'EXAM_SIMULATOR',
+      startTimeHHmm: normalized,
+      sureMs: examDurationMinutes * 60 * 1000,
+    })
+  }, [examStartTime, examDurationMinutes, setModeConfig])
+
+  const handleExamDurationChange = useCallback((minutes: number) => {
+    const safeMinutes = Math.max(1, minutes)
+    setModeConfig({
+      mode: 'EXAM_SIMULATOR',
+      startTimeHHmm: examStartTime,
+      sureMs: safeMinutes * 60 * 1000,
+    })
+  }, [examStartTime, setModeConfig])
+
   /* ── Dinamik tab başlığı: çalışırken sayaç göster ── */
   useEffect(() => {
     const timeStr = formatDuration(timeToDisplay)
@@ -381,9 +410,9 @@ function App() {
       odakSkoru: lastSessionScore.totalScore,
       molaSaniye: mode === 'ders60mola15' && molaToplamMs != null ? Math.round(molaToplamMs / 1000) : undefined,
       denemeMolalarSaniye: mode === 'deneme' ? [...(denemeMolalarSaniye ?? [])] : undefined,
-      dogruSayisi: mode === 'deneme' ? denemeAnaliz?.dogru : undefined,
-      yanlisSayisi: mode === 'deneme' ? denemeAnaliz?.yanlis : undefined,
-      bosSayisi: mode === 'deneme' ? denemeAnaliz?.bos : undefined,
+      dogruSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.dogru : undefined,
+      yanlisSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.yanlis : undefined,
+      bosSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.bos : undefined,
       ruhHali: sessionRuhHali ?? undefined,
       templateId: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateId : undefined,
       templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler[currentSectionIndex ?? 0]?.ad : undefined,
@@ -431,12 +460,18 @@ function App() {
       }
       if (e.code === settings.kısayollar.modGeçiş) {
         e.preventDefault()
-        const modeList = ['serbest', 'gerisayim', 'ders60mola15', 'deneme'] as const
+        const modeList = ['serbest', 'gerisayim', 'EXAM_SIMULATOR', 'ders60mola15', 'deneme'] as const
         const currentIdx = modeList.indexOf(mode as (typeof modeList)[number])
         const nextIdx = (currentIdx + 1) % modeList.length
         const nextMode = modeList[nextIdx]
         if (nextMode === 'deneme' && savedDenemeConfig) {
           setModeConfig(savedDenemeConfig)
+        } else if (nextMode === 'EXAM_SIMULATOR') {
+          setModeConfig({
+            mode: 'EXAM_SIMULATOR',
+            startTimeHHmm: examStartTime,
+            sureMs: examDurationMinutes * 60 * 1000,
+          })
         } else {
           setModeConfig(clonePreset(MODE_DEFAULTS[nextMode]))
         }
@@ -444,7 +479,7 @@ function App() {
     }
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [settings.kısayollar, status, primaryAction, reset, mode, setModeConfig, savedDenemeConfig, showSettings])
+  }, [settings.kısayollar, status, primaryAction, reset, mode, setModeConfig, savedDenemeConfig, showSettings, examStartTime, examDurationMinutes])
 
   /* ── summary ── */
   const summary = useMemo(() => {
@@ -503,16 +538,28 @@ function App() {
 
   /* ── mode select handler ── */
   const handleModeSelect = useCallback(
-    (modeId: 'serbest' | 'gerisayim' | 'ders60mola15' | 'deneme') => {
+    (modeId: 'serbest' | 'gerisayim' | 'EXAM_SIMULATOR' | 'ders60mola15' | 'deneme') => {
       if (modeId === 'deneme' && savedDenemeConfig) {
         setModeConfig(savedDenemeConfig)
+      } else if (modeId === 'EXAM_SIMULATOR') {
+        setModeConfig({
+          mode: 'EXAM_SIMULATOR',
+          startTimeHHmm: examStartTime,
+          sureMs: examDurationMinutes * 60 * 1000,
+        })
       } else {
         setModeConfig(clonePreset(MODE_DEFAULTS[modeId]))
       }
-      const labels: Record<string, string> = { serbest: '⏱️ Kronometre', gerisayim: '⏳ Zamanlayıcı', ders60mola15: '🍅 60/15', deneme: '📋 Deneme' }
+      const labels: Record<string, string> = {
+        serbest: '⏱️ Kronometre',
+        gerisayim: '⏳ Zamanlayıcı',
+        EXAM_SIMULATOR: '🕒 Simülasyon',
+        ders60mola15: '🍅 60/15',
+        deneme: '📋 Deneme',
+      }
       showToast(`${labels[modeId]} moduna geçildi`, 'info')
     },
-    [savedDenemeConfig, setModeConfig, showToast],
+    [savedDenemeConfig, setModeConfig, showToast, examStartTime, examDurationMinutes],
   )
 
   /* ═══════════════════════ RENDER ═══════════════════════ */
@@ -529,8 +576,8 @@ function App() {
         onSessionNoteChange={setSessionNote}
         sessionRuhHali={sessionRuhHali}
         onRuhHaliChange={setSessionRuhHali}
-        denemeAnaliz={mode === 'deneme' ? denemeAnaliz : undefined}
-        onDenemeAnalizChange={mode === 'deneme' ? setDenemeAnaliz : undefined}
+        denemeAnaliz={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz : undefined}
+        onDenemeAnalizChange={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? setDenemeAnaliz : undefined}
         totalPauseDurationMs={totalPauseDurationMs}
         backgroundBreakStartTs={backgroundBreakStartTs}
         backgroundBreakPlannedMs={backgroundBreakPlannedMs}
@@ -659,6 +706,8 @@ function App() {
             {/* ════════  BÖLÜM 2 — TIMER HERO  ════════ */}
             <TimerHero
               timeToDisplay={timeToDisplay}
+              elapsedMs={elapsedMs}
+              remainingMs={remainingMs}
               status={status}
               mode={mode}
               workBreakPhase={workBreakPhase}
@@ -671,6 +720,10 @@ function App() {
               isBreakMode={mode === 'ders60mola15' && workBreakPhase === 'break'}
               onFinishBreak={finishBreakEarly}
               isOvertime={isOvertime}
+              examStartTime={examStartTime}
+              examDurationMinutes={examDurationMinutes}
+              onExamStartTimeChange={handleExamStartTimeChange}
+              onExamDurationMinutesChange={handleExamDurationChange}
             />
 
             {/* Mod seçici — Timer'ın hemen altında */}

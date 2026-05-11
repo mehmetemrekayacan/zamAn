@@ -8,7 +8,7 @@
 create table if not exists public.sessions (
   id            text not null,
   user_id       uuid not null references auth.users(id) on delete cascade,
-  mod           text not null check (mod in ('serbest','gerisayim','ders60mola15','deneme')),
+  mod           text not null check (mod in ('serbest','gerisayim','EXAM_SIMULATOR','ders60mola15','deneme')),
   sure_plan     integer,                       -- saniye
   sure_gercek   integer not null,              -- saniye
   puan          integer not null default 0,

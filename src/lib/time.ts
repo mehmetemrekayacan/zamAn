@@ -47,3 +47,24 @@ export function formatSecondsShort(seconds: number): string {
   if (mins > 0) return secs > 0 ? `${mins}dk ${secs}sn` : `${mins}dk`
   return `${secs}sn`
 }
+
+/** Sanal duvar saati (HH:mm) + elapsedMs -> HH:mm:ss */
+export function getVirtualWallClockTime(startTimeHHmm: string, elapsedMs: number): string {
+  const [hStr, mStr] = startTimeHHmm.split(':')
+  const rawHours = Number(hStr)
+  const rawMinutes = Number(mStr)
+
+  const hours = Number.isFinite(rawHours) ? Math.max(0, rawHours) : 0
+  const minutes = Number.isFinite(rawMinutes) ? Math.max(0, rawMinutes) : 0
+
+  const baseSeconds = ((hours % 24) * 3600) + ((minutes % 60) * 60)
+  const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000))
+  const daySeconds = 24 * 3600
+  const totalSeconds = (baseSeconds + elapsedSeconds) % daySeconds
+
+  const hh = Math.floor(totalSeconds / 3600)
+  const mm = Math.floor((totalSeconds % 3600) / 60)
+  const ss = totalSeconds % 60
+
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+}
