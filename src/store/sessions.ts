@@ -35,6 +35,7 @@ export interface SessionsState {
   loading: boolean
   loadSessions: () => Promise<void>
   addSession: (session: SessionRecord) => Promise<void>
+  updateSession: (updatedSession: SessionRecord) => Promise<void>
   deleteSession: (id: string) => Promise<void>
   refreshSyncStatuses: () => Promise<void>
   getRecentSessions: (limit?: number) => SessionRecord[]
@@ -87,6 +88,20 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       })
     } catch (error) {
       console.error('Failed to save session:', error)
+      throw error
+    }
+  },
+
+  updateSession: async (updatedSession) => {
+    try {
+      const record: SessionRecord = { ...updatedSession, updatedAt: new Date().toISOString() }
+      await dbSaveSession(record)
+      const state = get()
+      set({
+        sessions: state.sessions.map((s) => (s.id === record.id ? record : s)),
+      })
+    } catch (error) {
+      console.error('Failed to update session:', error)
       throw error
     }
   },

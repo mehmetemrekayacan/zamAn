@@ -23,6 +23,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { Toast } from './components/Toast'
 import { AnalyticsPage } from './components/analytics/AnalyticsPage'
+import { DenemeManager } from './components/DenemeManager'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import type { ModeConfig, SessionRecord, RuhHali, DenemeAnaliz } from './types'
 import { getSupabase } from './lib/supabase'
@@ -67,7 +68,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showRecoveryModal, setShowRecoveryModal] = useState(false)
   const [isMiniPlayerMode, setIsMiniPlayerMode] = useState(false)
-  const [activeView, setActiveView] = useState<'timer' | 'analytics'>('timer')
+  const [activeView, setActiveView] = useState<'timer' | 'analytics' | 'deneme-manager'>('timer')
   const [lastSessionScore, setLastSessionScore] = useState<ReturnType<typeof calculateScore> | null>(null)
 
   /* Toast geri bildirim state */
@@ -418,7 +419,7 @@ function App() {
       bosSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.bos : undefined,
       ruhHali: sessionRuhHali ?? undefined,
       templateId: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateId : undefined,
-      templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateName : undefined,
+      templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler[currentSectionIndex ?? 0]?.ad : undefined,
       bolumler: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler.map((b) => ({ ad: b.ad, surePlan: Math.round(b.surePlanMs / 1000), sureGercek: 0 })) : undefined,
       ekstraSureMs: plannedMs != null && elapsedMs > plannedMs
         ? elapsedMs - plannedMs
@@ -668,7 +669,7 @@ function App() {
         />
 
         <div className="w-full md:flex md:justify-end">
-          <div className="grid w-full grid-cols-2 rounded-full border border-text-primary/10 bg-surface-700/50 p-1 md:inline-flex md:w-auto md:min-w-[260px]">
+          <div className="grid w-full grid-cols-3 rounded-full border border-text-primary/10 bg-surface-700/50 p-1 md:inline-flex md:w-auto md:min-w-[360px]">
             <button
               type="button"
               onClick={() => setActiveView('timer')}
@@ -690,6 +691,17 @@ function App() {
               }`}
             >
               İstatistikler
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('deneme-manager')}
+              className={`w-full rounded-full px-3 py-2 text-center text-xs font-semibold transition sm:text-sm ${
+                activeView === 'deneme-manager'
+                  ? 'bg-secondary text-secondary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Denemelerim
             </button>
           </div>
         </div>
@@ -806,8 +818,10 @@ function App() {
               </div>
             </BottomSheet>
           </>
-        ) : (
+        ) : activeView === 'analytics' ? (
           <AnalyticsPage />
+        ) : (
+          <DenemeManager onClose={() => setActiveView('timer')} />
         )}
 
         {/* Settings Modal */}
