@@ -1,7 +1,7 @@
 {
   "name": "zaman_olcer",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.1.0",
   "description": "Deneme / çalışma süre takip uygulaması — Windows ve Android için indirilebilir.",
   "author": "zamAn",
   "type": "module",
