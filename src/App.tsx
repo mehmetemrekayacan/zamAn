@@ -358,7 +358,10 @@ function App() {
       const todayCompletedRounds = sessionsState.sessions.filter(
         (s) => s.tarihISO.startsWith(todayStr) && s.mod === mode
       ).length
-      const score = calculateScore(elapsedMs, mode, pauses, isFullCompletion, todayCompletedRounds, streakDays)
+      const resolvedOvertimeDurationMs = isOvertime && plannedMs != null && elapsedMs > plannedMs
+        ? elapsedMs - plannedMs
+        : undefined
+      const score = calculateScore(elapsedMs, mode, pauses, isFullCompletion, todayCompletedRounds, streakDays, plannedMs, resolvedOvertimeDurationMs)
       setLastSessionScore(score)
       setShowFinishScreen(true)
 
@@ -415,9 +418,9 @@ function App() {
       bosSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.bos : undefined,
       ruhHali: sessionRuhHali ?? undefined,
       templateId: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateId : undefined,
-      templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler[currentSectionIndex ?? 0]?.ad : undefined,
+      templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateName : undefined,
       bolumler: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler.map((b) => ({ ad: b.ad, surePlan: Math.round(b.surePlanMs / 1000), sureGercek: 0 })) : undefined,
-      ekstraSureMs: mode === 'deneme' && plannedMs != null && elapsedMs > plannedMs
+      ekstraSureMs: plannedMs != null && elapsedMs > plannedMs
         ? elapsedMs - plannedMs
         : undefined,
     }

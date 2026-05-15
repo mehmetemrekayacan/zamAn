@@ -213,22 +213,12 @@ function processTick(get: GetState, set: SetState): void {
 
     if (isWork) {
       if (!state.isOvertime) {
-        const breakPlannedMs = getPlannedMs(state.modeConfig, 'break', state.currentSectionIndex ?? 0) ?? MOLA_MS
+        // Süre doldu → overtime'a geç; kullanıcı manuel bitirene kadar mola başlamaz.
+        notifyOvertimeStarted()
         set({
-          status: 'finished',
-          running: false,
-          elapsedMs: elapsed,
+          isOvertime: true,
           remainingMs: 0,
-          lastTickTs: null,
-          expectedEndTime: undefined,
-          startWallTime: undefined,
-          wasEarlyFinish: false,
-          isOvertime: false,
-          backgroundBreakStartTs: now,
-          backgroundBreakPlannedMs: breakPlannedMs,
-          lastPomodoroDate: bugun,
         })
-        stopWorker()
         return
       }
 
@@ -264,6 +254,26 @@ function processTick(get: GetState, set: SetState): void {
       backgroundBreakPlannedMs: undefined,
     })
     stopWorker()
+    return
+  }
+
+  // --- Gerisayim overtime ---
+  if (finished && state.mode === 'gerisayim') {
+    if (!state.isOvertime) {
+      notifyOvertimeStarted()
+      set({
+        isOvertime: true,
+        remainingMs: 0,
+      })
+      return
+    }
+    const overtimeExtra = state.expectedEndTime != null ? now - state.expectedEndTime : 0
+    const totalElapsed = (state.plannedMs ?? 0) + Math.max(0, overtimeExtra)
+    set({
+      elapsedMs: totalElapsed,
+      remainingMs: 0,
+      lastTickTs: now,
+    })
     return
   }
 
@@ -547,7 +557,7 @@ export const useTimerStore = create<TimerState>()(
         let elapsed: number
         let remaining: number | undefined
 
-        if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15')) {
+        if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15' || state.mode === 'gerisayim')) {
           // Overtime sırasında: elapsedMs zaten processTick tarafından güncelleniyor
           elapsed = state.elapsedMs
           remaining = 0
@@ -680,7 +690,7 @@ export const useTimerStore = create<TimerState>()(
 
         // Mutlak zamandan geçen süreyi hesapla
         let finalElapsed: number
-        if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15')) {
+        if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15' || state.mode === 'gerisayim')) {
           // Overtime: elapsedMs zaten processTick tarafından güncellenmiş (plannedMs + extra)
           finalElapsed = state.elapsedMs
         } else if (state.status === 'running') {

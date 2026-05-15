@@ -87,7 +87,7 @@ export type SessionRecord = {
   yanlisSayisi?: number
   bosSayisi?: number
   bolumler?: { ad: string; surePlan?: number; sureGercek: number }[]
-  /** Deneme modunda uzatma/ekstra süre (ms) — plannedMs'in ötesinde geçen süre */
+  /** Uzatma/ekstra süre (ms) — plannedMs'in ötesinde geçen süre (tüm overtime modları) */
   ekstraSureMs?: number
   platform?: { cihaz?: string; userAgentHash?: string }
   createdAt?: string

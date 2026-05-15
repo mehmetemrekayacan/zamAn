@@ -47,22 +47,35 @@ describe('timer store', () => {
   })
 
   describe('gerisayim modu', () => {
-    it('süre bitince syncOnVisibilityChange ile finished olur', () => {
+    it('süre bitince overtime\'a geçer, finishEarly() ile finished olur', () => {
       const sureMs = 2 * 60 * 1000
       useTimerStore.getState().setModeConfig({ mode: 'gerisayim', sureMs })
       useTimerStore.getState().start()
       expect(useTimerStore.getState().status).toBe('running')
       expect(useTimerStore.getState().remainingMs).toBe(sureMs)
 
+      // Süre dolunca overtime başlar — timer durmaz
       vi.mocked(Date.now).mockReturnValue(sureMs + 100)
       useTimerStore.getState().syncOnVisibilityChange()
-      expect(useTimerStore.getState().status).toBe('finished')
+      expect(useTimerStore.getState().status).toBe('running')
+      expect(useTimerStore.getState().isOvertime).toBe(true)
       expect(useTimerStore.getState().remainingMs).toBe(0)
+
+      // Ek 30 saniye geçiyor
+      vi.mocked(Date.now).mockReturnValue(sureMs + 30_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+      expect(useTimerStore.getState().elapsedMs).toBeGreaterThan(sureMs)
+
+      // Kullanıcı manuel olarak bitirir
+      useTimerStore.getState().finishEarly()
+      expect(useTimerStore.getState().status).toBe('finished')
+      expect(useTimerStore.getState().isOvertime).toBe(false)
+      expect(useTimerStore.getState().wasEarlyFinish).toBe(false)
     })
   })
 
   describe('ders60mola15 — asenkron oturum geçişi (work → break)', () => {
-    it('60 dk ders bitince status finished olur, arka planda mola başlar', () => {
+    it('60 dk ders bitince isOvertime olur, arka planda mola başlamaz', () => {
       useTimerStore.getState().setModeConfig({
         mode: 'ders60mola15',
         calismaMs: DERS_MS,
@@ -74,15 +87,42 @@ describe('timer store', () => {
       expect(useTimerStore.getState().status).toBe('running')
       expect(useTimerStore.getState().plannedMs).toBe(DERS_MS)
 
-      // Çalışma süresi doluyor
+      // Çalışma süresi doluyor → overtime'a geçer
       vi.mocked(Date.now).mockReturnValue(DERS_MS)
       useTimerStore.getState().syncOnVisibilityChange()
 
-      // Action A: status='finished' → FinishScreen gösterilir
+      expect(useTimerStore.getState().status).toBe('running')
+      expect(useTimerStore.getState().isOvertime).toBe(true)
+      expect(useTimerStore.getState().remainingMs).toBe(0)
+      // Kullanıcı henüz bitirmedi — arka planda mola başlamamalı
+      expect(useTimerStore.getState().backgroundBreakStartTs).toBeNull()
+    })
+
+    it('ders60mola15 overtime sonrası finishEarly() ile status finished olur, arka plan mola başlar', () => {
+      useTimerStore.getState().setModeConfig({
+        mode: 'ders60mola15',
+        calismaMs: DERS_MS,
+        molaMs: MOLA_MS,
+      })
+      useTimerStore.getState().start()
+
+      // Süre doluyor → overtime
+      vi.mocked(Date.now).mockReturnValue(DERS_MS)
+      useTimerStore.getState().syncOnVisibilityChange()
+      expect(useTimerStore.getState().isOvertime).toBe(true)
+
+      // 5 saniye daha geçiyor
+      vi.mocked(Date.now).mockReturnValue(DERS_MS + 5_000)
+      useTimerStore.getState().syncOnVisibilityChange()
+      expect(useTimerStore.getState().elapsedMs).toBe(DERS_MS + 5_000)
+
+      // Kullanıcı bitirir
+      useTimerStore.getState().finishEarly()
+
       expect(useTimerStore.getState().status).toBe('finished')
-      expect(useTimerStore.getState().elapsedMs).toBe(DERS_MS)
-      // Action B: Arka planda mola başladı
-      expect(useTimerStore.getState().backgroundBreakStartTs).toBe(DERS_MS)
+      expect(useTimerStore.getState().isOvertime).toBe(false)
+      expect(useTimerStore.getState().wasEarlyFinish).toBe(false)
+      expect(useTimerStore.getState().backgroundBreakStartTs).not.toBeNull()
       expect(useTimerStore.getState().backgroundBreakPlannedMs).toBe(MOLA_MS)
     })
 
@@ -94,9 +134,14 @@ describe('timer store', () => {
       })
       useTimerStore.getState().start()
 
-      // Ders bitiyor
+      // Ders bitiyor → overtime
       vi.mocked(Date.now).mockReturnValue(DERS_MS)
       useTimerStore.getState().syncOnVisibilityChange()
+      expect(useTimerStore.getState().isOvertime).toBe(true)
+
+      // Kullanıcı bitirir — backgroundBreakStartTs = DERS_MS olarak set edilir
+      useTimerStore.getState().finishEarly()
+      expect(useTimerStore.getState().backgroundBreakStartTs).toBe(DERS_MS)
 
       // Kullanıcı 2 dakika kayıt ekranında kaldı
       const saveScreenTime = 2 * 60 * 1000
@@ -118,8 +163,10 @@ describe('timer store', () => {
       })
       useTimerStore.getState().start()
 
+      // Ders bitiyor → overtime → kullanıcı bitirir
       vi.mocked(Date.now).mockReturnValue(DERS_MS)
       useTimerStore.getState().syncOnVisibilityChange()
+      useTimerStore.getState().finishEarly()
 
       vi.mocked(Date.now).mockReturnValue(DERS_MS + 1000)
       useTimerStore.getState().transitionToBreak()
@@ -139,8 +186,10 @@ describe('timer store', () => {
       })
       useTimerStore.getState().start()
 
+      // Ders bitiyor → overtime → kullanıcı bitirir
       vi.mocked(Date.now).mockReturnValue(DERS_MS)
       useTimerStore.getState().syncOnVisibilityChange()
+      useTimerStore.getState().finishEarly()
 
       vi.mocked(Date.now).mockReturnValue(DERS_MS + 1000)
       useTimerStore.getState().transitionToBreak()
