@@ -302,7 +302,7 @@ describe('timer store', () => {
   })
 
   describe('deneme — regression', () => {
-    it('bölüm bitişi sonrası advanceFromDenemeBreak ile sıradaki bölüme geçer ve mola süresini kaydeder', () => {
+    it('çok bölümlü denemede bölüm süresi bittiğinde ara mola olmadan doğrudan overtime\'a geçer', () => {
       useTimerStore.getState().setModeConfig({
         mode: 'deneme',
         bolumler: [
@@ -316,21 +316,12 @@ describe('timer store', () => {
       vi.mocked(Date.now).mockReturnValue(10_000)
       useTimerStore.getState().syncOnVisibilityChange()
 
-      let state = useTimerStore.getState()
-      expect(state.status).toBe('paused')
-      expect(state.denemeBreakStartTs).toBe(10_000)
-      expect(state.currentSectionIndex).toBe(0)
-
-      vi.mocked(Date.now).mockReturnValue(13_000)
-      useTimerStore.getState().advanceFromDenemeBreak()
-
-      state = useTimerStore.getState()
+      const state = useTimerStore.getState()
       expect(state.status).toBe('running')
-      expect(state.currentSectionIndex).toBe(1)
-      expect(state.plannedMs).toBe(20_000)
-      expect(state.remainingMs).toBe(20_000)
-      expect(state.denemeMolalarSaniye).toEqual([3])
+      expect(state.isOvertime).toBe(true)
+      expect(state.remainingMs).toBe(0)
       expect(state.denemeBreakStartTs).toBeNull()
+      expect(state.currentSectionIndex).toBe(0) // Bölüm indeksi değişmez
     })
 
     it('setModeConfig deneme currentSectionIndex değerini sınırlar (index clamp)', () => {
@@ -365,7 +356,7 @@ describe('timer store', () => {
       expect(state.plannedMs).toBe(15_000)
     })
 
-    it('deneme analitiği için denemeMolalarSaniye verisini bölüm geçişlerinde maplenebilir tutar', () => {
+    it('deneme ara mola olmadığından denemeMolalarSaniye boş kalır', () => {
       useTimerStore.getState().setModeConfig({
         mode: 'deneme',
         bolumler: [
@@ -378,12 +369,11 @@ describe('timer store', () => {
 
       vi.mocked(Date.now).mockReturnValue(5_000)
       useTimerStore.getState().syncOnVisibilityChange()
-      vi.mocked(Date.now).mockReturnValue(9_000)
-      useTimerStore.getState().advanceFromDenemeBreak()
 
       const state = useTimerStore.getState()
-      expect(state.denemeMolalarSaniye).toEqual([4])
+      expect(state.isOvertime).toBe(true)
       expect(Array.isArray(state.denemeMolalarSaniye)).toBe(true)
+      expect(state.denemeMolalarSaniye).toEqual([])
     })
   })
 
@@ -459,7 +449,7 @@ describe('timer store', () => {
       expect(state.elapsedMs).toBe(13_000) // Toplam süre
     })
 
-    it('çok bölümlü denemede ara bölüm bittiğinde overtime değil mola olmalı', () => {
+    it('çok bölümlü denemede ara bölüm bittiğinde mola değil doğrudan overtime olmalı', () => {
       useTimerStore.getState().setModeConfig({
         mode: 'deneme',
         bolumler: [
@@ -474,10 +464,10 @@ describe('timer store', () => {
       useTimerStore.getState().syncOnVisibilityChange()
 
       const state = useTimerStore.getState()
-      // Ara bölüm — mola ekranı, overtime değil
-      expect(state.status).toBe('paused')
-      expect(state.isOvertime).toBe(false)
-      expect(state.denemeBreakStartTs).toBe(10_000)
+      // Ara bölüm — artık mola yok, doğrudan overtime
+      expect(state.status).toBe('running')
+      expect(state.isOvertime).toBe(true)
+      expect(state.denemeBreakStartTs).toBeNull()
     })
 
     it('overtime sırasında pause ve resume yapıldığında süre kaybolmamalı', () => {

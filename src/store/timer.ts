@@ -171,32 +171,12 @@ function processTick(get: GetState, set: SetState): void {
 
   // --- Deneme mod geçişi ---
   if (finished && state.mode === 'deneme' && state.modeConfig.mode === 'deneme') {
-    const currentIndex = state.currentSectionIndex ?? 0
-    const lastIndex = Math.max(0, state.modeConfig.bolumler.length - 1)
-    const isLastSection = currentIndex >= lastIndex
-
-    if (!isLastSection) {
-      // Ara bölüm bitti → mola ekranı
-      set({
-        status: 'paused',
-        running: false,
-        elapsedMs: elapsed,
-        remainingMs: 0,
-        lastTickTs: null,
-        expectedEndTime: undefined,
-        startWallTime: undefined,
-        denemeBreakStartTs: now,
-        isOvertime: false,
-      })
-      stopWorker()
-      return
-    }
-
-    // Son bölüm bitti → overtime'a geç
     if (!state.isOvertime) {
+      // Hangi bölüm olursa olsun süre dolunca doğrudan overtime'a gir.
       notifyOvertimeStarted()
       set({
         isOvertime: true,
+        elapsedMs: elapsed,
         remainingMs: 0,
       })
       // Timer çalışmaya devam etsin — worker durdurmuyoruz
@@ -217,6 +197,7 @@ function processTick(get: GetState, set: SetState): void {
         notifyOvertimeStarted()
         set({
           isOvertime: true,
+          elapsedMs: elapsed,
           remainingMs: 0,
         })
         return
@@ -263,6 +244,7 @@ function processTick(get: GetState, set: SetState): void {
       notifyOvertimeStarted()
       set({
         isOvertime: true,
+        elapsedMs: elapsed,
         remainingMs: 0,
       })
       return
