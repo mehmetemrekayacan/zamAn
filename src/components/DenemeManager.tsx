@@ -27,7 +27,7 @@ interface EditState {
 interface DenemeCardProps {
   session: SessionRecord
   onUpdate: (updated: SessionRecord) => Promise<void>
-  onDelete: (id: string) => Promise<void>
+  onDelete: (id: string) => void
 }
 
 const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: DenemeCardProps) {
