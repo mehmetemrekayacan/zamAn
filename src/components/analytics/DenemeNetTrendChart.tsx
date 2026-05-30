@@ -74,8 +74,8 @@ export function DenemeNetTrendChart() {
   // Seçili derse göre filtrelenmiş Chart Verisi
   const data = useMemo<NetPoint[]>(() => {
     if (!effectiveTemplateName) return []
-    
-    return denemeSessions
+
+    const mapped = denemeSessions
       .filter((s) => getGroupKey(s) === effectiveTemplateName)
       .map((session) => {
         const date = toDate(session)
@@ -94,8 +94,9 @@ export function DenemeNetTrendChart() {
           dateMs: date.getTime(),
         }
       })
-      .filter((item): item is NetPoint => item !== null)
-      .sort((a, b) => a.dateMs - b.dateMs)
+      .filter(Boolean) as NetPoint[]
+
+    return mapped.sort((a, b) => a.dateMs - b.dateMs)
   }, [denemeSessions, effectiveTemplateName])
 
   return (

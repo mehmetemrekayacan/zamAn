@@ -27,3 +27,6 @@ build
 *.njsproj
 *.sln
 *.sw?
+
+# Python virtual environment (accidental)
+.venv/
