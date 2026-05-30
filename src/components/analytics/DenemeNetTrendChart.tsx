@@ -15,8 +15,13 @@ import { getDenemeTemplateName } from '../../lib/utils'
 type NetPoint = {
   id: string
   label: string
+  isCustomLabel?: boolean
   net: number
   dateMs: number
+}
+
+function getGroupKey(session: SessionRecord): string {
+  return session.not?.trim() || getDenemeTemplateName(session)
 }
 
 function toDate(session: SessionRecord) {
@@ -46,7 +51,7 @@ export function DenemeNetTrendChart() {
   const templateStats = useMemo(() => {
     const counts = new Map<string, number>()
     for (const session of denemeSessions) {
-      const templateName = getDenemeTemplateName(session)
+      const templateName = getGroupKey(session)
       counts.set(templateName, (counts.get(templateName) || 0) + 1)
     }
     // En çok çözülenden en aza sıralı
@@ -71,7 +76,7 @@ export function DenemeNetTrendChart() {
     if (!effectiveTemplateName) return []
     
     return denemeSessions
-      .filter((s) => getDenemeTemplateName(s) === effectiveTemplateName)
+      .filter((s) => getGroupKey(s) === effectiveTemplateName)
       .map((session) => {
         const date = toDate(session)
         if (!date) return null
@@ -79,13 +84,12 @@ export function DenemeNetTrendChart() {
         const dogru = session.dogruSayisi || 0
         const yanlis = session.yanlisSayisi || 0
         const net = dogru - (yanlis / 4)
+        const customName = session.not?.trim()
 
         return {
           id: session.id,
-          label: date.toLocaleDateString('tr-TR', {
-            day: '2-digit',
-            month: 'short',
-          }),
+          label: customName || date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }),
+          isCustomLabel: Boolean(customName),
           net: Math.round(net * 100) / 100,
           dateMs: date.getTime(),
         }
@@ -169,7 +173,8 @@ export function DenemeNetTrendChart() {
                 formatter={(value: number | string | undefined) => [Number(value ?? 0).toFixed(2), 'Net']}
                 labelFormatter={(id) => {
                   const item = data.find((d) => d.id === id)
-                  return `Tarih: ${item?.label || ''}`
+                  if (!item) return ''
+                  return item.isCustomLabel ? item.label : `Tarih: ${item.label}`
                 }}
               />
               <Line

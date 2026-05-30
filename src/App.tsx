@@ -62,6 +62,7 @@ function App() {
 
   /* ── local state ── */
   const [sessionNote, setSessionNote] = useState('')
+  const [denemeAdi, setDenemeAdi] = useState('')
   const [sessionRuhHali, setSessionRuhHali] = useState<RuhHali | null>(null)
   const [denemeAnaliz, setDenemeAnaliz] = useState<DenemeAnaliz | null>(null)
   const [showFinishScreen, setShowFinishScreen] = useState(false)
@@ -406,7 +407,9 @@ function App() {
       sureGercek: sureGercekSaniye,
       puan: lastSessionScore.totalScore,
       tarihISO: new Date().toISOString(),
-      not: sessionNote || undefined,
+      not: (mode === 'deneme' || mode === 'EXAM_SIMULATOR') && denemeAdi.trim()
+        ? denemeAdi.trim()
+        : sessionNote || undefined,
       duraklatmaSayisi: pauses,
       toplamDuraklamaSureSaniye: totalPauseDurationMs > 0 ? Math.round(totalPauseDurationMs / 1000) : undefined,
       erkenBitirmeSuresi:
@@ -766,6 +769,8 @@ function App() {
               setEditingSectionIndex={setEditingSectionIndex}
               currentSectionIndex={currentSectionIndex}
               jumpToSection={jumpToSection}
+              denemeAdi={denemeAdi}
+              setDenemeAdi={setDenemeAdi}
             />
 
             {/* ════════  BÖLÜM 3 — DASHBOARD  ════════ */}
@@ -905,6 +910,8 @@ function ModeConfigPanel({
   setEditingSectionIndex,
   currentSectionIndex,
   jumpToSection,
+  denemeAdi,
+  setDenemeAdi,
 }: {
   modeConfig: ModeConfig
   setModeConfig: (c: ModeConfig) => void
@@ -926,6 +933,8 @@ function ModeConfigPanel({
   setEditingSectionIndex: (v: number | null) => void
   currentSectionIndex?: number
   jumpToSection: (idx: number) => void
+  denemeAdi: string
+  setDenemeAdi: (v: string) => void
 }) {
   if (modeConfig.mode === 'gerisayim') {
     return (
@@ -1084,6 +1093,24 @@ function ModeConfigPanel({
               </button>
             )}
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (modeConfig.mode === 'EXAM_SIMULATOR') {
+    return (
+      <div className="mx-auto w-full max-w-lg rounded-2xl border border-secondary/25 bg-secondary/10 p-5">
+        <p className="mb-4 text-sm font-semibold text-text-primary">🕒 Sınav Simülasyonu</p>
+        <div>
+          <label className="mb-2 block text-xs font-semibold text-text-primary">Deneme Adı</label>
+          <input
+            type="text"
+            value={denemeAdi}
+            onChange={(e) => setDenemeAdi(e.target.value)}
+            placeholder="ör. TYT Deneme 1, KPSS Mart…"
+            className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted focus:border-secondary/50 focus:outline-none"
+          />
         </div>
       </div>
     )
