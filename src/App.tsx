@@ -10,7 +10,7 @@ import { initDb, clearAllSessions } from './lib/db'
 import { initOfflineSync, processQueue } from './lib/offlineSync'
 import { formatMinutesHuman } from './lib/time'
 import { unlockAudio } from './lib/notifications'
-import { isElectron, onGlobalHotkey, onMiniPlayerChanged, toggleMiniPlayer } from './lib/electronBridge'
+import { isElectron, onGlobalHotkey, onMiniPlayerChanged } from './lib/electronBridge'
 import { DashboardHeader } from './components/DashboardHeader'
 import { TimerHero } from './components/TimerHero'
 import { ModeSelector } from './components/ModeSelector'
@@ -118,11 +118,8 @@ function App() {
     denemeBreakStartTs,
     denemeMolalarSaniye,
     pauses,
-    wasEarlyFinish,
     molaToplamMs,
     totalPauseDurationMs,
-    backgroundBreakStartTs,
-    backgroundBreakPlannedMs,
     start,
     pause,
     resume,
