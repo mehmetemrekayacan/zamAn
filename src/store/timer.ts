@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getLocalDateString } from '../lib/time'
-import { notifyOvertimeStarted } from '../lib/notifications'
 import type { Mode, ModeConfig, Section, WorkBreakPhase, TimerSnapshot, TimerStatus } from '../types'
+import { TIMER_STRATEGIES } from '../lib/timerStrategies'
 
 // Test için: 10 sn ders, 5 sn mola (normal: 60*60*1000, 15*60*1000)
 // ders60mola15: 60 dakika ders, 15 dakika mola
@@ -51,21 +51,8 @@ export const DENEME_TEMPLATES: { id: string; label: string; bolumler: Section[] 
 ]
 
 const getPlannedMs = (config: ModeConfig, phase: WorkBreakPhase = 'work', currentSectionIndex = 0): number | undefined => {
-  switch (config.mode) {
-    case 'gerisayim':
-      return config.sureMs
-    case 'EXAM_SIMULATOR':
-      return config.sureMs
-    case 'serbest':
-      return undefined
-    case 'ders60mola15':
-      return phase === 'work' ? config.calismaMs : config.molaMs
-    case 'deneme': {
-      return config.bolumler[currentSectionIndex]?.surePlanMs
-    }
-    default:
-      return undefined
-  }
+  const strategy = TIMER_STRATEGIES[config.mode]
+  return strategy ? strategy.getPlannedMs(config, phase, currentSectionIndex) : undefined
 }
 
 function deriveDers6015PhaseAndPlan(
@@ -152,135 +139,13 @@ function processTick(get: GetState, set: SetState): void {
   if (state.status !== 'running') return
 
   const now = Date.now()
+  const strategy = TIMER_STRATEGIES[state.mode]
+  if (!strategy) return
 
-  // --- Mutlak zaman hesaplaması ---
-  let elapsed: number
-  let remaining: number | undefined
+  const tickUpdates = strategy.onTick(now, state)
+  const { finished, ...updates } = tickUpdates
 
-  if (state.plannedMs != null && state.expectedEndTime != null) {
-    // Geri sayımlı modlar (gerisayim, EXAM_SIMULATOR, ders60mola15, deneme)
-    remaining = Math.max(0, state.expectedEndTime - now)
-    elapsed = state.plannedMs - remaining
-  } else {
-    // Serbest mod — sınırsız
-    elapsed = state.startWallTime != null ? now - state.startWallTime : state.elapsedMs
-    remaining = undefined
-  }
-
-  const finished = state.plannedMs != null && remaining === 0
-
-  // --- Deneme mod geçişi ---
-  if (finished && state.mode === 'deneme' && state.modeConfig.mode === 'deneme') {
-    if (!state.isOvertime) {
-      // Hangi bölüm olursa olsun süre dolunca doğrudan overtime'a gir.
-      notifyOvertimeStarted()
-      set({
-        isOvertime: true,
-        elapsedMs: elapsed,
-        remainingMs: 0,
-      })
-      // Timer çalışmaya devam etsin — worker durdurmuyoruz
-      return
-    }
-  }
-
-  // --- Ders60Mola15 mod geçişi ---
-  if (finished && state.mode === 'ders60mola15' && state.modeConfig.mode === 'ders60mola15') {
-    const phase = state.workBreakPhase ?? 'work'
-    const isWork = phase === 'work'
-    const currentMola = state.molaToplamMs ?? 0
-    const bugun = getLocalDateString()
-
-    if (isWork) {
-      if (!state.isOvertime) {
-        // Süre doldu → overtime'a geç; kullanıcı manuel bitirene kadar mola başlamaz.
-        notifyOvertimeStarted()
-        set({
-          isOvertime: true,
-          elapsedMs: elapsed,
-          remainingMs: 0,
-        })
-        return
-      }
-
-      // Overtime sırasında her tikte elapsed'i artır; UI'nin +süreyi canlı göstermesini sağlar.
-      const overtimeExtra = state.expectedEndTime != null ? now - state.expectedEndTime : 0
-      const totalElapsed = (state.plannedMs ?? 0) + Math.max(0, overtimeExtra)
-      set({
-        elapsedMs: totalElapsed,
-        remainingMs: 0,
-        lastTickTs: now,
-      })
-      return
-    }
-
-    // Mola bitti → Sonraki tura hazırlan
-    set({
-      status: 'idle',
-      running: false,
-      elapsedMs: 0,
-      plannedMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
-      remainingMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
-      lastTickTs: null,
-      expectedEndTime: undefined,
-      startWallTime: undefined,
-      workBreakPhase: 'work',
-      dersCycleDate: bugun,
-      molaToplamMs: currentMola + elapsed,
-      totalPauseDurationMs: 0,
-      pauses: 0,
-      pauseStartTs: null,
-      wasEarlyFinish: undefined,
-      backgroundBreakStartTs: null,
-      backgroundBreakPlannedMs: undefined,
-    })
-    stopWorker()
-    return
-  }
-
-  // --- Gerisayim overtime ---
-  if (finished && state.mode === 'gerisayim') {
-    if (!state.isOvertime) {
-      notifyOvertimeStarted()
-      set({
-        isOvertime: true,
-        elapsedMs: elapsed,
-        remainingMs: 0,
-      })
-      return
-    }
-    const overtimeExtra = state.expectedEndTime != null ? now - state.expectedEndTime : 0
-    const totalElapsed = (state.plannedMs ?? 0) + Math.max(0, overtimeExtra)
-    set({
-      elapsedMs: totalElapsed,
-      remainingMs: 0,
-      lastTickTs: now,
-    })
-    return
-  }
-
-  // --- Overtime sırasında elapsed güncellemesi ---
-  if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15')) {
-    // Overtime'da expectedEndTime geçmiştir; elapsed = plannedMs + fazla süre
-    const overtimeExtra = state.expectedEndTime != null ? now - state.expectedEndTime : 0
-    const totalElapsed = (state.plannedMs ?? 0) + Math.max(0, overtimeExtra)
-    set({
-      elapsedMs: totalElapsed,
-      remainingMs: 0,
-      lastTickTs: now,
-    })
-    return
-  }
-
-  // --- Genel güncelleme ---
-  set({
-    elapsedMs: elapsed,
-    remainingMs: remaining,
-    lastTickTs: now,
-    status: finished ? ('finished' as TimerStatus) : state.status,
-    running: !finished,
-    ...(finished ? { wasEarlyFinish: false, expectedEndTime: undefined, startWallTime: undefined } : {}),
-  })
+  set(updates)
 
   if (finished) {
     stopWorker()
@@ -473,55 +338,19 @@ export const useTimerStore = create<TimerState>()(
         const cfg = config ?? state.modeConfig ?? MODE_DEFAULTS.serbest
         const bugun = getLocalDateString()
         const pomodoroState = getPomodoroStateForToday(state, bugun)
-        const sectionIdx = cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : 0
-        const { phase: derivedPhase, plannedMs } = deriveDers6015PhaseAndPlan(cfg, {
-          modeConfig: state.modeConfig,
-          workBreakPhase: state.workBreakPhase,
-          dersCycleDate: state.dersCycleDate,
-          currentSectionIndex: sectionIdx,
-        }, bugun)
+        const strategy = TIMER_STRATEGIES[cfg.mode]
         stopWorker()
-        const now = Date.now()
 
-        let workBreakPhase: WorkBreakPhase | undefined = cfg.mode === 'ders60mola15' ? derivedPhase : undefined
-        let dersCycle: number | undefined = cfg.mode === 'ders60mola15' ? Math.max(0, pomodoroState.pomodoroRound - 1) : undefined
-        let molaToplamMs: number | undefined = cfg.mode === 'ders60mola15' ? 0 : undefined
-        let dersCycleDate: string | null = cfg.mode === 'ders60mola15' ? bugun : null
-
-        if (cfg.mode === 'ders60mola15') {
-          if (state.dersCycleDate === bugun && state.modeConfig.mode === 'ders60mola15') {
-            workBreakPhase = state.workBreakPhase ?? 'work'
-            dersCycle = state.dersCycle ?? 0
-            molaToplamMs = state.molaToplamMs ?? 0
-            dersCycleDate = bugun
-          }
-        }
+        const startUpdates = strategy
+          ? strategy.onStart(cfg, state, bugun, pomodoroState.pomodoroRound)
+          : {}
 
         set({
           modeConfig: cfg,
           mode: cfg.mode,
-          plannedMs,
-          remainingMs: plannedMs,
-          elapsedMs: 0,
-          status: 'running',
-          running: true,
-          pauses: 0,
-          lastTickTs: now,
-          expectedEndTime: plannedMs != null ? now + plannedMs : undefined,
-          startWallTime: now,
-          currentSectionIndex: cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : undefined,
-          workBreakPhase,
-          dersCycle,
-          molaToplamMs,
-          dersCycleDate,
-          denemeBreakStartTs: null,
-          wasEarlyFinish: undefined,
-          isOvertime: false,
           pomodoroRound: pomodoroState.pomodoroRound,
           lastPomodoroDate: pomodoroState.lastPomodoroDate,
-          totalPauseDurationMs: 0,
-          backgroundBreakStartTs: null,
-          backgroundBreakPlannedMs: undefined,
+          ...startUpdates,
         })
 
         startWorker(() => processTick(get as GetState, set))
@@ -530,37 +359,14 @@ export const useTimerStore = create<TimerState>()(
       pause: () => {
         const state = get()
         if (state.status !== 'running') return
-        // Hard Limit: Mola sırasında DURAKLAT butonu devre dışı
-        if (state.mode === 'ders60mola15' && state.workBreakPhase === 'break') return
+        const strategy = TIMER_STRATEGIES[state.mode]
+        if (strategy && !strategy.canPause(state)) return
+        
         stopWorker()
         const now = Date.now()
+        const pauseUpdates = strategy ? strategy.onPause(now, state) : {}
 
-        // Mutlak zamandan kalan süreyi hesapla
-        let elapsed: number
-        let remaining: number | undefined
-
-        if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15' || state.mode === 'gerisayim')) {
-          // Overtime sırasında: elapsedMs zaten processTick tarafından güncelleniyor
-          elapsed = state.elapsedMs
-          remaining = 0
-        } else if (state.plannedMs != null && state.expectedEndTime != null) {
-          remaining = Math.max(0, state.expectedEndTime - now)
-          elapsed = state.plannedMs - remaining
-        } else {
-          elapsed = state.startWallTime != null ? now - state.startWallTime : state.elapsedMs
-          remaining = undefined
-        }
-
-        set({
-          status: 'paused',
-          running: false,
-          elapsedMs: elapsed,
-          remainingMs: remaining,
-          lastTickTs: null,
-          expectedEndTime: state.isOvertime ? state.expectedEndTime : undefined, // Overtime'da expectedEndTime'ı koru (resume'da lazım)
-          pauses: state.pauses + 1,
-          pauseStartTs: now,
-        })
+        set(pauseUpdates)
       },
 
       resume: () => {
@@ -569,74 +375,27 @@ export const useTimerStore = create<TimerState>()(
         const now = Date.now()
         const pauseStartTs = state.pauseStartTs ?? now
         const pauseDurationMs = now - pauseStartTs
-        const newTotalPause = (state.totalPauseDurationMs ?? 0) + pauseDurationMs
+        const strategy = TIMER_STRATEGIES[state.mode]
+        const resumeUpdates = strategy ? strategy.onResume(now, state, pauseDurationMs) : {}
 
-        // Kalan süreyi (pause sırasında kaydedilmiş) kullanarak yeni expectedEndTime hesapla,
-        // ya da overtime modundaysak, pause edildiği andaki expectedEndTime'ı pause süresi kadar ileri ötele.
-        let newExpectedEndTime: number | undefined
-        if (state.isOvertime && state.expectedEndTime != null) {
-          newExpectedEndTime = state.expectedEndTime + pauseDurationMs
-        } else {
-          newExpectedEndTime = state.remainingMs != null ? now + state.remainingMs : undefined
-        }
-
-        // Serbest mod: startWallTime'ı pause süresi kadar ileri al
-        const newStartWallTime = state.startWallTime != null
-          ? state.startWallTime + pauseDurationMs
-          : now
-
-        set({
-          status: 'running',
-          running: true,
-          lastTickTs: now,
-          pauseStartTs: null,
-          totalPauseDurationMs: newTotalPause,
-          expectedEndTime: newExpectedEndTime,
-          startWallTime: newStartWallTime,
-        })
+        set(resumeUpdates)
 
         startWorker(() => processTick(get as GetState, set))
       },
 
       reset: () => {
         const state = get()
-        const cfg = state.modeConfig ?? MODE_DEFAULTS.serbest
-        const sectionIdx = cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : 0
-        const plannedMs = getPlannedMs(cfg, 'work', sectionIdx)
         const bugun = getLocalDateString()
         const pomodoroState = getPomodoroStateForToday(state, bugun)
+        const strategy = TIMER_STRATEGIES[state.mode]
         stopWorker()
 
-        const isDers60Mola15 = cfg.mode === 'ders60mola15'
-        /** Reset: ders60mola15 modunda aynı gündeki dersCycle'ı koru, gün değişmişse sıfırla */
-        const preservedDersCycle = isDers60Mola15 && state.dersCycleDate === bugun
-          ? (state.dersCycle ?? Math.max(0, pomodoroState.pomodoroRound - 1))
-          : Math.max(0, pomodoroState.pomodoroRound - 1)
+        const resetUpdates = strategy ? strategy.onReset(state, bugun, pomodoroState.pomodoroRound) : {}
+
         set({
-          status: 'idle',
-          running: false,
-          elapsedMs: 0,
-          plannedMs,
-          remainingMs: plannedMs,
-          pauses: 0,
-          lastTickTs: null,
-          expectedEndTime: undefined,
-          startWallTime: undefined,
-          currentSectionIndex: cfg.mode === 'deneme' ? cfg.currentSectionIndex ?? 0 : undefined,
-          workBreakPhase: isDers60Mola15 ? 'work' : undefined,
-          dersCycle: isDers60Mola15 ? preservedDersCycle : undefined,
-          dersCycleDate: isDers60Mola15 ? bugun : null,
-          molaToplamMs: isDers60Mola15 ? 0 : undefined,
-          denemeMolalarSaniye: [],
-          denemeBreakStartTs: null,
-          pauseStartTs: null,
-          wasEarlyFinish: undefined,
-          isOvertime: false,
           pomodoroRound: pomodoroState.pomodoroRound,
           lastPomodoroDate: pomodoroState.lastPomodoroDate,
-          totalPauseDurationMs: 0,
-          backgroundBreakStartTs: null,
-          backgroundBreakPlannedMs: undefined,
+          ...resetUpdates,
         })
       },
 
@@ -673,7 +432,6 @@ export const useTimerStore = create<TimerState>()(
         // Mutlak zamandan geçen süreyi hesapla
         let finalElapsed: number
         if (state.isOvertime && (state.mode === 'deneme' || state.mode === 'ders60mola15' || state.mode === 'gerisayim')) {
-          // Overtime: elapsedMs zaten processTick tarafından güncellenmiş (plannedMs + extra)
           finalElapsed = state.elapsedMs
         } else if (state.status === 'running') {
           if (state.plannedMs != null && state.expectedEndTime != null) {
@@ -683,7 +441,6 @@ export const useTimerStore = create<TimerState>()(
             finalElapsed = state.startWallTime != null ? now - state.startWallTime : state.elapsedMs
           }
         } else {
-          // Paused — elapsedMs zaten pause sırasında hesaplanmış
           finalElapsed = state.elapsedMs
         }
 
@@ -693,73 +450,15 @@ export const useTimerStore = create<TimerState>()(
           totalPause += now - state.pauseStartTs
         }
 
-        if (state.mode === 'ders60mola15' && state.modeConfig.mode === 'ders60mola15') {
-          if (state.workBreakPhase === 'break') {
-            // Mola fazında erken bitir → sonraki tura geç
-            const bugun = getLocalDateString()
-            set({
-              status: 'idle',
-              running: false,
-              elapsedMs: 0,
-              plannedMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
-              remainingMs: getPlannedMs(state.modeConfig, 'work', state.currentSectionIndex ?? 0),
-              lastTickTs: null,
-              expectedEndTime: undefined,
-              startWallTime: undefined,
-              workBreakPhase: 'work',
-              totalPauseDurationMs: 0,
-              pauses: 0,
-              pauseStartTs: null,
-              wasEarlyFinish: undefined,
-              backgroundBreakStartTs: null,
-              backgroundBreakPlannedMs: undefined,
-              molaToplamMs: (state.molaToplamMs ?? 0) + finalElapsed,
-              dersCycleDate: bugun,
-            })
-            return
-          }
+        const bugun = getLocalDateString()
+        const pomodoroState = getPomodoroStateForToday(state, bugun)
+        const strategy = TIMER_STRATEGIES[state.mode]
 
-          if (state.workBreakPhase === 'work' && state.isOvertime) {
-            const bugun = getLocalDateString()
-            const currentRound = getPomodoroStateForToday(state, bugun)
-            const nextRound = currentRound.pomodoroRound + 1
-            const molaMs = getPlannedMs(state.modeConfig, 'break', state.currentSectionIndex ?? 0) ?? MOLA_MS
-            set({
-              status: 'finished',
-              running: false,
-              elapsedMs: finalElapsed,
-              remainingMs: 0,
-              lastTickTs: null,
-              expectedEndTime: undefined,
-              startWallTime: undefined,
-              wasEarlyFinish: false,
-              isOvertime: false,
-              totalPauseDurationMs: totalPause,
-              workBreakPhase: 'work',
-              dersCycle: Math.max(0, nextRound - 1),
-              dersCycleDate: bugun,
-              pomodoroRound: nextRound,
-              lastPomodoroDate: bugun,
-              molaToplamMs: state.molaToplamMs ?? 0,
-              backgroundBreakStartTs: Date.now(),
-              backgroundBreakPlannedMs: molaMs,
-            })
-            return
-          }
-        }
+        const finishUpdates = strategy
+          ? strategy.onFinishEarly(now, state, totalPause, finalElapsed, bugun, pomodoroState.pomodoroRound)
+          : {}
 
-        set({
-          status: 'finished',
-          running: false,
-          elapsedMs: finalElapsed,
-          remainingMs: 0,
-          lastTickTs: null,
-          expectedEndTime: undefined,
-          startWallTime: undefined,
-          wasEarlyFinish: !state.isOvertime, // Overtime'da tam bitti sayılır
-          isOvertime: false,
-          totalPauseDurationMs: totalPause,
-        })
+        set(finishUpdates)
       },
 
       getRemainingMs: () => get().remainingMs,

@@ -1,11 +1,9 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { formatDuration, getVirtualWallClockTime } from '../lib/time'
 import type { TimerStatus, WorkBreakPhase, Mode } from '../types'
+import { useTimerStore } from '../store/timer'
 
 export interface TimerHeroProps {
-  timeToDisplay: number
-  elapsedMs: number
-  remainingMs?: number
   status: TimerStatus
   mode: Mode
   workBreakPhase?: WorkBreakPhase
@@ -19,8 +17,6 @@ export interface TimerHeroProps {
   isBreakMode?: boolean
   /** ders60mola15: Molayı erken bitirip sonraki tura geçme */
   onFinishBreak?: () => void
-  /** deneme: Uzatma/ekstra süre modunda mı? */
-  isOvertime?: boolean
   /** exam simulator: sanal başlangıç saati (HH:mm) */
   examStartTime?: string
   /** exam simulator: süre (dakika) */
@@ -63,9 +59,6 @@ const MODE_EMOJIS: Record<string, string> = {
  * – Minimal iç bilgi: sadece mod etiketi + duraklatma sayacı
  */
 export const TimerHero = memo(function TimerHero({
-  timeToDisplay,
-  elapsedMs,
-  remainingMs,
   status,
   mode,
   workBreakPhase,
@@ -77,12 +70,19 @@ export const TimerHero = memo(function TimerHero({
   onReset,
   isBreakMode = false,
   onFinishBreak,
-  isOvertime = false,
   examStartTime,
   examDurationMinutes,
   onExamStartTimeChange,
   onExamDurationMinutesChange,
 }: TimerHeroProps) {
+  const elapsedMs = useTimerStore((s) => s.elapsedMs)
+  const remainingMs = useTimerStore((s) => s.remainingMs)
+  const plannedMs = useTimerStore((s) => s.plannedMs)
+  const isOvertime = useTimerStore((s) => s.isOvertime)
+
+  const timeToDisplay = isOvertime && plannedMs != null
+    ? Math.max(0, elapsedMs - plannedMs)
+    : plannedMs != null ? remainingMs ?? plannedMs : elapsedMs
   const isRunning = status === 'running'
   const isPaused = status === 'paused'
   const isActive = isRunning || isPaused

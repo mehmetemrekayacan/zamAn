@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { DenemeAnaliz as DenemeAnalizType, Mode, RuhHali } from '../types'
 import type { ScoreBreakdown } from '../lib/scoring'
 import { formatSeconds } from '../lib/time'
+import { useTimerStore } from '../store/timer'
 
 const modes = [
   { id: 'serbest' as const, title: 'Kronometre' },
@@ -40,8 +41,6 @@ export type DenemeAnaliz = DenemeAnalizType
 export interface FinishScreenProps {
   score: ScoreBreakdown
   mode: Mode
-  elapsedMs: number
-  pauses: number
   sessionNote: string
   onSessionNoteChange: (value: string) => void
   sessionRuhHali?: RuhHali | null
@@ -51,14 +50,6 @@ export interface FinishScreenProps {
   onDenemeAnalizChange?: (value: DenemeAnalizType | null) => void
   onSave: () => void
   onCancel: () => void
-
-  /* ── Wall-Clock vs Net-Time rapor alanları ── */
-  /** Toplam birikmiş duraklatma süresi (ms) */
-  totalPauseDurationMs?: number
-  /** Arka plandaki mola başlangıç zamanı (Date.now() epoch ms) — live countdown için */
-  backgroundBreakStartTs?: number | null
-  /** Arka plandaki mola planlanan süresi (ms) */
-  backgroundBreakPlannedMs?: number
 }
 
 const isValidEpochMs = (value: number | null | undefined): value is number => (
@@ -75,8 +66,6 @@ const clampNum = (v: number, min: number, max: number) => Math.max(min, Math.min
 export function FinishScreen({
   score,
   mode,
-  elapsedMs,
-  pauses,
   sessionNote,
   onSessionNoteChange,
   sessionRuhHali,
@@ -85,10 +74,12 @@ export function FinishScreen({
   onDenemeAnalizChange,
   onSave,
   onCancel,
-  totalPauseDurationMs = 0,
-  backgroundBreakStartTs,
-  backgroundBreakPlannedMs,
 }: FinishScreenProps) {
+  const elapsedMs = useTimerStore((s) => s.elapsedMs)
+  const pauses = useTimerStore((s) => s.pauses)
+  const totalPauseDurationMs = useTimerStore((s) => s.totalPauseDurationMs ?? 0)
+  const backgroundBreakStartTs = useTimerStore((s) => s.backgroundBreakStartTs)
+  const backgroundBreakPlannedMs = useTimerStore((s) => s.backgroundBreakPlannedMs)
   const isDeneme = mode === 'deneme' || mode === 'EXAM_SIMULATOR'
   const analiz = denemeAnaliz ?? { dogru: 0, yanlis: 0, bos: 0 }
   const setAnaliz = (next: Partial<DenemeAnalizType>) => {

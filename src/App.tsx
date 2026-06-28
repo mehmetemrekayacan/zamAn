@@ -8,9 +8,9 @@ import { syncCloud } from './lib/cloudSync'
 import { getRozetler } from './lib/rozetler'
 import { initDb, clearAllSessions } from './lib/db'
 import { initOfflineSync, processQueue } from './lib/offlineSync'
-import { formatDuration, formatMinutesHuman } from './lib/time'
-import { stopTitleFlash, unlockAudio } from './lib/notifications'
-import { isElectron, onGlobalHotkey, onMiniPlayerChanged, sendTimerUpdate, toggleMiniPlayer } from './lib/electronBridge'
+import { formatMinutesHuman } from './lib/time'
+import { unlockAudio } from './lib/notifications'
+import { isElectron, onGlobalHotkey, onMiniPlayerChanged, toggleMiniPlayer } from './lib/electronBridge'
 import { DashboardHeader } from './components/DashboardHeader'
 import { TimerHero } from './components/TimerHero'
 import { ModeSelector } from './components/ModeSelector'
@@ -23,6 +23,8 @@ import { SettingsModal } from './components/SettingsModal'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { Toast } from './components/Toast'
 import { AnalyticsPage } from './components/analytics/AnalyticsPage'
+import { TimerTitleAndTraySync } from './components/TimerTitleAndTraySync'
+import { MiniPlayer } from './components/MiniPlayer'
 import { DenemeManager } from './components/DenemeManager'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import type { ModeConfig, SessionRecord, RuhHali, DenemeAnaliz } from './types'
@@ -110,9 +112,6 @@ function App() {
     mode,
     modeConfig,
     status,
-    plannedMs,
-    remainingMs,
-    elapsedMs,
     currentSectionIndex,
     workBreakPhase,
     dersCycle,
@@ -134,7 +133,6 @@ function App() {
     finishEarly,
     transitionToBreak,
     finishBreakEarly,
-    isOvertime,
     recoverSession,
     discardRecoveredSession,
   } = useTimerStore()
@@ -273,13 +271,16 @@ function App() {
   }, [settings.tema])
 
   /* ── actions ── */
-  const timeToDisplay = isOvertime && plannedMs != null
-    ? Math.max(0, elapsedMs - plannedMs) // Overtime: göster sadece fazla geçen süre
-    : plannedMs != null ? remainingMs ?? plannedMs : elapsedMs
+  const toggleSettings = useCallback(() => {
+    setShowSettings((prev) => !prev)
+  }, [])
 
   const examConfig = modeConfig.mode === 'EXAM_SIMULATOR' ? modeConfig : null
   const examStartTime = examConfig?.startTimeHHmm ?? '14:45'
-  const examDurationMinutes = Math.max(1, Math.round((examConfig?.sureMs ?? 90 * 60 * 1000) / 60000))
+  const examDurationMinutes = useMemo(() => {
+    if (modeConfig.mode !== 'EXAM_SIMULATOR') return 90
+    return Math.max(1, Math.round(modeConfig.sureMs / 60000))
+  }, [modeConfig])
 
   const handleExamStartTimeChange = useCallback((value: string) => {
     const normalized = normalizeExamStartTime(value, examStartTime)
@@ -298,25 +299,6 @@ function App() {
       sureMs: safeMinutes * 60 * 1000,
     })
   }, [examStartTime, setModeConfig])
-
-  /* ── Dinamik tab başlığı: çalışırken sayaç göster ── */
-  useEffect(() => {
-    const timeStr = formatDuration(timeToDisplay)
-    if (status === 'running') {
-      document.title = `▶ ${timeStr} — zamAn`
-    } else if (status === 'paused') {
-      document.title = `⏸ ${timeStr} — zamAn`
-    } else if (status === 'finished') {
-      // finished durumunda notifications.ts zaten title flash yapıyor
-    } else {
-      stopTitleFlash('zamAn')
-      document.title = 'zamAn'
-    }
-    // Electron tray tooltip güncellemesi
-    if (isElectron() && (status === 'running' || status === 'paused')) {
-      sendTimerUpdate(timeStr)
-    }
-  }, [status, timeToDisplay])
 
   /* ── Electron: Global hotkey dinleyicisi ── */
   useEffect(() => {
@@ -353,6 +335,12 @@ function App() {
 
   useEffect(() => {
     if (status === 'finished' && !showFinishScreen) {
+      const timerState = useTimerStore.getState()
+      const elapsedMs = timerState.elapsedMs
+      const plannedMs = timerState.plannedMs
+      const isOvertime = timerState.isOvertime
+      const wasEarlyFinish = timerState.wasEarlyFinish
+
       const sessionsState = useSessionsStore.getState()
       const streakDays = calculateStreak(sessionsState.sessions)
       const isFullCompletion = !(wasEarlyFinish ?? false)
@@ -379,7 +367,7 @@ function App() {
         })
       })
     }
-  }, [status, showFinishScreen, elapsedMs, plannedMs, mode, pauses, wasEarlyFinish])
+  }, [status, showFinishScreen, mode, pauses])
 
   const primaryLabel = status === 'running' ? 'Duraklat' : status === 'paused' ? 'Devam' : 'Başlat'
   const primaryAction = useCallback(() => {
@@ -395,6 +383,11 @@ function App() {
 
   const saveSession = async () => {
     if (!lastSessionScore) return
+    const timerState = useTimerStore.getState()
+    const elapsedMs = timerState.elapsedMs
+    const plannedMs = timerState.plannedMs
+    const wasEarlyFinish = timerState.wasEarlyFinish
+
     const sureGercekSaniye = Math.round(elapsedMs / 1000)
     const surePlanSaniye = plannedMs != null ? Math.round(plannedMs / 1000) : undefined
     const denemeToplamPlanSaniye = mode === 'deneme' && modeConfig.mode === 'deneme'
@@ -488,7 +481,6 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [settings.kısayollar, status, primaryAction, reset, mode, setModeConfig, savedDenemeConfig, showSettings, examStartTime, examDurationMinutes])
 
-  /* ── summary ── */
   const summary = useMemo(() => {
     const totalMinutes = Math.round(todaySessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0) / 60)
     const todayCount = todaySessions.length
@@ -539,6 +531,13 @@ function App() {
     }
   }, [todaySessions, sessions])
 
+  const statsData = useMemo(() => [
+    { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} seans`, tone: 'primary' as const },
+    { label: 'Bu Hafta', value: formatMinutesHuman(summary.weekMinutes), hint: `${summary.weekSessions} seans`, tone: 'info' as const },
+    { label: 'Seri', value: `${summary.streak}`, hint: 'ardışık gün', tone: 'warning' as const },
+    { label: 'Puan', value: `${summary.todayScore}`, hint: 'bugün', tone: 'success' as const },
+  ], [summary])
+
   useEffect(() => {
     document.documentElement.setAttribute('data-tier', summary.unvan.temaClass)
   }, [summary.unvan.temaClass])
@@ -577,17 +576,12 @@ function App() {
       <FinishScreen
         score={lastSessionScore}
         mode={mode}
-        elapsedMs={elapsedMs}
-        pauses={pauses}
         sessionNote={sessionNote}
         onSessionNoteChange={setSessionNote}
         sessionRuhHali={sessionRuhHali}
         onRuhHaliChange={setSessionRuhHali}
         denemeAnaliz={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz : undefined}
         onDenemeAnalizChange={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? setDenemeAnaliz : undefined}
-        totalPauseDurationMs={totalPauseDurationMs}
-        backgroundBreakStartTs={backgroundBreakStartTs}
-        backgroundBreakPlannedMs={backgroundBreakPlannedMs}
         onSave={saveSession}
         onCancel={() => {
           setShowFinishScreen(false)
@@ -609,58 +603,18 @@ function App() {
 
   if (isMiniPlayerMode) {
     return (
-      <div className="mini-player-drag h-screen w-full bg-surface-900 text-text-primary">
-        <button
-          type="button"
-          data-no-drag="true"
-          onClick={() => toggleMiniPlayer(false)}
-          className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-text-primary/20 bg-surface-700/70 text-text-muted transition hover:border-secondary/60 hover:text-text-primary"
-          title="Genişlet"
-        >
-          ↗
-        </button>
-
-        <div className="flex h-screen w-full flex-col items-center justify-center gap-3 px-3">
-          <time className="font-mono text-4xl font-bold tabular-nums text-primary">
-            {formatDuration(timeToDisplay)}
-          </time>
-
-          <div data-no-drag="true" className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={primaryAction}
-              className="rounded-full bg-success px-4 py-1.5 text-xs font-semibold text-success-foreground transition hover:shadow-lg hover:shadow-success/30"
-            >
-              {primaryLabel}
-            </button>
-
-            {mode === 'ders60mola15' && workBreakPhase === 'break' ? (
-              <button
-                type="button"
-                onClick={finishBreakEarly}
-                className="rounded-full border border-emerald-500/50 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
-              >
-                Molayı Bitir.
-              </button>
-            ) : (
-              (status === 'running' || status === 'paused') && (
-                <button
-                  type="button"
-                  onClick={finishEarly}
-                  className="rounded-full border border-danger/50 bg-danger/15 px-3 py-1.5 text-xs font-semibold text-danger transition hover:bg-danger/25"
-                >
-                  Bitir
-                </button>
-              )
-            )}
-          </div>
-        </div>
-      </div>
+      <MiniPlayer
+        primaryLabel={primaryLabel}
+        primaryAction={primaryAction}
+        finishBreakEarly={finishBreakEarly}
+        finishEarly={finishEarly}
+      />
     )
   }
 
   return (
     <div className={`min-h-screen bg-surface-900 text-text-primary ${isMiniPlayerMode ? 'mini-player-drag' : ''}`}>
+      <TimerTitleAndTraySync />
       <div className="mx-auto flex max-w-5xl flex-col gap-8 px-5 pb-16 pt-8 sm:px-8">
         {/* ════════  BÖLÜM 1 — HEADER  ════════ */}
         <DashboardHeader
@@ -668,7 +622,7 @@ function App() {
           sinavTarihi={settings.sinavTarihi ?? null}
           unvanEmoji={summary.unvan.profilEmoji}
           unvanText={summary.unvan.unvan}
-          onSettingsClick={() => setShowSettings(!showSettings)}
+          onSettingsClick={toggleSettings}
         />
 
         <div className="w-full md:flex md:justify-end">
@@ -712,20 +666,10 @@ function App() {
         {activeView === 'timer' ? (
           <>
             {/* Hızlı istatistik çubuğu */}
-            <QuickStatsBar
-              stats={[
-                { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} seans`, tone: 'primary' },
-                { label: 'Bu Hafta', value: formatMinutesHuman(summary.weekMinutes), hint: `${summary.weekSessions} seans`, tone: 'info' },
-                { label: 'Seri', value: `${summary.streak}`, hint: 'ardışık gün', tone: 'warning' },
-                { label: 'Puan', value: `${summary.todayScore}`, hint: 'bugün', tone: 'success' },
-              ]}
-            />
+            <QuickStatsBar stats={statsData} />
 
             {/* ════════  BÖLÜM 2 — TIMER HERO  ════════ */}
             <TimerHero
-              timeToDisplay={timeToDisplay}
-              elapsedMs={elapsedMs}
-              remainingMs={remainingMs}
               status={status}
               mode={mode}
               workBreakPhase={workBreakPhase}
@@ -737,7 +681,6 @@ function App() {
               onReset={reset}
               isBreakMode={mode === 'ders60mola15' && workBreakPhase === 'break'}
               onFinishBreak={finishBreakEarly}
-              isOvertime={isOvertime}
               examStartTime={examStartTime}
               examDurationMinutes={examDurationMinutes}
               onExamStartTimeChange={handleExamStartTimeChange}
