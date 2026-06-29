@@ -3,21 +3,9 @@ import type { SessionRecord } from '../types'
 import type { SessionSyncMap } from '../store/sessions'
 import { SyncStatusBadge } from './SyncStatusBadge'
 import { getSubjectLabel } from '../lib/utils'
+import { MODE_LABELS, MODE_EMOJIS } from '../lib/modeConfig'
 
-const MODE_LABELS: Record<string, string> = {
-  serbest: 'Kronometre',
-  gerisayim: 'Zamanlayıcı',
-  EXAM_SIMULATOR: 'Sınav Saati',
-  ders60mola15: '60/15',
-  deneme: 'Deneme',
-}
-const MODE_EMOJIS: Record<string, string> = {
-  serbest: '⏱️',
-  gerisayim: '⏳',
-  EXAM_SIMULATOR: '🕒',
-  ders60mola15: '🍅',
-  deneme: '📋',
-}
+
 
 export interface SessionHistoryProps {
   sessions: SessionRecord[]

@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
-import { MODE_DEFAULTS, useTimerStore } from './store/timer'
+import { useTimerStore } from './store/timer'
 import { useSessionsStore } from './store/sessions'
 import { useSettingsStore } from './store/settings'
 import { calculateScore, calculateStreak, getUnvan } from './lib/scoring'
@@ -11,6 +11,7 @@ import { initOfflineSync, processQueue } from './lib/offlineSync'
 import { formatMinutesHuman } from './lib/time'
 import { unlockAudio } from './lib/notifications'
 import { isElectron, onGlobalHotkey, onMiniPlayerChanged } from './lib/electronBridge'
+import { MODE_DEFAULTS, MODE_LABELS, MODE_EMOJIS } from './lib/modeConfig'
 import { DashboardHeader } from './components/DashboardHeader'
 import { TimerHero } from './components/TimerHero'
 import { ModeSelector } from './components/ModeSelector'
@@ -43,13 +44,6 @@ const clonePreset = (config: ModeConfig): ModeConfig => {
   return { ...config }
 }
 
-const MODE_LABELS: Record<string, string> = {
-  serbest: 'Kronometre',
-  gerisayim: 'Zamanlayıcı',
-  EXAM_SIMULATOR: 'Sınav Saati',
-  ders60mola15: '60/15',
-  deneme: 'Deneme',
-}
 
 const normalizeExamStartTime = (value: string, fallback: string): string => {
   if (!value) return fallback
@@ -553,14 +547,7 @@ function App() {
       } else {
         setModeConfig(clonePreset(MODE_DEFAULTS[modeId]))
       }
-      const labels: Record<string, string> = {
-        serbest: '⏱️ Kronometre',
-        gerisayim: '⏳ Zamanlayıcı',
-        EXAM_SIMULATOR: '🕒 Simülasyon',
-        ders60mola15: '🍅 60/15',
-        deneme: '📋 Deneme',
-      }
-      showToast(`${labels[modeId]} moduna geçildi`, 'info')
+      showToast(`${MODE_EMOJIS[modeId]} ${MODE_LABELS[modeId]} moduna geçildi`, 'info')
     },
     [savedDenemeConfig, setModeConfig, showToast, examStartTime, examDurationMinutes],
   )

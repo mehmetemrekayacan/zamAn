@@ -1,5 +1,5 @@
 import type { SessionRecord } from '../types'
-import { DENEME_TEMPLATES } from '../store/timer'
+import { DENEME_TEMPLATES } from './modeConfig'
 
 /**
  * Deneme seansı için anlamlı etiket (başlık) türetir.

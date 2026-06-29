@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { formatDuration, getVirtualWallClockTime } from '../lib/time'
 import type { TimerStatus, WorkBreakPhase, Mode } from '../types'
 import { useTimerStore } from '../store/timer'
+import { MODE_DISPLAY_LABELS, MODE_EMOJIS } from '../lib/modeConfig'
 
 export interface TimerHeroProps {
   status: TimerStatus
@@ -32,21 +33,7 @@ function formatPauseTime(ms: number): string {
   return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 }
 
-const MODE_LABELS: Record<string, string> = {
-  serbest: 'Kronometre',
-  gerisayim: 'Zamanlayıcı',
-  EXAM_SIMULATOR: 'Sınav Saati',
-  ders60mola15: '60/15 Pomodoro',
-  deneme: 'Deneme Sınavı',
-}
 
-const MODE_EMOJIS: Record<string, string> = {
-  serbest: '⏱️',
-  gerisayim: '⏳',
-  EXAM_SIMULATOR: '🕒',
-  ders60mola15: '🍅',
-  deneme: '📋',
-}
 
 /**
  * Hero Timer bileşeni — sayfanın en dikkat çekici, merkezi öğesi.
@@ -170,7 +157,7 @@ export const TimerHero = memo(function TimerHero({
           <div className="flex items-center gap-2">
             <span className="text-lg">{MODE_EMOJIS[mode]}</span>
             <span className="text-sm font-medium text-text-muted">
-              {MODE_LABELS[mode]}
+              {MODE_DISPLAY_LABELS[mode]}
             </span>
             {mode === 'ders60mola15' && (
               <span className="ml-1 rounded-full bg-info/20 px-2.5 py-0.5 text-[11px] font-semibold text-info">

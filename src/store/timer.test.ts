@@ -6,7 +6,8 @@
  * üzerinden dolaylı olarak test edilir.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useTimerStore, MODE_DEFAULTS } from './timer'
+import { useTimerStore } from './timer'
+import { MODE_DEFAULTS } from '../lib/modeConfig'
 import { getLocalDateString } from '../lib/time'
 
 const DERS_MS = 60 * 60 * 1000
