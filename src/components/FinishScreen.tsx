@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import type { DenemeAnaliz as DenemeAnalizType, Mode, RuhHali } from '../types'
 import type { ScoreBreakdown } from '../lib/scoring'
 import { formatSeconds } from '../lib/time'
@@ -48,6 +48,8 @@ export interface FinishScreenProps {
   /** Sadece deneme modunda: doğru / yanlış / boş sayıları */
   denemeAnaliz?: DenemeAnalizType | null
   onDenemeAnalizChange?: (value: DenemeAnalizType | null) => void
+  /** Sadece deneme / EXAM_SIMULATOR: analiz kronometresi — her saniye tetiklenir */
+  onAnalizSuresiChange?: (saniye: number) => void
   onSave: () => void
   onCancel: () => void
 }
@@ -63,6 +65,13 @@ const RUH_HALI_OPTS: { value: RuhHali; label: string; emoji: string }[] = [
 ]
 const clampNum = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
+/** Saniyeyi MM:SS formatına çevirir */
+function formatMMSS(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60)
+  const s = totalSeconds % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 export function FinishScreen({
   score,
   mode,
@@ -72,6 +81,7 @@ export function FinishScreen({
   onRuhHaliChange,
   denemeAnaliz,
   onDenemeAnalizChange,
+  onAnalizSuresiChange,
   onSave,
   onCancel,
 }: FinishScreenProps) {
@@ -100,7 +110,6 @@ export function FinishScreen({
       setBreakRemainingMs(0)
       return
     }
-
     const update = () => {
       const elapsed = Math.max(0, Date.now() - backgroundBreakStartTs)
       setBreakRemainingMs(Math.max(0, backgroundBreakPlannedMs - elapsed))
@@ -109,6 +118,47 @@ export function FinishScreen({
     const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
   }, [hasBackgroundBreak, backgroundBreakStartTs, backgroundBreakPlannedMs])
+
+  /* ── Analiz Süresi Kronometresi ── */
+  type AnalizStatus = 'idle' | 'running' | 'paused'
+  const [analizStatus, setAnalizStatus] = useState<AnalizStatus>('idle')
+  const [analizSaniye, setAnalizSaniye] = useState(0)
+  const analizStartRef = useRef<number | null>(null)
+  const analizOffsetRef = useRef(0)
+
+  useEffect(() => {
+    if (analizStatus !== 'running') return
+    const interval = setInterval(() => {
+      const elapsed = analizStartRef.current != null
+        ? Math.floor((Date.now() - analizStartRef.current) / 1000)
+        : 0
+      const total = analizOffsetRef.current + elapsed
+      setAnalizSaniye(total)
+      onAnalizSuresiChange?.(total)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [analizStatus, onAnalizSuresiChange])
+
+  const handleAnalizBaslat = () => {
+    analizStartRef.current = Date.now()
+    setAnalizStatus('running')
+  }
+
+  const handleAnalizDuraklat = () => {
+    if (analizStartRef.current != null) {
+      analizOffsetRef.current += Math.floor((Date.now() - analizStartRef.current) / 1000)
+      analizStartRef.current = null
+    }
+    setAnalizStatus('paused')
+  }
+
+  const handleAnalizSifirla = () => {
+    analizStartRef.current = null
+    analizOffsetRef.current = 0
+    setAnalizSaniye(0)
+    setAnalizStatus('idle')
+    onAnalizSuresiChange?.(0)
+  }
 
   /* Wall-Clock hesaplaması */
   const totalDurationMs = elapsedMs + totalPauseDurationMs
@@ -127,7 +177,6 @@ export function FinishScreen({
             <p className="text-text-muted mb-2">Toplam Puan</p>
             <p className="font-display text-6xl font-bold text-primary">{score.totalScore}</p>
           </div>
-
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <ScoreRow label="Temel Puan" value={score.baseScore} accent="blue" />
             {score.completionBonus > 0 && (
@@ -145,7 +194,6 @@ export function FinishScreen({
           </div>
         </div>
 
-        {/* Arka plandaki mola banner — non-intrusive indicator */}
         {hasBackgroundBreak && breakRemainingMs > 0 && (
           <div className="flex items-center justify-between rounded-2xl border border-primary/30 bg-primary/10 px-5 py-3 backdrop-blur-sm">
             <div className="flex items-center gap-2">
@@ -182,9 +230,7 @@ export function FinishScreen({
             <div>
               <p className="text-xs text-text-muted">Duraklatma {pauses > 0 ? `(${pauses}×)` : ''}</p>
               <p className="font-semibold text-text-primary">
-                {pauses > 0
-                  ? formatSeconds(Math.round(totalPauseDurationMs / 1000))
-                  : 'Yok'}
+                {pauses > 0 ? formatSeconds(Math.round(totalPauseDurationMs / 1000)) : 'Yok'}
               </p>
             </div>
             <div>
@@ -195,6 +241,104 @@ export function FinishScreen({
             </div>
           </div>
         </div>
+
+        {/* ── Analiz Süresi Kronometresi — sadece deneme / EXAM_SIMULATOR ── */}
+        {isDeneme && (
+          <div className="rounded-card border border-primary/30 bg-gradient-to-br from-primary/5 to-surface-800/80 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-base">🔬</span>
+              <p className="text-sm font-semibold text-text-primary">Analiz Süresi</p>
+              {analizSaniye > 0 && analizStatus !== 'idle' && (
+                <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+                  kaydedilecek
+                </span>
+              )}
+            </div>
+
+            <div className="mb-4 flex items-center justify-center">
+              <span
+                className={`font-mono text-5xl font-bold tabular-nums tracking-tight transition-colors ${
+                  analizStatus === 'running'
+                    ? 'text-primary'
+                    : analizStatus === 'paused'
+                      ? 'text-amber-400'
+                      : 'text-text-muted/50'
+                }`}
+              >
+                {formatMMSS(analizSaniye)}
+              </span>
+            </div>
+
+            <div className="mb-4 flex items-center justify-center gap-2">
+              {analizStatus === 'running' && (
+                <>
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                  <span className="text-xs text-primary">Analiz ediliyor…</span>
+                </>
+              )}
+              {analizStatus === 'paused' && (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-amber-400" />
+                  <span className="text-xs text-amber-400">Duraklatıldı</span>
+                </>
+              )}
+              {analizStatus === 'idle' && (
+                <span className="text-xs text-text-muted">Analiz için kronometreyi başlat</span>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              {analizStatus === 'idle' && (
+                <button
+                  type="button"
+                  onClick={handleAnalizBaslat}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/25 transition hover:bg-primary/90 active:scale-[0.97]"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Başlat
+                </button>
+              )}
+              {analizStatus === 'running' && (
+                <button
+                  type="button"
+                  onClick={handleAnalizDuraklat}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-400/40 bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-400 transition hover:bg-amber-400/20 active:scale-[0.97]"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19h4V5H6zm8-14v14h4V5z" />
+                  </svg>
+                  Duraklat
+                </button>
+              )}
+              {analizStatus === 'paused' && (
+                <button
+                  type="button"
+                  onClick={handleAnalizBaslat}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/25 transition hover:bg-primary/90 active:scale-[0.97]"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Devam Et
+                </button>
+              )}
+              {analizStatus !== 'idle' && (
+                <button
+                  type="button"
+                  onClick={handleAnalizSifirla}
+                  className="flex items-center justify-center gap-1.5 rounded-full border border-text-primary/10 bg-surface-700/50 px-4 py-2.5 text-sm font-medium text-text-muted transition hover:border-text-primary/25 hover:text-text-primary active:scale-[0.97]"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Sıfırla
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {isDeneme && onDenemeAnalizChange && (
           <div className="space-y-3 rounded-card border border-primary/30 bg-primary/5 p-4">
@@ -243,7 +387,7 @@ export function FinishScreen({
             </div>
             {(analiz.dogru > 0 || analiz.yanlis > 0 || analiz.bos > 0) && (
               <p className="text-xs text-text-muted">
-                Net (D − Y/4) = <span className="font-semibold text-primary">{((analiz.dogru || 0) - (analiz.yanlis || 0) / 4).toFixed(2)}</span>
+                Net (D - Y/4) = <span className="font-semibold text-primary">{((analiz.dogru || 0) - (analiz.yanlis || 0) / 4).toFixed(2)}</span>
               </p>
             )}
           </div>
@@ -268,6 +412,7 @@ export function FinishScreen({
             </div>
           </div>
         )}
+
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-text-primary">Seans Notu (opsiyonel)</label>
           <textarea

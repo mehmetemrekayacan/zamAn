@@ -61,6 +61,7 @@ function App() {
   const [denemeAdi, setDenemeAdi] = useState('')
   const [sessionRuhHali, setSessionRuhHali] = useState<RuhHali | null>(null)
   const [denemeAnaliz, setDenemeAnaliz] = useState<DenemeAnaliz | null>(null)
+  const [analizSuresi, setAnalizSuresi] = useState(0)
   const [showFinishScreen, setShowFinishScreen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showRecoveryModal, setShowRecoveryModal] = useState(false)
@@ -411,12 +412,16 @@ function App() {
       ekstraSureMs: plannedMs != null && elapsedMs > plannedMs
         ? elapsedMs - plannedMs
         : undefined,
+      analizSuresi: (mode === 'deneme' || mode === 'EXAM_SIMULATOR') && analizSuresi > 0
+        ? analizSuresi
+        : undefined,
     }
     try {
       await addSession(session)
       showToast(`Seans kaydedildi! +${lastSessionScore.totalScore} puan 🎉`, 'success')
       setShowFinishScreen(false)
       setSessionNote('')
+      setAnalizSuresi(0)
 
       /*
        * Asenkron geçiş: ders60mola15 modunda arka planda mola başlamışsa,
@@ -566,12 +571,14 @@ function App() {
         onRuhHaliChange={setSessionRuhHali}
         denemeAnaliz={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz : undefined}
         onDenemeAnalizChange={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? setDenemeAnaliz : undefined}
+        onAnalizSuresiChange={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? setAnalizSuresi : undefined}
         onSave={saveSession}
         onCancel={() => {
           setShowFinishScreen(false)
           setSessionNote('')
           setSessionRuhHali(null)
           setDenemeAnaliz(null)
+          setAnalizSuresi(0)
 
           // Arka planda mola varsa break'e geç, yoksa reset
           const timerState = useTimerStore.getState()

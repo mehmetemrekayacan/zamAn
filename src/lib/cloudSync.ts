@@ -151,6 +151,7 @@ interface DbSessionRow {
   bolumler: { ad: string; surePlan?: number; sureGercek: number }[] | null
   platform: { cihaz?: string; userAgentHash?: string } | null
   ruh_hali: string | null
+  analiz_suresi: number | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -177,6 +178,7 @@ function sessionToRow(s: SessionRecord, userId: string): DbSessionRow {
     bolumler: s.bolumler ?? null,
     platform: s.platform ?? null,
     ruh_hali: s.ruhHali ?? null,
+    analiz_suresi: s.analizSuresi ?? null,
     created_at: s.createdAt || new Date().toISOString(),
     updated_at: s.updatedAt || new Date().toISOString(),
     deleted_at: null,
@@ -203,6 +205,7 @@ function rowToSession(r: DbSessionRow): SessionRecord {
     bolumler: r.bolumler ?? undefined,
     platform: r.platform ?? undefined,
     ruhHali: (r.ruh_hali as SessionRecord['ruhHali']) ?? undefined,
+    analizSuresi: r.analiz_suresi ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }

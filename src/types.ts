@@ -95,4 +95,6 @@ export type SessionRecord = {
   ruhHali?: RuhHali
   templateId?: string
   templateName?: string
+  /** deneme / EXAM_SIMULATOR: FinishScreen'de çalıştırılan analiz kronometresi (saniye) */
+  analizSuresi?: number
 }

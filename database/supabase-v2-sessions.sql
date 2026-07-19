@@ -19,6 +19,7 @@ create table if not exists public.sessions (
   odak_skoru    integer,
   mola_saniye   integer,
   deneme_molalar jsonb,                        -- number[]
+  analiz_suresi  integer,                       -- saniye — deneme/EXAM_SIMULATOR analiz kronometresi
   dogru_sayisi  integer,
   yanlis_sayisi integer,
   bos_sayisi    integer,
@@ -89,3 +90,9 @@ create policy "Users update own settings"
 create policy "Users delete own settings"
   on public.user_settings for delete
   using (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════
+-- MIGRATION: Mevcut veritabanına analiz_suresi sütununu ekle
+-- Supabase Dashboard → SQL Editor → aşağıdaki komutu çalıştır:
+-- ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS analiz_suresi integer;
+-- ═══════════════════════════════════════════════════
