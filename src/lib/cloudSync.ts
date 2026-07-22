@@ -255,7 +255,7 @@ export async function pushCloud(): Promise<{ ok: true; pushed: number } | { ok: 
 
 /* ─── PULL: Bulut → Yerel (merge — ID bazlı, updatedAt karşılaştırmalı) ─── */
 
-export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: number } | { ok: false; error: string }> {
+export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: number; removed: number } | { ok: false; error: string }> {
   const supabase = getSupabase()
   if (!supabase) return { ok: false, error: 'Online senkron yapılandırılmamış.' }
   const { data: { user } } = await supabase.auth.getUser()
@@ -273,7 +273,7 @@ export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: n
   if (!cloudRows || cloudRows.length === 0) {
     // Yeni tablo boşsa eski sync_data'dan migrasyon dene
     const migrated = await migrateFromLegacy(user.id)
-    if (migrated) return { ok: true, pulled: migrated, merged: 0 }
+    if (migrated) return { ok: true, pulled: migrated, merged: 0, removed: 0 }
     return { ok: false, error: 'Bulutta veri yok.' }
   }
 
