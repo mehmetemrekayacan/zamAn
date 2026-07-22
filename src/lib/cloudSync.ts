@@ -8,7 +8,7 @@
  * - Offline sync kuyruğu desteği (bkz. offlineSync.ts)
  */
 import { getSupabase, isCloudSyncEnabled } from './supabase'
-import { listSessions, saveSession as dbSaveSession } from './db'
+import { listSessions, saveSession as dbSaveSession, deleteSession as dbDeleteSession } from './db'
 import type { SessionRecord } from '../types'
 
 /* ─── Sabitler ─── */
@@ -305,17 +305,27 @@ export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: n
     }
   }
 
+  // Bulutta olmayan yerel seansları sil (Supabase'den hard-delete edilenleri temizle)
+  const cloudIdSet = new Set((cloudRows as DbSessionRow[]).map((r) => r.id))
+  let removed = 0
+  for (const localSession of localSessions) {
+    if (!cloudIdSet.has(localSession.id)) {
+      await dbDeleteSession(localSession.id)
+      removed++
+    }
+  }
+
   // Ayarları da çek (updatedAt karşılaştırmalı)
   await pullSettings(user.id)
 
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString())
 
-  return { ok: true, pulled, merged }
+  return { ok: true, pulled, merged, removed }
 }
 
 /* ─── ÇİFT YÖNLÜ SYNC (push + pull birlikte) ─── */
 
-export async function syncCloud(): Promise<{ ok: true; pushed: number; pulled: number; merged: number } | { ok: false; error: string }> {
+export async function syncCloud(): Promise<{ ok: true; pushed: number; pulled: number; merged: number; removed: number } | { ok: false; error: string }> {
   // Önce push (yerel değişiklikleri gönder)
   const pushResult = await pushCloud()
   if (!pushResult.ok) return pushResult
@@ -329,6 +339,7 @@ export async function syncCloud(): Promise<{ ok: true; pushed: number; pulled: n
     pushed: pushResult.pushed,
     pulled: pullResult.pulled,
     merged: pullResult.merged,
+    removed: pullResult.removed,
   }
 }
 
