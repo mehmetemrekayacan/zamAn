@@ -21,7 +21,7 @@ type NetPoint = {
 }
 
 function getGroupKey(session: SessionRecord): string {
-  return session.not?.trim() || getDenemeTemplateName(session)
+  return getDenemeTemplateName(session)
 }
 
 function toDate(session: SessionRecord) {
@@ -84,12 +84,13 @@ export function DenemeNetTrendChart() {
         const dogru = session.dogruSayisi || 0
         const yanlis = session.yanlisSayisi || 0
         const net = dogru - (yanlis / 4)
-        const customName = session.not?.trim()
+        const notLabel = session.not?.trim()
+        const dateLabel = date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })
 
         return {
           id: session.id,
-          label: customName || date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }),
-          isCustomLabel: Boolean(customName),
+          label: notLabel ? `${dateLabel} – ${notLabel}` : dateLabel,
+          isCustomLabel: false,
           net: Math.round(net * 100) / 100,
           dateMs: date.getTime(),
         }
@@ -175,7 +176,7 @@ export function DenemeNetTrendChart() {
                 labelFormatter={(id) => {
                   const item = data.find((d) => d.id === id)
                   if (!item) return ''
-                  return item.isCustomLabel ? item.label : `Tarih: ${item.label}`
+                  return item.label
                 }}
               />
               <Line
