@@ -11,7 +11,7 @@
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { getSupabase } from './supabase'
-import { getCurrentUser } from './cloudSync'
+import { getCurrentUser, sessionToRow } from './cloudSync'
 import type { SessionRecord } from '../types'
 
 /* ─── DB Şeması ─── */
@@ -219,35 +219,6 @@ export async function processQueue(): Promise<{ flushed: number; failed: number;
 export async function flushSyncQueue(): Promise<{ flushed: number; failed: number }> {
   const { flushed, failed } = await processQueue()
   return { flushed, failed }
-}
-
-/* ─── Yardımcı: SessionRecord → DB satırı ─── */
-
-function sessionToRow(s: SessionRecord, userId: string) {
-  return {
-    id: s.id,
-    user_id: userId,
-    mod: s.mod,
-    sure_plan: s.surePlan ?? null,
-    sure_gercek: s.sureGercek,
-    puan: s.puan,
-    tarih_iso: s.tarihISO,
-    not_text: s.not ?? null,
-    duraklatma: s.duraklatmaSayisi,
-    erken_bitirme: s.erkenBitirmeSuresi ?? null,
-    odak_skoru: s.odakSkoru ?? null,
-    mola_saniye: s.molaSaniye ?? null,
-    deneme_molalar: s.denemeMolalarSaniye ?? null,
-    dogru_sayisi: s.dogruSayisi ?? null,
-    yanlis_sayisi: s.yanlisSayisi ?? null,
-    bos_sayisi: s.bosSayisi ?? null,
-    bolumler: s.bolumler ?? null,
-    platform: s.platform ?? null,
-    ruh_hali: s.ruhHali ?? null,
-    created_at: s.createdAt || new Date().toISOString(),
-    updated_at: s.updatedAt || new Date().toISOString(),
-    deleted_at: null,
-  }
 }
 
 /* ─── Online/Offline Dinleyici ─── */

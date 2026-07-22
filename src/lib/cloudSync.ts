@@ -131,7 +131,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
 /* ─── Yardımcı: SessionRecord ↔ DB satırı dönüşümleri ─── */
 
-interface DbSessionRow {
+export interface DbSessionRow {
   id: string
   user_id: string
   mod: string
@@ -151,13 +151,16 @@ interface DbSessionRow {
   bolumler: { ad: string; surePlan?: number; sureGercek: number }[] | null
   platform: { cihaz?: string; userAgentHash?: string } | null
   ruh_hali: string | null
-  analiz_suresi: number | null
+  template_id?: string | null
+  template_name?: string | null
+  ekstra_sure_ms?: number | null
+  analiz_suresi?: number | null
   created_at: string
   updated_at: string
   deleted_at: string | null
 }
 
-function sessionToRow(s: SessionRecord, userId: string): DbSessionRow {
+export function sessionToRow(s: SessionRecord, userId: string): DbSessionRow {
   return {
     id: s.id,
     user_id: userId,
@@ -178,6 +181,9 @@ function sessionToRow(s: SessionRecord, userId: string): DbSessionRow {
     bolumler: s.bolumler ?? null,
     platform: s.platform ?? null,
     ruh_hali: s.ruhHali ?? null,
+    template_id: s.templateId ?? null,
+    template_name: s.templateName ?? null,
+    ekstra_sure_ms: s.ekstraSureMs ?? null,
     analiz_suresi: s.analizSuresi ?? null,
     created_at: s.createdAt || new Date().toISOString(),
     updated_at: s.updatedAt || new Date().toISOString(),
@@ -185,7 +191,7 @@ function sessionToRow(s: SessionRecord, userId: string): DbSessionRow {
   }
 }
 
-function rowToSession(r: DbSessionRow): SessionRecord {
+export function rowToSession(r: DbSessionRow): SessionRecord {
   return {
     id: r.id,
     mod: r.mod as SessionRecord['mod'],
@@ -205,7 +211,10 @@ function rowToSession(r: DbSessionRow): SessionRecord {
     bolumler: r.bolumler ?? undefined,
     platform: r.platform ?? undefined,
     ruhHali: (r.ruh_hali as SessionRecord['ruhHali']) ?? undefined,
-    analizSuresi: r.analiz_suresi ?? undefined,
+    templateId: r.template_id ?? undefined,
+    templateName: r.template_name ?? undefined,
+    ekstraSureMs: r.ekstra_sure_ms ?? undefined,
+    analizSuresi: r.analiz_suresi != null ? Number(r.analiz_suresi) : undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
@@ -284,10 +293,12 @@ export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: n
       await dbSaveSession(cloudSession)
       pulled++
     } else {
-      // İkisi de var → updatedAt karşılaştır, yeni olanı al
+      // İkisi de var → updatedAt karşılaştır veya analizSuresi farkı varsa yeni olanı al
       const localTs = new Date(local.updatedAt || local.createdAt || local.tarihISO).getTime()
       const cloudTs = new Date(cloudSession.updatedAt || cloudSession.createdAt || cloudSession.tarihISO).getTime()
-      if (cloudTs > localTs) {
+      const hasAnalizDiff = cloudSession.analizSuresi != null && local.analizSuresi !== cloudSession.analizSuresi
+
+      if (cloudTs > localTs || hasAnalizDiff) {
         await dbSaveSession(cloudSession)
         merged++
       }
