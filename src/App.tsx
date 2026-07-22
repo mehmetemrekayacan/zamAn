@@ -209,6 +209,10 @@ function App() {
         // Supabase Auth loop'unu bloklamamak (freeze olmaması) için anında (fire-and-forget) çağırıyoruz
         ;(async () => {
           try {
+            // Önce kuyruktaki bekleyen silme/ekleme işlemlerini gönder.
+            // Böylece pull çalışmadan önce Supabase'e silmeler yansır
+            // ve pull yerel'de silinmiş seansları geri getirmez.
+            await processQueue()
             await syncCloud()
             // IndexedDB güncellendi, store'u rehydrate edelim
             await useSessionsStore.getState().loadSessions()
