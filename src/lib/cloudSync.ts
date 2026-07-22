@@ -326,13 +326,14 @@ export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: n
 /* ─── ÇİFT YÖNLÜ SYNC (push + pull birlikte) ─── */
 
 export async function syncCloud(): Promise<{ ok: true; pushed: number; pulled: number; merged: number; removed: number } | { ok: false; error: string }> {
-  // Önce push (yerel değişiklikleri gönder)
-  const pushResult = await pushCloud()
-  if (!pushResult.ok) return pushResult
-
-  // Sonra pull (buluttaki değişiklikleri al)
+  // Önce pull: buluttaki silmeleri/değişiklikleri yerel'e uygula
+  // (sıra önemli: pull önce çalışmazsa, Supabase'den silinen seans push ile geri yüklenir)
   const pullResult = await pullCloud()
   if (!pullResult.ok) return pullResult
+
+  // Sonra push: yerel'de kalan seansları buluta gönder
+  const pushResult = await pushCloud()
+  if (!pushResult.ok) return pushResult
 
   return {
     ok: true,
