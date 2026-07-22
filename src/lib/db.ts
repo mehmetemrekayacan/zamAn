@@ -7,7 +7,7 @@
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Mode, SessionRecord } from '../types'
-import { enqueueSync } from './offlineSync'
+import { enqueueSync, clearSyncQueue } from './offlineSync'
 import { isCloudSyncEnabled } from './supabase'
 
 interface TimerDB extends DBSchema {
