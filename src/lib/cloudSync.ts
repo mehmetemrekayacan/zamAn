@@ -9,6 +9,7 @@
  */
 import { getSupabase, isCloudSyncEnabled } from './supabase'
 import { listSessions, saveSession as dbSaveSession, deleteSession as dbDeleteSession } from './db'
+import { clearSyncQueue } from './offlineSync'
 import type { SessionRecord } from '../types'
 
 /* ─── Sabitler ─── */
@@ -243,6 +244,9 @@ export async function pushCloud(): Promise<{ ok: true; pushed: number } | { ok: 
     if (error) return { ok: false, error: error.message }
     pushed += batch.length
   }
+
+  // Başarılı push sonrası offline kuyruğu temizle
+  await clearSyncQueue()
 
   // Ayarları da kaydet
   await pushSettings(user.id)
