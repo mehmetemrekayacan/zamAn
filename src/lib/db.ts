@@ -100,4 +100,5 @@ export async function deleteSession(id: string): Promise<void> {
 export async function clearAllSessions(): Promise<void> {
   const db = await initDb()
   await db.clear('sessions')
+  await clearSyncQueue()
 }

@@ -79,7 +79,15 @@ async function getDb(): Promise<IDBPDatabase<SyncQueueDB>> {
 
 /* ─── Kuyruğa ekleme ─── */
 
+export async function clearSyncQueue(): Promise<void> {
+  const db = await getDb()
+  await db.clear('sync-queue')
+}
+
 export async function enqueueSync(action: SyncAction, sessionId: string, payload?: SessionRecord): Promise<void> {
+  const user = await getCurrentUser()
+  if (!user) return // Oturum açılmamışsa kuyruğa ekleme, giriş yapınca pushCloud hepsini gönderecek
+
   const db = await getDb()
 
   // Aynı session için önceki bekleyen kayıtları sil (dedupe)
@@ -145,7 +153,15 @@ export async function processQueue(): Promise<{ flushed: number; failed: number;
     if (!supabase) return { flushed: 0, failed: 0, scheduled: 0 }
 
     const user = await getCurrentUser()
-    if (!user) return { flushed: 0, failed: 0, scheduled: 0 }
+    if (!user) {
+      // Oturum açılmamışsa yetim kalmış bekleyen kuyruk kayıtlarını temizle
+      const db = await getDb()
+      const count = await db.count('sync-queue')
+      if (count > 0) {
+        await db.clear('sync-queue')
+      }
+      return { flushed: 0, failed: 0, scheduled: 0 }
+    }
 
     const db = await getDb()
     const items = (await db.getAll('sync-queue')) as RetryableQueueItem[]
@@ -179,8 +195,9 @@ export async function processQueue(): Promise<{ flushed: number; failed: number;
       } catch (error) {
         const nextRetry = item.retryCount + 1
         const errMessage = (error as Error)?.message ?? 'Unknown sync error'
+        const isSchemaError = errMessage.includes('column') || errMessage.includes('does not exist') || errMessage.includes('PGRST204') || errMessage.includes('42703')
 
-        if (nextRetry >= MAX_RETRIES) {
+        if (nextRetry >= MAX_RETRIES || isSchemaError) {
           if (item.id != null) {
             await db.put('sync-queue', {
               ...item,

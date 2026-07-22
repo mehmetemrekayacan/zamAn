@@ -3,6 +3,7 @@ import type { SessionRecord, Mode } from '../types'
 import { saveSession as dbSaveSession, listSessions, deleteSession as dbDeleteSession } from '../lib/db'
 import { getQueueItems } from '../lib/offlineSync'
 import { isCloudSyncEnabled } from '../lib/supabase'
+import { getCurrentUser } from '../lib/cloudSync'
 import { getLocalDateString } from '../lib/time'
 
 export type SyncStatus = 'pending' | 'synced' | 'failed'
@@ -78,7 +79,8 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       const sorted = [normalizedSession, ...state.sessions].sort(
         (a, b) => new Date(sortTs(b)).getTime() - new Date(sortTs(a)).getTime(),
       )
-      const nextStatus: SyncStatus = isCloudSyncEnabled() ? 'pending' : 'synced'
+      const user = await getCurrentUser()
+      const nextStatus: SyncStatus = (isCloudSyncEnabled() && Boolean(user)) ? 'pending' : 'synced'
       set({
         sessions: sorted,
         syncStatusById: {
