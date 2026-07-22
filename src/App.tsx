@@ -478,7 +478,9 @@ function App() {
   }, [settings.kısayollar, status, primaryAction, reset, mode, setModeConfig, savedDenemeConfig, showSettings, examStartTime, examDurationMinutes])
 
   const summary = useMemo(() => {
-    const totalMinutes = Math.round(todaySessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0) / 60)
+    const effectiveSn = (s: SessionRecord) => (s.sureGercek || 0) + (((s.mod === 'deneme' || s.mod === 'EXAM_SIMULATOR') && s.analizSuresi != null) ? s.analizSuresi : 0)
+
+    const totalMinutes = Math.round(todaySessions.reduce((acc, s) => acc + effectiveSn(s), 0) / 60)
     const todayCount = todaySessions.length
     const todayScore = todaySessions.reduce((acc, s) => acc + (s.puan || 0), 0)
     const streakDays = calculateStreak(sessions, todayCount > 0)
@@ -486,25 +488,25 @@ function App() {
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
     const weekSessions = sessions.filter((s) => new Date(s.tarihISO) >= weekAgo)
-    const weekMinutes = Math.round(weekSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0) / 60)
+    const weekMinutes = Math.round(weekSessions.reduce((acc, s) => acc + effectiveSn(s), 0) / 60)
 
     const monthAgo = new Date()
     monthAgo.setDate(monthAgo.getDate() - 30)
     const monthSessions = sessions.filter((s) => new Date(s.tarihISO) >= monthAgo)
-    const monthMinutes = Math.round(monthSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0) / 60)
+    const monthMinutes = Math.round(monthSessions.reduce((acc, s) => acc + effectiveSn(s), 0) / 60)
     const avgScoreMonth =
       monthSessions.length > 0 ? Math.round(monthSessions.reduce((acc, s) => acc + (s.puan || 0), 0) / monthSessions.length) : 0
 
     const lastSessions = sessions.slice(0, 10)
     const toplamKariyerPuan = sessions.reduce((acc, s) => acc + (s.puan || 0), 0)
     const unvan = getUnvan(toplamKariyerPuan)
-    const monthSeconds = monthSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)
+    const monthSeconds = monthSessions.reduce((acc, s) => acc + effectiveSn(s), 0)
     const tahmin = getTahmin150Saat(sessions)
 
     const gunlukSnByDate: Record<string, number> = {}
     sessions.forEach((s) => {
       const d = s.tarihISO.split('T')[0]
-      gunlukSnByDate[d] = (gunlukSnByDate[d] ?? 0) + (s.sureGercek ?? 0)
+      gunlukSnByDate[d] = (gunlukSnByDate[d] ?? 0) + effectiveSn(s)
     })
     const gunluk5SaatGunSayisi = Object.values(gunlukSnByDate).filter((sn) => sn >= 5 * 3600).length
     const rozetler = getRozetler({ gunluk5SaatGunSayisi, streak: streakDays, toplamKariyerPuan, monthSeconds, sessions })
