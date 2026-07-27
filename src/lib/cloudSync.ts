@@ -8,8 +8,7 @@
  * - Offline sync kuyruğu desteği (bkz. offlineSync.ts)
  */
 import { getSupabase, isCloudSyncEnabled } from './supabase'
-import { listSessions, saveSession as dbSaveSession, deleteSession as dbDeleteSession } from './db'
-import { clearSyncQueue } from './offlineSync'
+import { listSessions, saveSession as dbSaveSession } from './db'
 import type { SessionRecord } from '../types'
 
 /* ─── Sabitler ─── */
@@ -132,7 +131,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
 /* ─── Yardımcı: SessionRecord ↔ DB satırı dönüşümleri ─── */
 
-export interface DbSessionRow {
+interface DbSessionRow {
   id: string
   user_id: string
   mod: string
@@ -152,16 +151,12 @@ export interface DbSessionRow {
   bolumler: { ad: string; surePlan?: number; sureGercek: number }[] | null
   platform: { cihaz?: string; userAgentHash?: string } | null
   ruh_hali: string | null
-  template_id?: string | null
-  template_name?: string | null
-  ekstra_sure_ms?: number | null
-  analiz_suresi?: number | null
   created_at: string
   updated_at: string
   deleted_at: string | null
 }
 
-export function sessionToRow(s: SessionRecord, userId: string): DbSessionRow {
+function sessionToRow(s: SessionRecord, userId: string): DbSessionRow {
   return {
     id: s.id,
     user_id: userId,
@@ -182,17 +177,13 @@ export function sessionToRow(s: SessionRecord, userId: string): DbSessionRow {
     bolumler: s.bolumler ?? null,
     platform: s.platform ?? null,
     ruh_hali: s.ruhHali ?? null,
-    template_id: s.templateId ?? null,
-    template_name: s.templateName ?? null,
-    ekstra_sure_ms: s.ekstraSureMs ?? null,
-    analiz_suresi: s.analizSuresi ?? null,
     created_at: s.createdAt || new Date().toISOString(),
     updated_at: s.updatedAt || new Date().toISOString(),
     deleted_at: null,
   }
 }
 
-export function rowToSession(r: DbSessionRow): SessionRecord {
+function rowToSession(r: DbSessionRow): SessionRecord {
   return {
     id: r.id,
     mod: r.mod as SessionRecord['mod'],
@@ -212,10 +203,6 @@ export function rowToSession(r: DbSessionRow): SessionRecord {
     bolumler: r.bolumler ?? undefined,
     platform: r.platform ?? undefined,
     ruhHali: (r.ruh_hali as SessionRecord['ruhHali']) ?? undefined,
-    templateId: r.template_id ?? undefined,
-    templateName: r.template_name ?? undefined,
-    ekstraSureMs: r.ekstra_sure_ms ?? undefined,
-    analizSuresi: r.analiz_suresi != null ? Number(r.analiz_suresi) : undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
@@ -245,9 +232,6 @@ export async function pushCloud(): Promise<{ ok: true; pushed: number } | { ok: 
     pushed += batch.length
   }
 
-  // Başarılı push sonrası offline kuyruğu temizle
-  await clearSyncQueue()
-
   // Ayarları da kaydet
   await pushSettings(user.id)
 
@@ -259,7 +243,7 @@ export async function pushCloud(): Promise<{ ok: true; pushed: number } | { ok: 
 
 /* ─── PULL: Bulut → Yerel (merge — ID bazlı, updatedAt karşılaştırmalı) ─── */
 
-export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: number; removed: number } | { ok: false; error: string }> {
+export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: number } | { ok: false; error: string }> {
   const supabase = getSupabase()
   if (!supabase) return { ok: false, error: 'Online senkron yapılandırılmamış.' }
   const { data: { user } } = await supabase.auth.getUser()
@@ -277,7 +261,7 @@ export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: n
   if (!cloudRows || cloudRows.length === 0) {
     // Yeni tablo boşsa eski sync_data'dan migrasyon dene
     const migrated = await migrateFromLegacy(user.id)
-    if (migrated) return { ok: true, pulled: migrated, merged: 0, removed: 0 }
+    if (migrated) return { ok: true, pulled: migrated, merged: 0 }
     return { ok: false, error: 'Bulutta veri yok.' }
   }
 
@@ -297,25 +281,13 @@ export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: n
       await dbSaveSession(cloudSession)
       pulled++
     } else {
-      // İkisi de var → updatedAt karşılaştır veya analizSuresi farkı varsa yeni olanı al
+      // İkisi de var → updatedAt karşılaştır, yeni olanı al
       const localTs = new Date(local.updatedAt || local.createdAt || local.tarihISO).getTime()
       const cloudTs = new Date(cloudSession.updatedAt || cloudSession.createdAt || cloudSession.tarihISO).getTime()
-      const hasAnalizDiff = cloudSession.analizSuresi != null && local.analizSuresi !== cloudSession.analizSuresi
-
-      if (cloudTs > localTs || hasAnalizDiff) {
+      if (cloudTs > localTs) {
         await dbSaveSession(cloudSession)
         merged++
       }
-    }
-  }
-
-  // Bulutta olmayan yerel seansları sil (Supabase'den hard-delete edilenleri temizle)
-  const cloudIdSet = new Set((cloudRows as DbSessionRow[]).map((r) => r.id))
-  let removed = 0
-  for (const localSession of localSessions) {
-    if (!cloudIdSet.has(localSession.id)) {
-      await dbDeleteSession(localSession.id)
-      removed++
     }
   }
 
@@ -324,27 +296,25 @@ export async function pullCloud(): Promise<{ ok: true; pulled: number; merged: n
 
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString())
 
-  return { ok: true, pulled, merged, removed }
+  return { ok: true, pulled, merged }
 }
 
 /* ─── ÇİFT YÖNLÜ SYNC (push + pull birlikte) ─── */
 
-export async function syncCloud(): Promise<{ ok: true; pushed: number; pulled: number; merged: number; removed: number } | { ok: false; error: string }> {
-  // Önce pull: buluttaki silmeleri/değişiklikleri yerel'e uygula
-  // (sıra önemli: pull önce çalışmazsa, Supabase'den silinen seans push ile geri yüklenir)
-  const pullResult = await pullCloud()
-  if (!pullResult.ok) return pullResult
-
-  // Sonra push: yerel'de kalan seansları buluta gönder
+export async function syncCloud(): Promise<{ ok: true; pushed: number; pulled: number; merged: number } | { ok: false; error: string }> {
+  // Önce push (yerel değişiklikleri gönder)
   const pushResult = await pushCloud()
   if (!pushResult.ok) return pushResult
+
+  // Sonra pull (buluttaki değişiklikleri al)
+  const pullResult = await pullCloud()
+  if (!pullResult.ok) return pullResult
 
   return {
     ok: true,
     pushed: pushResult.pushed,
     pulled: pullResult.pulled,
     merged: pullResult.merged,
-    removed: pullResult.removed,
   }
 }
 

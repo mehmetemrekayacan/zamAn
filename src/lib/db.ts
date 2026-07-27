@@ -7,7 +7,7 @@
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Mode, SessionRecord } from '../types'
-import { enqueueSync, clearSyncQueue } from './offlineSync'
+import { enqueueSync } from './offlineSync'
 import { isCloudSyncEnabled } from './supabase'
 
 interface TimerDB extends DBSchema {
@@ -100,5 +100,4 @@ export async function deleteSession(id: string): Promise<void> {
 export async function clearAllSessions(): Promise<void> {
   const db = await initDb()
   await db.clear('sessions')
-  await clearSyncQueue()
 }

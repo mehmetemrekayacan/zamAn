@@ -45,9 +45,6 @@ function SessionDetailModal({ session, onClose }: SessionDetailModalProps) {
   const normalDk = Math.round(normalSureSn / 60)
   const ekstraDk = ekstraSureSn > 0 ? Math.round(ekstraSureSn / 60) : null
 
-  const analizSureSn = (hasExamStats && session.analizSuresi != null && session.analizSuresi > 0) ? session.analizSuresi : null
-  const analizDk = analizSureSn != null ? (analizSureSn < 60 ? '<1' : String(Math.round(analizSureSn / 60))) : null
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -99,15 +96,14 @@ function SessionDetailModal({ session, onClose }: SessionDetailModalProps) {
           <div className="flex justify-between">
             <span className="text-text-muted">Süre</span>
             <span className="font-medium text-text-primary">
-              <>
-                {normalDk} dk
-                {ekstraDk != null && (
-                  <span className="text-primary font-semibold"> + {ekstraDk} dk ekstra</span>
-                )}
-                {analizDk != null && (
-                  <span className="text-amber-400 font-semibold"> + {analizDk} dk analiz</span>
-                )}
-              </>
+              {ekstraDk != null ? (
+                <>
+                  {normalDk} dk{' '}
+                  <span className="text-primary font-semibold">+ {ekstraDk} dk ekstra</span>
+                </>
+              ) : (
+                `${normalDk} dakika`
+              )}
             </span>
           </div>
 
@@ -197,9 +193,6 @@ export const SessionHistory = memo(function SessionHistory({
               const normalDk = Math.round(normalSureSn / 60)
               const ekstraDk = ekstraSureSn > 0 ? Math.round(ekstraSureSn / 60) : null
 
-              const analizSureSn = (hasExamStats && session.analizSuresi != null && session.analizSuresi > 0) ? session.analizSuresi : null
-              const analizDk = analizSureSn != null ? (analizSureSn < 60 ? '<1' : String(Math.round(analizSureSn / 60))) : null
-
               return (
                 <div
                   key={session.id}
@@ -240,15 +233,14 @@ export const SessionHistory = memo(function SessionHistory({
                     </div>
                     <div className="block w-full min-w-0 overflow-hidden">
                       <span className="block truncate w-full text-xs text-text-secondary">
-                        <>
-                          {normalDk} dk
-                          {ekstraDk != null && (
-                            <span className="text-primary font-medium"> + {ekstraDk} dk ekstra</span>
-                          )}
-                          {analizDk != null && (
-                            <span className="text-amber-400 font-medium"> + {analizDk} dk analiz</span>
-                          )}
-                        </>
+                        {ekstraDk != null ? (
+                          <>
+                            {normalDk} dk{' '}
+                            <span className="text-primary font-medium">+ {ekstraDk} dk ekstra</span>
+                          </>
+                        ) : (
+                          `${normalDk} dakika`
+                        )}
                         {session.not && (
                           <span className="ml-2 text-text-muted italic">{session.not}</span>
                         )}

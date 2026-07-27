@@ -1,14 +1,6 @@
 import { memo, useCallback, useState } from 'react'
 import { useSessionsStore } from '../store/sessions'
 import type { SessionRecord } from '../types'
-import { getDenemeTemplateName } from '../lib/utils'
-
-/** Deneme kartında gösterilecek başlık */
-function getDenemeLabel(session: SessionRecord): string {
-  if (session.templateName) return session.templateName
-  if (session.not?.trim()) return session.not.trim()
-  return getDenemeTemplateName(session)
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -48,7 +40,7 @@ const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: Den
   })
 
   const net = calcNet(session)
-  const label = getDenemeLabel(session)
+  const label = session.templateName ?? session.not ?? '—'
   const dkGercek = Math.round(session.sureGercek / 60)
 
   const handleSave = async () => {
@@ -185,13 +177,13 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
   const denemeSessions = sessions.filter((s) => s.mod === 'deneme')
 
   const uniqueNames = Array.from(
-    new Set(denemeSessions.map((s) => getDenemeLabel(s)))
+    new Set(denemeSessions.map((s) => s.templateName ?? s.not ?? '—'))
   )
 
   const filteredSessions =
     filterName === 'all'
       ? denemeSessions
-      : denemeSessions.filter((s) => getDenemeLabel(s) === filterName)
+      : denemeSessions.filter((s) => (s.templateName ?? s.not ?? '—') === filterName)
 
   return (
     <div className="mx-auto w-full max-w-2xl flex flex-col gap-6">
