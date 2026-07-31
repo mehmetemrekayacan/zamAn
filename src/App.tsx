@@ -374,7 +374,7 @@ function App() {
     const timerState = useTimerStore.getState()
     const elapsedMs = timerState.elapsedMs
     const plannedMs = timerState.plannedMs
-    const wasEarlyFinish = timerState.wasEarlyFinish
+    // Vercel build TS6133 hatasını önlemek için kullanılmayan wasEarlyFinish değişkeni kaldırıldı.
 
     const sureGercekSaniye = Math.round(elapsedMs / 1000)
     const surePlanSaniye = plannedMs != null ? Math.round(plannedMs / 1000) : undefined
