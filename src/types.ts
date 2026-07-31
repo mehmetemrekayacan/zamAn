@@ -56,9 +56,6 @@ export type TimerSnapshot = {
   startWallTime?: number
 }
 
-/** Seans başında isteğe bağlı ruh hali */
-export type RuhHali = 'iyi' | 'normal' | 'yorucu'
-
 /** Deneme seansı sonrası analiz: doğru / yanlış / boş (net = doğru - yanlış/4) */
 export type DenemeAnaliz = { dogru: number; yanlis: number; bos: number }
 
@@ -73,11 +70,8 @@ export type SessionRecord = {
   tarihISO: string
   not?: string
   duraklatmaSayisi: number
-  /** Toplam duraklatma süresi (saniye) — Wall-Clock hesaplaması için */
+  /** Toplam duraklatma süresi (saniye) — Wall-Clock hesaplaması için (Supabase: toplam_duraklama_saniye) */
   toplamDuraklamaSureSaniye?: number
-  /** Erken bitirmede kalan süre (saniye) */
-  erkenBitirmeSuresi?: number
-  odakSkoru?: number
   /** ders60mola15: toplam mola süresi (saniye) */
   molaSaniye?: number
   /** deneme: bölümler arası mola süreleri (saniye) */
@@ -87,12 +81,13 @@ export type SessionRecord = {
   yanlisSayisi?: number
   bosSayisi?: number
   bolumler?: { ad: string; surePlan?: number; sureGercek: number }[]
-  /** Uzatma/ekstra süre (ms) — plannedMs'in ötesinde geçen süre (tüm overtime modları) */
+  /** Uzatma/ekstra süre (ms) — plannedMs'in ötesinde geçen süre (Supabase: ekstra_sure_ms) */
   ekstraSureMs?: number
-  platform?: { cihaz?: string; userAgentHash?: string }
+  /** Deneme şablon kimliği (oabt-ags vb.) — Supabase senkronizasyonu için (Supabase: template_id) */
+  templateId?: string
+  /** Deneme şablon/bölüm adı — Supabase senkronizasyonu için (Supabase: template_name) */
+  templateName?: string
   createdAt?: string
   updatedAt?: string
-  ruhHali?: RuhHali
-  templateId?: string
-  templateName?: string
+  // Veritabanı ve frontend optimizasyonu için atıl/kullanılmayan odakSkoru, platform, ruhHali, erkenBitirmeSuresi alanları kaldırıldı.
 }

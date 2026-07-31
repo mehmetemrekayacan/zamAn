@@ -6,28 +6,30 @@
 -- 1. SESSIONS TABLOSU — her seans kendi satırı
 -- ═══════════════════════════════════════════════════
 create table if not exists public.sessions (
-  id            text not null,
-  user_id       uuid not null references auth.users(id) on delete cascade,
-  mod           text not null check (mod in ('serbest','gerisayim','EXAM_SIMULATOR','ders60mola15','deneme')),
-  sure_plan     integer,                       -- saniye
-  sure_gercek   integer not null,              -- saniye
-  puan          integer not null default 0,
-  tarih_iso     timestamptz not null,
-  not_text      text,
-  duraklatma    integer not null default 0,
-  erken_bitirme integer,                       -- saniye
-  odak_skoru    integer,
-  mola_saniye   integer,
-  deneme_molalar jsonb,                        -- number[]
-  dogru_sayisi  integer,
-  yanlis_sayisi integer,
-  bos_sayisi    integer,
-  bolumler      jsonb,                         -- {ad, surePlan?, sureGercek}[]
-  platform      jsonb,                         -- {cihaz?, userAgentHash?}
-  ruh_hali      text check (ruh_hali is null or ruh_hali in ('iyi','normal','yorucu')),
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now(),
-  deleted_at    timestamptz,                   -- soft delete for sync
+  id                      text not null,
+  user_id                 uuid not null references auth.users(id) on delete cascade,
+  mod                     text not null check (mod in ('serbest','gerisayim','EXAM_SIMULATOR','ders60mola15','deneme')),
+  sure_plan               integer,                       -- saniye
+  sure_gercek             integer not null,              -- saniye
+  puan                    integer not null default 0,
+  tarih_iso               timestamptz not null,
+  not_text                text,
+  duraklatma              integer not null default 0,
+  mola_saniye             integer,
+  deneme_molalar          jsonb,                         -- number[]
+  dogru_sayisi            integer,
+  yanlis_sayisi           integer,
+  bos_sayisi              integer,
+  bolumler                jsonb,                         -- {ad, surePlan?, sureGercek}[]
+  -- Senkronizasyonda veri kaybını önlemek için frontend ile eşleştirilen yeni alanlar:
+  template_id             text,                          -- Deneme şablon kimliği (oabt-ags vb.)
+  template_name           text,                          -- Deneme şablon/bölüm adı
+  ekstra_sure_ms          integer,                       -- Overtime / ekstra geçen süre (milisaniye)
+  toplam_duraklama_saniye integer,                       -- Wall-clock toplam duraklatma süresi (saniye)
+  -- Veritabanı optimizasyonu için atıl kalan sütunlar (platform, odak_skoru, ruh_hali, erken_bitirme) kaldırıldı.
+  created_at              timestamptz not null default now(),
+  updated_at              timestamptz not null default now(),
+  deleted_at              timestamptz,                   -- soft delete for sync
 
   primary key (id, user_id)
 );

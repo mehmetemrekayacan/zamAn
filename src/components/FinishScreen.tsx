@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { DenemeAnaliz as DenemeAnalizType, Mode, RuhHali } from '../types'
+import type { DenemeAnaliz as DenemeAnalizType, Mode } from '../types'
 import type { ScoreBreakdown } from '../lib/scoring'
 import { formatSeconds } from '../lib/time'
 import { useTimerStore } from '../store/timer'
@@ -43,24 +43,18 @@ export interface FinishScreenProps {
   mode: Mode
   sessionNote: string
   onSessionNoteChange: (value: string) => void
-  sessionRuhHali?: RuhHali | null
-  onRuhHaliChange?: (value: RuhHali | null) => void
   /** Sadece deneme modunda: doğru / yanlış / boş sayıları */
   denemeAnaliz?: DenemeAnalizType | null
   onDenemeAnalizChange?: (value: DenemeAnalizType | null) => void
   onSave: () => void
   onCancel: () => void
+  // Veritabanı ve arayüz optimizasyonu amacıyla kullanılmayan ruh hali prop'ları kaldırıldı.
 }
 
 const isValidEpochMs = (value: number | null | undefined): value is number => (
   typeof value === 'number' && Number.isFinite(value) && value > 0
 )
 
-const RUH_HALI_OPTS: { value: RuhHali; label: string; emoji: string }[] = [
-  { value: 'iyi', label: 'İyi', emoji: '😊' },
-  { value: 'normal', label: 'Normal', emoji: '😐' },
-  { value: 'yorucu', label: 'Yorucu', emoji: '😤' },
-]
 const clampNum = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 export function FinishScreen({
@@ -68,8 +62,6 @@ export function FinishScreen({
   mode,
   sessionNote,
   onSessionNoteChange,
-  sessionRuhHali,
-  onRuhHaliChange,
   denemeAnaliz,
   onDenemeAnalizChange,
   onSave,
@@ -249,25 +241,6 @@ export function FinishScreen({
           </div>
         )}
 
-        {onRuhHaliChange && (
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-text-primary">Bu seans nasıldı? (opsiyonel)</label>
-            <div className="flex gap-2 flex-wrap">
-              {RUH_HALI_OPTS.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  onClick={() => onRuhHaliChange(sessionRuhHali === o.value ? null : o.value)}
-                  className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                    sessionRuhHali === o.value ? 'border-primary/60 bg-primary/20 text-primary' : 'border-text-primary/10 bg-surface-700/50 text-text-muted hover:border-primary/40'
-                  }`}
-                >
-                  {o.emoji} {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-text-primary">Seans Notu (opsiyonel)</label>
           <textarea

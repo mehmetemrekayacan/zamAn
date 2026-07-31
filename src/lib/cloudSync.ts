@@ -141,16 +141,18 @@ interface DbSessionRow {
   tarih_iso: string
   not_text: string | null
   duraklatma: number
-  erken_bitirme: number | null
-  odak_skoru: number | null
   mola_saniye: number | null
   deneme_molalar: number[] | null
   dogru_sayisi: number | null
   yanlis_sayisi: number | null
   bos_sayisi: number | null
   bolumler: { ad: string; surePlan?: number; sureGercek: number }[] | null
-  platform: { cihaz?: string; userAgentHash?: string } | null
-  ruh_hali: string | null
+  // Senkronizasyonda veri kaybını önlemek için güncellenen sütunlar:
+  template_id: string | null
+  template_name: string | null
+  ekstra_sure_ms: number | null
+  toplam_duraklama_saniye: number | null
+  // Atıl/kullanılmayan platform, odak_skoru, ruh_hali, erken_bitirme sütunları temizlendi.
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -167,16 +169,17 @@ function sessionToRow(s: SessionRecord, userId: string): DbSessionRow {
     tarih_iso: s.tarihISO,
     not_text: s.not ?? null,
     duraklatma: s.duraklatmaSayisi,
-    erken_bitirme: s.erkenBitirmeSuresi ?? null,
-    odak_skoru: s.odakSkoru ?? null,
     mola_saniye: s.molaSaniye ?? null,
     deneme_molalar: s.denemeMolalarSaniye ?? null,
     dogru_sayisi: s.dogruSayisi ?? null,
     yanlis_sayisi: s.yanlisSayisi ?? null,
     bos_sayisi: s.bosSayisi ?? null,
     bolumler: s.bolumler ?? null,
-    platform: s.platform ?? null,
-    ruh_hali: s.ruhHali ?? null,
+    // Eşleme: Frontend CamelCase ↔ SQL snake_case (yeni eklenen veriler)
+    template_id: s.templateId ?? null,
+    template_name: s.templateName ?? null,
+    ekstra_sure_ms: s.ekstraSureMs ?? null,
+    toplam_duraklama_saniye: s.toplamDuraklamaSureSaniye ?? null,
     created_at: s.createdAt || new Date().toISOString(),
     updated_at: s.updatedAt || new Date().toISOString(),
     deleted_at: null,
@@ -193,16 +196,16 @@ function rowToSession(r: DbSessionRow): SessionRecord {
     tarihISO: r.tarih_iso,
     not: r.not_text ?? undefined,
     duraklatmaSayisi: r.duraklatma,
-    erkenBitirmeSuresi: r.erken_bitirme ?? undefined,
-    odakSkoru: r.odak_skoru ?? undefined,
+    toplamDuraklamaSureSaniye: r.toplam_duraklama_saniye ?? undefined,
     molaSaniye: r.mola_saniye ?? undefined,
     denemeMolalarSaniye: r.deneme_molalar ?? undefined,
     dogruSayisi: r.dogru_sayisi ?? undefined,
     yanlisSayisi: r.yanlis_sayisi ?? undefined,
     bosSayisi: r.bos_sayisi ?? undefined,
     bolumler: r.bolumler ?? undefined,
-    platform: r.platform ?? undefined,
-    ruhHali: (r.ruh_hali as SessionRecord['ruhHali']) ?? undefined,
+    ekstraSureMs: r.ekstra_sure_ms ?? undefined,
+    templateId: r.template_id ?? undefined,
+    templateName: r.template_name ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }

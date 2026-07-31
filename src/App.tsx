@@ -28,7 +28,7 @@ import { TimerTitleAndTraySync } from './components/TimerTitleAndTraySync'
 import { MiniPlayer } from './components/MiniPlayer'
 import { DenemeManager } from './components/DenemeManager'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
-import type { ModeConfig, SessionRecord, RuhHali, DenemeAnaliz } from './types'
+import type { ModeConfig, SessionRecord, DenemeAnaliz } from './types'
 import { getSupabase } from './lib/supabase'
 
 /* ─── helpers ─── */
@@ -59,7 +59,7 @@ function App() {
   /* ── local state ── */
   const [sessionNote, setSessionNote] = useState('')
   const [denemeAdi, setDenemeAdi] = useState('')
-  const [sessionRuhHali, setSessionRuhHali] = useState<RuhHali | null>(null)
+  // Veritabanı ve arayüz optimizasyonu için atıl kalan sessionRuhHali state'i kaldırıldı.
   const [denemeAnaliz, setDenemeAnaliz] = useState<DenemeAnaliz | null>(null)
   const [showFinishScreen, setShowFinishScreen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -396,21 +396,18 @@ function App() {
         : sessionNote || undefined,
       duraklatmaSayisi: pauses,
       toplamDuraklamaSureSaniye: totalPauseDurationMs > 0 ? Math.round(totalPauseDurationMs / 1000) : undefined,
-      erkenBitirmeSuresi:
-        wasEarlyFinish && denemeToplamPlanSaniye != null ? Math.max(0, denemeToplamPlanSaniye - sureGercekSaniye) : undefined,
-      odakSkoru: lastSessionScore.totalScore,
       molaSaniye: mode === 'ders60mola15' && molaToplamMs != null ? Math.round(molaToplamMs / 1000) : undefined,
       denemeMolalarSaniye: mode === 'deneme' ? [...(denemeMolalarSaniye ?? [])] : undefined,
       dogruSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.dogru : undefined,
       yanlisSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.yanlis : undefined,
       bosSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.bos : undefined,
-      ruhHali: sessionRuhHali ?? undefined,
       templateId: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateId : undefined,
       templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler[currentSectionIndex ?? 0]?.ad : undefined,
       bolumler: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler.map((b) => ({ ad: b.ad, surePlan: Math.round(b.surePlanMs / 1000), sureGercek: 0 })) : undefined,
       ekstraSureMs: plannedMs != null && elapsedMs > plannedMs
         ? elapsedMs - plannedMs
         : undefined,
+      // Veritabanı ve performans optimizasyonu için atıl olan erkenBitirmeSuresi, odakSkoru ve ruhHali atamaları kaldırıldı.
     }
     try {
       await addSession(session)
@@ -562,15 +559,12 @@ function App() {
         mode={mode}
         sessionNote={sessionNote}
         onSessionNoteChange={setSessionNote}
-        sessionRuhHali={sessionRuhHali}
-        onRuhHaliChange={setSessionRuhHali}
         denemeAnaliz={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz : undefined}
         onDenemeAnalizChange={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? setDenemeAnaliz : undefined}
         onSave={saveSession}
         onCancel={() => {
           setShowFinishScreen(false)
           setSessionNote('')
-          setSessionRuhHali(null)
           setDenemeAnaliz(null)
 
           // Arka planda mola varsa break'e geç, yoksa reset
