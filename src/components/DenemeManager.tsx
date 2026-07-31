@@ -1,6 +1,7 @@
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { useSessionsStore } from '../store/sessions'
 import type { SessionRecord } from '../types'
+import { getDenemeTemplateName } from '../lib/utils'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -12,6 +13,10 @@ function formatDate(iso: string) {
   })
 }
 
+/**
+ * Net hesaplama yardımcı fonksiyonu.
+ * Doğru - Yanlış/4 formülünü uygular ve tam sayı ise virgül olmadan gösterir.
+ */
 function calcNet(session: SessionRecord): string | null {
   if (typeof session.dogruSayisi !== 'number' || typeof session.yanlisSayisi !== 'number') return null
   const net = session.dogruSayisi - session.yanlisSayisi / 4
@@ -40,7 +45,11 @@ const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: Den
   })
 
   const net = calcNet(session)
-  const label = session.templateName ?? session.not ?? '—'
+  // Kart başlığının öncelik sırası:
+  // 1. session.templateName (varsa öncelikli olarak şablon adı yazılır)
+  // 2. session.not (yoksa kullanıcının girdiği 'kpss' vb. not başlık yapılır)
+  // 3. Mod etiketinin varsayılan adı ("Sınav Saati", "Deneme")
+  const label = session.templateName || session.not || getDenemeTemplateName(session)
   const dkGercek = Math.round(session.sureGercek / 60)
 
   const handleSave = async () => {
@@ -174,16 +183,36 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
     setSessionToDelete(id)
   }, [])
 
-  const denemeSessions = sessions.filter((s) => s.mod === 'deneme')
+  /**
+   * Hem 'deneme' hem de 'EXAM_SIMULATOR' modlarındaki seansları kapsayacak şekilde filtreler.
+   * Performansı artırmak için useMemo ile sarmalanmış ve tarihe göre azalan (yeniden eskiye) sırada sıralanmıştır.
+   */
+  const denemeSessions = useMemo(() => {
+    return sessions
+      .filter((s) => s.mod === 'deneme' || s.mod === 'EXAM_SIMULATOR')
+      .sort((a, b) => new Date(b.tarihISO).getTime() - new Date(a.tarihISO).getTime())
+  }, [sessions])
 
-  const uniqueNames = Array.from(
-    new Set(denemeSessions.map((s) => s.templateName ?? s.not ?? '—'))
-  )
+  /**
+   * Şablon filtresi için sadece geçerli templateName değerlerini toplar.
+   * session.not (seans notları) alanının filtre dropdown listesini kirletmesini engeller.
+   */
+  const uniqueNames = useMemo(() => {
+    const set = new Set<string>()
+    for (const session of denemeSessions) {
+      const name = getDenemeTemplateName(session)
+      if (name) set.add(name)
+    }
+    return Array.from(set)
+  }, [denemeSessions])
 
-  const filteredSessions =
-    filterName === 'all'
-      ? denemeSessions
-      : denemeSessions.filter((s) => (s.templateName ?? s.not ?? '—') === filterName)
+  /**
+   * Seçili şablon filtresine göre seansları süzer.
+   */
+  const filteredSessions = useMemo(() => {
+    if (filterName === 'all') return denemeSessions
+    return denemeSessions.filter((s) => getDenemeTemplateName(s) === filterName)
+  }, [denemeSessions, filterName])
 
   return (
     <div className="mx-auto w-full max-w-2xl flex flex-col gap-6">

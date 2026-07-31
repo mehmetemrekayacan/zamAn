@@ -121,8 +121,6 @@ export type TimerState = TimerSnapshot & {
   reset: () => void
   setModeConfig: (config: ModeConfig) => void
   jumpToSection: (index: number) => void
-  /** Deneme modunda bölüm arası moladan sonraki bölüme geçer, mola süresini kaydeder */
-  advanceFromDenemeBreak: () => void
   /** Herhangi bir vakitte erken bitir; o ana kadar geçen süreyi kaydetmek için status'u finished yapar */
   finishEarly: () => void
   getRemainingMs: () => number | undefined
@@ -156,7 +154,6 @@ export const useTimerStore = create<TimerState>()(
       dersCycleDate: null,
       molaToplamMs: 0,
       denemeMolalarSaniye: [],
-      denemeBreakStartTs: null,
       pauses: 0,
       lastTickTs: null,
       pauseStartTs: null,
@@ -253,7 +250,6 @@ export const useTimerStore = create<TimerState>()(
           expectedEndTime: undefined,
           startWallTime: undefined,
           currentSectionIndex,
-          denemeBreakStartTs: null,
           pomodoroRound: pomodoroState.pomodoroRound,
           lastPomodoroDate: pomodoroState.lastPomodoroDate,
         }
@@ -266,31 +262,6 @@ export const useTimerStore = create<TimerState>()(
         set(updates)
       },
 
-      advanceFromDenemeBreak: () => {
-        const state = get()
-        if (state.modeConfig.mode !== 'deneme' || state.denemeBreakStartTs == null) return
-        const breakSeconds = Math.round((Date.now() - state.denemeBreakStartTs) / 1000)
-        const molalar = [...(state.denemeMolalarSaniye ?? []), breakSeconds]
-        const nextIdx = (state.currentSectionIndex ?? 0) + 1
-        const plannedNext = getPlannedMs(state.modeConfig, 'work', nextIdx)
-        const updatedConfig = { ...state.modeConfig, currentSectionIndex: nextIdx }
-        const now = Date.now()
-        set({
-          modeConfig: updatedConfig,
-          currentSectionIndex: nextIdx,
-          denemeMolalarSaniye: molalar,
-          denemeBreakStartTs: null,
-          elapsedMs: 0,
-          plannedMs: plannedNext,
-          remainingMs: plannedNext,
-          lastTickTs: now,
-          expectedEndTime: plannedNext != null ? now + plannedNext : undefined,
-          startWallTime: now,
-          status: 'running',
-          running: true,
-        })
-        startWorker(() => processTick(get as GetState, set))
-      },
 
       start: (config) => {
         const state = get()
@@ -378,7 +349,6 @@ export const useTimerStore = create<TimerState>()(
           expectedEndTime: undefined,
           startWallTime: undefined,
           pauses: 0,
-          denemeBreakStartTs: null,
         })
       },
 

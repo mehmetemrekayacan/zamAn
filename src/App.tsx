@@ -109,7 +109,6 @@ function App() {
     currentSectionIndex,
     workBreakPhase,
     dersCycle,
-    denemeBreakStartTs,
     denemeMolalarSaniye,
     pauses,
     molaToplamMs,
@@ -120,7 +119,6 @@ function App() {
     reset,
     setModeConfig,
     jumpToSection,
-    advanceFromDenemeBreak,
     finishEarly,
     transitionToBreak,
     finishBreakEarly,
@@ -366,11 +364,10 @@ function App() {
     if (status !== 'running') {
       unlockAudio()
     }
-    if (mode === 'deneme' && status === 'paused' && denemeBreakStartTs != null) return advanceFromDenemeBreak()
     if (status === 'running') return pause()
     if (status === 'paused') return resume()
     return start()
-  }, [mode, status, denemeBreakStartTs, advanceFromDenemeBreak, pause, resume, start])
+  }, [status, pause, resume, start])
 
   const saveSession = async () => {
     if (!lastSessionScore) return
@@ -402,8 +399,10 @@ function App() {
       yanlisSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.yanlis : undefined,
       bosSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.bos : undefined,
       templateId: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateId : undefined,
-      templateName: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler[currentSectionIndex ?? 0]?.ad : undefined,
-      bolumler: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.bolumler.map((b) => ({ ad: b.ad, surePlan: Math.round(b.surePlanMs / 1000), sureGercek: 0 })) : undefined,
+      // Her bölüm (AGS, ÖABT vb.) bağımsız bir deneme kaydı oluşturduğu için veritabanına kaydedilirken aktif bölümün adı (bolumler[currentSectionIndex].ad) öncelikli olarak templateName yapılır.
+      templateName: mode === 'deneme' && modeConfig.mode === 'deneme'
+        ? (modeConfig.bolumler[currentSectionIndex ?? 0]?.ad ?? modeConfig.templateName)
+        : undefined,
       ekstraSureMs: plannedMs != null && elapsedMs > plannedMs
         ? elapsedMs - plannedMs
         : undefined,
@@ -414,6 +413,8 @@ function App() {
       showToast(`Seans kaydedildi! +${lastSessionScore.totalScore} puan 🎉`, 'success')
       setShowFinishScreen(false)
       setSessionNote('')
+      // State sızıntısını (Memory Leak) önlemek için önceki deneme analiz verisini sıfırla
+      setDenemeAnaliz(null)
 
       /*
        * Asenkron geçiş: ders60mola15 modunda arka planda mola başlamışsa,

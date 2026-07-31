@@ -31,8 +31,6 @@ export type TimerSnapshot = {
   molaToplamMs?: number
   /** deneme: bölümler arası mola süreleri (saniye) */
   denemeMolalarSaniye?: number[]
-  /** deneme: bölüm arası moladayken mola başlangıç zamanı (ms). Doluysa “Mola – Devam” gösterilir. */
-  denemeBreakStartTs?: number | null
   pauses: number
   lastTickTs: number | null
   /** Duraklatmanın başladığı zaman (performance.now()). Resume'da süre telafisi için kullanılır. */

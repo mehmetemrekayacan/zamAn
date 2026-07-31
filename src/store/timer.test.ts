@@ -321,7 +321,6 @@ describe('timer store', () => {
       expect(state.status).toBe('running')
       expect(state.isOvertime).toBe(true)
       expect(state.remainingMs).toBe(0)
-      expect(state.denemeBreakStartTs).toBeNull()
       expect(state.currentSectionIndex).toBe(0) // Bölüm indeksi değişmez
     })
 
@@ -468,7 +467,6 @@ describe('timer store', () => {
       // Ara bölüm — artık mola yok, doğrudan overtime
       expect(state.status).toBe('running')
       expect(state.isOvertime).toBe(true)
-      expect(state.denemeBreakStartTs).toBeNull()
     })
 
     it('overtime sırasında pause ve resume yapıldığında süre kaybolmamalı', () => {

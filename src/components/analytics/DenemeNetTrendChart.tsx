@@ -20,8 +20,13 @@ type NetPoint = {
   dateMs: number
 }
 
+/**
+ * Deneme seanslarını grafikte doğru gruplamak için kullanılan anahtar fonksiyon.
+ * Seans notu (session.not) yerine doğrudan şablon adını (templateName) temel alır.
+ * Böylece aynı şablondaki (ör. KPSS, ÖABT) tüm denemeler tek bir grupta toplanarak trend oluşturur.
+ */
 function getGroupKey(session: SessionRecord): string {
-  return session.not?.trim() || getDenemeTemplateName(session)
+  return getDenemeTemplateName(session)
 }
 
 function toDate(session: SessionRecord) {
