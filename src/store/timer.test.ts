@@ -16,6 +16,7 @@ const MOLA_MS = 15 * 60 * 1000
 describe('timer store', () => {
   beforeEach(() => {
     vi.spyOn(Date, 'now').mockReturnValue(0)
+    useTimerStore.setState(useTimerStore.getInitialState(), true)
     useTimerStore.getState().reset()
   })
 

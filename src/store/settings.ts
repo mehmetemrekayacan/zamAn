@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
+import { accountStorage } from '../lib/accountStorage'
 
 export type Theme = 'light' | 'dark' | 'high-contrast'
 
@@ -65,7 +66,8 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'zaman-olcer-settings',
-      merge: (persisted, current) => ({ ...current, ...(persisted as object) }),
+      storage: createJSONStorage(() => accountStorage),
+      merge: (persisted, current) => ({ ...current, ...DEFAULT_SETTINGS, ...(persisted as object) }),
     },
   ),
 )

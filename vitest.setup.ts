@@ -1,48 +1,39 @@
-/**
- * Vitest global setup: Node ortamında eksik browser API'leri
- */
-import { vi } from 'vitest'
+import 'fake-indexeddb/auto'
+import { IDBFactory } from 'fake-indexeddb'
+import { afterEach, beforeEach, vi } from 'vitest'
+import { createMemoryStorage } from './src/test/helpers/storage'
 
-const noop = () => {}
+// Gerçek SDK istemcisini kullanmak testlerde açıkça yasak. Veri testleri
+// getSupabase sınırına kontrollü bir test istemcisi yerleştirir.
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: () => {
+    throw new Error('Testte gerçek Supabase istemcisi kullanılamaz; createSupabaseStub kullanın.')
+  },
+}))
 
-function createMemoryStorage(): Storage {
-  const store: Record<string, string> = {}
-  return {
-    getItem: (key: string) => store[key] ?? null,
-    setItem: (key: string, value: string) => { store[key] = value },
-    removeItem: (key: string) => { delete store[key] },
-    clear: () => { for (const k of Object.keys(store)) delete store[k] },
-    key: (i: number) => Object.keys(store)[i] ?? null,
-    get length() { return Object.keys(store).length },
-  }
-}
+// Store'lar bu nesnelere referans tutar; her testte nesneyi değiştirmek
+// yerine içeriğini temizleriz. Tarayıcının depolamasına erişim yoktur.
+globalThis.localStorage = createMemoryStorage()
+globalThis.sessionStorage = createMemoryStorage()
+globalThis.window = globalThis as typeof globalThis & Window
 
-if (typeof globalThis.localStorage === 'undefined') {
-  globalThis.localStorage = createMemoryStorage()
-}
+globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => (
+  setTimeout(() => callback(performance.now()), 0) as unknown as number
+)
+globalThis.cancelAnimationFrame = (handle: number) => clearTimeout(handle)
 
-if (typeof globalThis.sessionStorage === 'undefined') {
-  globalThis.sessionStorage = createMemoryStorage()
-}
+beforeEach(() => {
+  localStorage.clear()
+  sessionStorage.clear()
+  vi.stubGlobal('indexedDB', new IDBFactory())
+  vi.stubGlobal('fetch', vi.fn(async () => {
+    throw new Error('Testte ağ isteği engellendi; kontrollü bir test yanıtı kullanın.')
+  }))
+})
 
-if (typeof globalThis.window === 'undefined') {
-  globalThis.window = globalThis as typeof globalThis & Window
-}
-
-if (!globalThis.window.localStorage) {
-  globalThis.window.localStorage = globalThis.localStorage
-}
-
-if (!globalThis.window.sessionStorage) {
-  globalThis.window.sessionStorage = globalThis.sessionStorage
-}
-
-if (typeof globalThis.requestAnimationFrame === 'undefined') {
-  globalThis.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => {
-    setTimeout(() => cb(performance.now()), 0)
-    return 0
-  }) as unknown as typeof requestAnimationFrame
-}
-if (typeof globalThis.cancelAnimationFrame === 'undefined') {
-  globalThis.cancelAnimationFrame = vi.fn(noop) as unknown as typeof cancelAnimationFrame
-}
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+})

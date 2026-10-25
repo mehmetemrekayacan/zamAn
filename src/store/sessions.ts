@@ -4,11 +4,13 @@ import { saveSession as dbSaveSession, listSessions, deleteSession as dbDeleteSe
 import { getQueueItems } from '../lib/offlineSync'
 import { isCloudSyncEnabled } from '../lib/supabase'
 import { getLocalDateString } from '../lib/time'
+import { getDataScope, isCurrentScope } from '../lib/dataScope'
+import { getPendingSessions } from '../lib/localSync'
 
 export type SyncStatus = 'pending' | 'synced' | 'failed'
 export type SessionSyncMap = Record<string, SyncStatus>
 
-function deriveSyncStatusByQueue(sessions: SessionRecord[], queueItems: Awaited<ReturnType<typeof getQueueItems>>): SessionSyncMap {
+function deriveSyncStatusByQueue(sessions: SessionRecord[], queueItems: Awaited<ReturnType<typeof getQueueItems>>, pendingIds: string[] = []): SessionSyncMap {
   const statusBySession = new Map<string, SyncStatus>()
 
   for (const item of queueItems) {
@@ -23,7 +25,7 @@ function deriveSyncStatusByQueue(sessions: SessionRecord[], queueItems: Awaited<
 
   const result: SessionSyncMap = {}
   for (const session of sessions) {
-    result[session.id] = statusBySession.get(session.id) ?? 'synced'
+    result[session.id] = statusBySession.get(session.id) ?? (pendingIds.includes(session.id) ? 'pending' : 'synced')
   }
 
   return result
@@ -49,36 +51,41 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   loading: false,
 
   loadSessions: async () => {
+    const scope = getDataScope()
     set({ loading: true })
     try {
-      const sessions = await listSessions()
+      const sessions = await listSessions(undefined, scope)
       const sortTs = (s: SessionRecord) => (s.createdAt ?? s.tarihISO)
       const sorted = sessions.sort((a, b) => new Date(sortTs(b)).getTime() - new Date(sortTs(a)).getTime())
-      const queueItems = await getQueueItems()
+      const queueItems = await getQueueItems(scope)
+      const pending = scope.ownerId !== null ? await getPendingSessions(scope) : []
+      if (!isCurrentScope(scope)) return
       set({
         sessions: sorted,
-        syncStatusById: deriveSyncStatusByQueue(sorted, queueItems),
+        syncStatusById: deriveSyncStatusByQueue(sorted, queueItems, pending.map((item) => item.id)),
       })
     } catch (error) {
       console.error('Failed to load sessions:', error)
     } finally {
-      set({ loading: false })
+      if (isCurrentScope(scope)) set({ loading: false })
     }
   },
 
   addSession: async (session) => {
+    const scope = getDataScope()
     try {
       const normalizedSession: SessionRecord = session.mod === 'deneme'
         ? { ...session, denemeMolalarSaniye: session.denemeMolalarSaniye ?? [] }
         : session
 
-      await dbSaveSession(normalizedSession)
+      await dbSaveSession(normalizedSession, scope)
+      if (!isCurrentScope(scope)) return
       const state = get()
       const sortTs = (s: SessionRecord) => (s.createdAt ?? s.tarihISO)
       const sorted = [normalizedSession, ...state.sessions].sort(
         (a, b) => new Date(sortTs(b)).getTime() - new Date(sortTs(a)).getTime(),
       )
-      const nextStatus: SyncStatus = isCloudSyncEnabled() ? 'pending' : 'synced'
+      const nextStatus: SyncStatus = scope.ownerId !== null && isCloudSyncEnabled() ? 'pending' : 'synced'
       set({
         sessions: sorted,
         syncStatusById: {
@@ -93,9 +100,11 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   },
 
   updateSession: async (updatedSession) => {
+    const scope = getDataScope()
     try {
       const record: SessionRecord = { ...updatedSession, updatedAt: new Date().toISOString() }
-      await dbSaveSession(record)
+      await dbSaveSession(record, scope)
+      if (!isCurrentScope(scope)) return
       const state = get()
       set({
         sessions: state.sessions.map((s) => (s.id === record.id ? record : s)),
@@ -107,11 +116,14 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   },
 
   deleteSession: async (id) => {
+    const scope = getDataScope()
     try {
-      await dbDeleteSession(id)
+      await dbDeleteSession(id, scope)
+      if (!isCurrentScope(scope)) return
       const state = get()
       const nextSessions = state.sessions.filter((s) => s.id !== id)
-      const { [id]: _deleted, ...nextSyncMap } = state.syncStatusById
+      const nextSyncMap = { ...state.syncStatusById }
+      delete nextSyncMap[id]
       set({ sessions: nextSessions, syncStatusById: nextSyncMap })
     } catch (error) {
       console.error('Failed to delete session:', error)
@@ -119,10 +131,11 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   },
 
   refreshSyncStatuses: async () => {
+    const scope = getDataScope()
     try {
-      const state = get()
-      const queueItems = await getQueueItems()
-      set({ syncStatusById: deriveSyncStatusByQueue(state.sessions, queueItems) })
+      const queueItems = await getQueueItems(scope)
+      const pending = scope.ownerId !== null ? await getPendingSessions(scope) : []
+      if (isCurrentScope(scope)) set({ syncStatusById: deriveSyncStatusByQueue(get().sessions, queueItems, pending.map((item) => item.id)) })
     } catch (error) {
       console.error('Failed to refresh sync statuses:', error)
     }

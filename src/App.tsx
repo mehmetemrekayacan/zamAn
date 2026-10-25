@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
+import { useMemo, useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react'
 import { useTimerStore } from './store/timer'
 import { useSessionsStore } from './store/sessions'
 import { useSettingsStore } from './store/settings'
@@ -6,7 +6,7 @@ import { calculateScore, calculateStreak, getUnvan } from './lib/scoring'
 import { getTahmin150Saat } from './lib/tahmin'
 import { syncCloud } from './lib/cloudSync'
 import { getRozetler } from './lib/rozetler'
-import { initDb, clearAllSessions } from './lib/db'
+import { initDb } from './lib/db'
 import { initOfflineSync, processQueue } from './lib/offlineSync'
 import { formatMinutesHuman } from './lib/time'
 import { unlockAudio } from './lib/notifications'
@@ -30,6 +30,9 @@ import { DenemeManager } from './components/DenemeManager'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import type { ModeConfig, SessionRecord, DenemeAnaliz } from './types'
 import { getSupabase } from './lib/supabase'
+import { getDataScope, isCurrentScope, subscribeDataScope, type DataScope } from './lib/dataScope'
+import { activateAccount } from './lib/accountLifecycle'
+import { getScopedStorage } from './lib/accountStorage'
 
 /* ─── helpers ─── */
 
@@ -54,6 +57,77 @@ const normalizeExamStartTime = (value: string, fallback: string): string => {
 /* ─── App ─── */
 
 function App() {
+  const scope = useSyncExternalStore(subscribeDataScope, getDataScope, getDataScope)
+  const [hydrated, setHydrated] = useState<DataScope | null>(null)
+  const [error, setError] = useState<{ scope: DataScope; message: string } | null>(null)
+  const [isMiniPlayerMode, setIsMiniPlayerMode] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    const scheduled = new Set<ReturnType<typeof setTimeout>>()
+    const receive = (event: AuthChangeEvent, session: Session | null) => {
+      if (!['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT'].includes(event)) return
+      const ownerId = session?.user.id ?? null
+      const activating = activateAccount(ownerId)
+      const requested = getDataScope()
+      void activating.then((activeScope) => {
+        if (!mounted || !isCurrentScope(activeScope)) return
+        setHydrated(activeScope)
+        setError(null)
+        if (ownerId === null) return
+        // Auth callback'inin dışında başlat: Supabase auth kilidi tutulmaz.
+        const timeout = setTimeout(() => {
+          scheduled.delete(timeout)
+          if (!mounted || !isCurrentScope(activeScope)) return
+          void (async () => {
+            const result = await syncCloud()
+            if (isCurrentScope(activeScope) && !result.ok) console.warn('Hesap eşitlemesi bekliyor:', result.error)
+          })().catch((failure) => console.error('Hesap eşitlemesi tamamlanamadı:', failure))
+        }, 0)
+        scheduled.add(timeout)
+      }).catch((failure: unknown) => {
+        if (mounted && isCurrentScope(requested)) {
+          setError({ scope: requested, message: failure instanceof Error ? failure.message : 'Hesap verileri yüklenemedi.' })
+        }
+      })
+    }
+    const supabase = getSupabase()
+    const subscription = supabase?.auth.onAuthStateChange(receive).data.subscription
+    if (!supabase) receive('INITIAL_SESSION', null)
+    return () => {
+      mounted = false
+      subscription?.unsubscribe()
+      for (const timeout of scheduled) clearTimeout(timeout)
+    }
+  }, [])
+
+  // Bu dinleyiciler hesap ekranıyla birlikte tekrar kaydedilmez.
+  useEffect(() => {
+    if (!isElectron()) return
+    onGlobalHotkey((action) => {
+      if (!getDataScope().ready) return
+      const timer = useTimerStore.getState()
+      if (action === 'startStop') {
+        if (timer.status === 'running') timer.pause()
+        else if (timer.status === 'paused') timer.resume()
+        else timer.start()
+      } else if (action === 'reset') timer.reset()
+    })
+    onMiniPlayerChanged((enabled) => setIsMiniPlayerMode(Boolean(enabled)))
+  }, [])
+
+  if (error?.scope === scope) {
+    return <div className="min-h-screen bg-surface-900 p-8 text-text-primary" role="alert">{error.message}</div>
+  }
+  if (hydrated !== scope) {
+    return <div className="min-h-screen bg-surface-900 p-8 text-text-primary" role="status">Hesap verileri yükleniyor…</div>
+  }
+  return <AccountApp key={scope.generation} isMiniPlayerMode={isMiniPlayerMode} />
+}
+
+function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
+  const accountScope = getDataScope()
+  const scopedStorage = useMemo(() => getScopedStorage(accountScope), [accountScope])
   const didRunRecoveryCheckRef = useRef(false)
 
   /* ── local state ── */
@@ -64,7 +138,6 @@ function App() {
   const [showFinishScreen, setShowFinishScreen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showRecoveryModal, setShowRecoveryModal] = useState(false)
-  const [isMiniPlayerMode, setIsMiniPlayerMode] = useState(false)
   const [activeView, setActiveView] = useState<'timer' | 'analytics' | 'deneme-manager'>('timer')
   const [lastSessionScore, setLastSessionScore] = useState<ReturnType<typeof calculateScore> | null>(null)
 
@@ -88,7 +161,7 @@ function App() {
   const [editingSectionIndex, setEditingSectionIndex] = useState<number | null>(null)
   const [savedDenemeConfig, setSavedDenemeConfig] = useState<ModeConfig | null>(() => {
     try {
-      const saved = localStorage.getItem('deneme-config')
+      const saved = scopedStorage.getItem('deneme-config')
       return saved ? JSON.parse(saved) : null
     } catch {
       return null
@@ -179,58 +252,6 @@ function App() {
     setShowRecoveryModal(false)
   }, [discardRecoveredSession])
 
-  /* ── Auth State Cleanup & Sync ── */
-  useEffect(() => {
-    const supabase = getSupabase()
-    if (!supabase) return
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      const currentUser = session?.user?.id
-      const previousUser = localStorage.getItem('zaman-last-user')
-
-      if (event === 'SIGNED_OUT') {
-        // Sadece ve kesinlikle Çıkışta Temizle
-        localStorage.removeItem('zaman-timer-storage')
-        localStorage.removeItem('zaman-settings-storage')
-        localStorage.removeItem('deneme-config')
-        localStorage.removeItem('zaman-ders60-pause-state')
-        
-        try {
-          await clearAllSessions()
-        } catch (e) {
-          console.error('Failed to clear sessions db', e)
-        }
-        
-        window.location.reload()
-      } else if (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && currentUser)) {
-        // Girişte veya uygulama ilk açıldığında aktif session varsa verileri çek
-        // Supabase Auth loop'unu bloklamamak (freeze olmaması) için anında (fire-and-forget) çağırıyoruz
-        ;(async () => {
-          try {
-            await syncCloud()
-            // IndexedDB güncellendi, store'u rehydrate edelim
-            await useSessionsStore.getState().loadSessions()
-            // Eğer kullanıcı yeni (önceki kullanıcıdan farklıysa) UI tazelemek istersen:
-            if (previousUser && currentUser !== previousUser) {
-              window.location.reload()
-            }
-          } catch (err) {
-            console.error('Failed to sync on login, proceeding without sync.', err)
-          }
-        })()
-      }
-
-      if (currentUser) {
-        localStorage.setItem('zaman-last-user', currentUser)
-      } else if (event === 'SIGNED_OUT') {
-        localStorage.removeItem('zaman-last-user')
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
-
   /* ── effects ── */
   const todaySessions = useMemo(() => {
     const today = new Date().toISOString().split('T')[0]
@@ -238,11 +259,22 @@ function App() {
   }, [sessions])
 
   useEffect(() => {
+    if (!isCurrentScope(accountScope)) return
     if (modeConfig?.mode === 'deneme') {
       setSavedDenemeConfig(modeConfig)
-      localStorage.setItem('deneme-config', JSON.stringify(modeConfig))
+      scopedStorage.setItem('deneme-config', JSON.stringify(modeConfig))
     }
-  }, [modeConfig])
+  }, [modeConfig, accountScope, scopedStorage])
+
+  useEffect(() => {
+    const update = () => {
+      if (!isCurrentScope(accountScope)) return
+      const raw = scopedStorage.getItem('deneme-config')
+      setSavedDenemeConfig(raw ? JSON.parse(raw) as ModeConfig : null)
+    }
+    window.addEventListener('zaman-preferences-updated', update)
+    return () => window.removeEventListener('zaman-preferences-updated', update)
+  }, [accountScope, scopedStorage])
 
   useEffect(() => {
     const root = document.documentElement
@@ -289,28 +321,6 @@ function App() {
     })
   }, [examStartTime, setModeConfig])
 
-  /* ── Electron: Global hotkey dinleyicisi ── */
-  useEffect(() => {
-    if (!isElectron()) return
-    onGlobalHotkey((action) => {
-      const timerState = useTimerStore.getState()
-      if (action === 'startStop') {
-        if (timerState.status === 'running') timerState.pause()
-        else if (timerState.status === 'paused') timerState.resume()
-        else timerState.start()
-      } else if (action === 'reset') {
-        timerState.reset()
-      }
-    })
-  }, [])
-
-  useEffect(() => {
-    if (!isElectron()) return
-    onMiniPlayerChanged((enabled) => {
-      setIsMiniPlayerMode(Boolean(enabled))
-    })
-  }, [])
-
   /* ── Visibility API Fallback: sekmeye dönünce timer senkronize et ── */
   useEffect(() => {
     const handler = () => {
@@ -347,6 +357,7 @@ function App() {
       const s = useSettingsStore.getState()
       const isSessiz = s.sessizMod
       import('./lib/notifications').then(({ notifySessionComplete }) => {
+        if (!isCurrentScope(accountScope)) return
         notifySessionComplete({
           enableSound: !isSessiz && s.sesAçık,
           enableVibration: !isSessiz && s.titreşimAçık,
@@ -356,10 +367,11 @@ function App() {
         })
       })
     }
-  }, [status, showFinishScreen, mode, pauses])
+  }, [status, showFinishScreen, mode, pauses, accountScope])
 
   const primaryLabel = status === 'running' ? 'Duraklat' : status === 'paused' ? 'Devam' : 'Başlat'
   const primaryAction = useCallback(() => {
+    if (!isCurrentScope(accountScope)) return
     // Kullanıcı gesture'ı altında AudioContext'i unlock et (autoplay politikası)
     if (status !== 'running') {
       unlockAudio()
@@ -367,9 +379,10 @@ function App() {
     if (status === 'running') return pause()
     if (status === 'paused') return resume()
     return start()
-  }, [status, pause, resume, start])
+  }, [status, pause, resume, start, accountScope])
 
   const saveSession = async () => {
+    if (!isCurrentScope(accountScope)) return
     if (!lastSessionScore) return
     const timerState = useTimerStore.getState()
     const elapsedMs = timerState.elapsedMs
@@ -410,6 +423,7 @@ function App() {
     }
     try {
       await addSession(session)
+      if (!isCurrentScope(accountScope)) return
       showToast(`Seans kaydedildi! +${lastSessionScore.totalScore} puan 🎉`, 'success')
       setShowFinishScreen(false)
       setSessionNote('')

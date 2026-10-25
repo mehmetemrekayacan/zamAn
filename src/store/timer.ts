@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
+import { accountStorage } from '../lib/accountStorage'
 import { getLocalDateString } from '../lib/time'
 import type { ModeConfig, WorkBreakPhase, TimerSnapshot, TimerStatus } from '../types'
 import { TIMER_STRATEGIES } from '../lib/timerStrategies'
@@ -80,6 +81,8 @@ function stopWorker(): void {
   }
 }
 
+export function suspendTimerForAccountChange(): void { stopWorker() }
+
 /* ═══════════════════════════════════════
    Tick / Zaman Hesaplama (Absolute Time)
    ═══════════════════════════════════════ */
@@ -138,34 +141,40 @@ export type TimerState = TimerSnapshot & {
   discardRecoveredSession: () => void
 }
 
+function initialTimerState(): TimerCoreState {
+  return {
+    running: false,
+    status: 'idle',
+    elapsedMs: 0,
+    plannedMs: undefined,
+    remainingMs: undefined,
+    mode: MODE_DEFAULTS.serbest.mode,
+    modeConfig: MODE_DEFAULTS.serbest,
+    currentSectionIndex: 0,
+    workBreakPhase: 'work',
+    dersCycle: 0,
+    dersCycleDate: null,
+    molaToplamMs: 0,
+    denemeMolalarSaniye: [],
+    pauses: 0,
+    lastTickTs: null,
+    pauseStartTs: null,
+    wasEarlyFinish: undefined,
+    totalPauseDurationMs: 0,
+    backgroundBreakStartTs: null,
+    backgroundBreakPlannedMs: undefined,
+    expectedEndTime: undefined,
+    startWallTime: undefined,
+    isOvertime: false,
+    pomodoroRound: 1,
+    lastPomodoroDate: getLocalDateString(),
+  }
+}
+
 export const useTimerStore = create<TimerState>()(
   persist(
     (set, get) => ({
-      running: false,
-      status: 'idle',
-      elapsedMs: 0,
-      plannedMs: undefined,
-      remainingMs: undefined,
-      mode: MODE_DEFAULTS.serbest.mode,
-      modeConfig: MODE_DEFAULTS.serbest,
-      currentSectionIndex: 0,
-      workBreakPhase: 'work',
-      dersCycle: 0,
-      dersCycleDate: null,
-      molaToplamMs: 0,
-      denemeMolalarSaniye: [],
-      pauses: 0,
-      lastTickTs: null,
-      pauseStartTs: null,
-      wasEarlyFinish: undefined,
-      totalPauseDurationMs: 0,
-      backgroundBreakStartTs: null,
-      backgroundBreakPlannedMs: undefined,
-      expectedEndTime: undefined,
-      startWallTime: undefined,
-      isOvertime: false,
-      pomodoroRound: 1,
-      lastPomodoroDate: getLocalDateString(),
+      ...initialTimerState(),
 
       setModeConfig: (config) => {
         stopWorker()
@@ -185,7 +194,7 @@ export const useTimerStore = create<TimerState>()(
         if (state.mode === 'ders60mola15' && state.modeConfig.mode === 'ders60mola15' && normalizedConfig.mode !== 'ders60mola15') {
           if ((state.status === 'paused' || state.status === 'running') && state.dersCycleDate === bugun) {
             try {
-              localStorage.setItem(DERS60_PAUSE_STORAGE_KEY, JSON.stringify({
+              accountStorage.setItem(DERS60_PAUSE_STORAGE_KEY, JSON.stringify({
                 elapsedMs: state.elapsedMs,
                 remainingMs: state.remainingMs,
                 plannedMs: state.plannedMs,
@@ -218,7 +227,7 @@ export const useTimerStore = create<TimerState>()(
             dersCycleDate = bugun
           }
           try {
-            const saved = localStorage.getItem(DERS60_PAUSE_STORAGE_KEY)
+            const saved = accountStorage.getItem(DERS60_PAUSE_STORAGE_KEY)
             if (saved) {
               const parsed = JSON.parse(saved) as { elapsedMs?: number; remainingMs?: number; plannedMs?: number; workBreakPhase?: WorkBreakPhase; status?: TimerStatus; pauses?: number; dersCycle?: number; molaToplamMs?: number; savedAt?: string }
               if (parsed.savedAt === bugun && parsed.elapsedMs != null && parsed.plannedMs != null) {
@@ -231,7 +240,7 @@ export const useTimerStore = create<TimerState>()(
                 dersCycle = parsed.dersCycle ?? dersCycle ?? 0
                 molaToplamMs = parsed.molaToplamMs ?? molaToplamMs ?? 0
                 dersCycleDate = bugun
-                localStorage.removeItem(DERS60_PAUSE_STORAGE_KEY)
+                accountStorage.removeItem(DERS60_PAUSE_STORAGE_KEY)
               }
             }
           } catch { /* ignore */ }
@@ -536,6 +545,8 @@ export const useTimerStore = create<TimerState>()(
     }),
     {
       name: 'timer-storage',
+      storage: createJSONStorage(() => accountStorage),
+      merge: (persisted, current) => ({ ...current, ...initialTimerState(), ...(persisted as object) }),
       partialize: (state) => ({
         status: state.status === 'running' || state.status === 'paused' ? state.status : 'idle',
         mode: state.mode,

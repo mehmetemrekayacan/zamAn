@@ -126,7 +126,7 @@ Windows ve telefonda aynı verileri tutmak için **Supabase** ile kayıt/giriş 
 1. [Supabase](https://supabase.com/dashboard) üzerinde yeni proje oluştur.
 2. **Settings → API**'den **Project URL** ve **anon (public) key**'i kopyala.
 3. Proje kökünde `.env.local` dosyası oluştur (`VITE_SUPABASE_URL=...`, `VITE_SUPABASE_ANON_KEY=...`).
-4. Supabase **SQL Editor**'da `supabase-sync.sql` dosyasının içeriğini çalıştır (tablo + RLS).
+4. Yeni kurulumda `database/supabase-v2-sessions.sql` ve ardından `database/supabase-v3-sync.sql` uygulanır. Mevcut projelerde yedek ve şema kontrolü dahil [geçiş sırasını](docs/ASAMA-4-SENKRONIZASYON.md) izle.
 5. `npm run dev` veya `npm run build` ile uygulamayı çalıştır; Ayarlar'da "Hesap" bölümü çıkar.
 6. **Kayıt ol:** İsim, e-posta, şifre → **Giriş yap:** e-posta, şifre. Girişten sonra **Buluta kaydet** / **Buluttan çek** ile verileri senkron edebilirsin.
 
@@ -174,11 +174,34 @@ Uygulama **remote URL** modunda çalışır. `git push` ile Vercel'e deploy yap�
 ## Test
 
 ```bash
-npm run test          # Tüm birim testleri (scoring, time, rozetler, tahmin)
-npm run test:unit     # Vitest unit testleri
+npm test              # Tüm Vitest testleri (birim + veri katmanı)
+npm run test:unit     # npm test ile aynı; mevcut kullanım için korunur
+npm run test:unit:watch # Geliştirme sırasında izleme modu
+npm run test:data     # IndexedDB, yedek, kuyruk ve test izolasyonu
+npm run test:sync     # Yerel PostgreSQL motorunda migration ve cihaz senaryoları
 npm run test:rozetler # Sadece rozet hesaplaması
-npm run lint          # ESLint
+npm run typecheck    # Uygulama, test yardımcıları ve test ayarları
+npm run lint         # ESLint (üretilmiş dosyalar hariç)
 ```
+
+Testlerde `.env.local` yüklenmez; IndexedDB ve tarayıcı depoları bellekte çalışır.
+Gerçek Supabase istemcisi ve `fetch` istekleri engellenir; bulut yanıtları test
+içinde tanımlanır. Windows PowerShell script politikası `npm` çağrısını engellerse
+aynı komutları `npm.cmd` ile çalıştırabilirsin.
+
+Test yazımı, kapsam, kalan senaryolar ve başlangıç ölçümleri için
+[test altyapısı belgesine](docs/TEST-ALTYAPISI.md) bak.
+
+Yedek içe aktarımı dosya ve iç ayarları yüklemeden önce doğrular; desteklenmeyen
+sürüm veya bozuk kayıtta mevcut veriye dokunmaz. Seanslar tek IndexedDB işlemiyle
+değiştirilir. Bekleyen bulut işlemleri varsa önce senkronizasyon tamamlanmalıdır.
+Ayrıntılar: [güvenli yedekleme](docs/ASAMA-2-YEDEKLEME.md).
+
+Hesapların yerel kayıtları, ayarları ve bekleyen işlemleri ayrıdır; çıkış bunları
+silmez. Eski ve misafir verileri otomatik olarak giriş yapılan hesaba taşınmaz.
+Taşımak için misafir alanında dışa aktar, hedef hesaba giriş yaptıktan sonra
+içe aktar. Sahibi belirlenemeyen eski kuyruk işlemleri misafir alanından ham
+arşiv olarak indirilebilir. Ayrıntılar: [hesap ve kuyruk ayrımı](docs/ASAMA-3-HESAPLAR.md).
 
 ---
 
@@ -191,8 +214,13 @@ npm run lint          # ESLint
    VITE_SUPABASE_URL=https://xxxxxxxx.supabase.co
    VITE_SUPABASE_ANON_KEY=eyJ...
    ```
-4. SQL Editor'da `supabase-sync.sql` içeriğini çalıştır
+4. Yeni kurulumda önce `database/supabase-v2-sessions.sql`, ardından `database/supabase-v3-sync.sql` uygulanır. Mevcut projede önce `database/sync-preflight.sql` ile şemayı kontrol et ve yedek al; ayrıntılı sıra [4. aşama belgesindedir](docs/ASAMA-4-SENKRONIZASYON.md).
 5. Ayarlar'da "Hesap (online senkron)" bölümü görünür
+
+Yeni istemci sürümlü v3 RPC protokolünü gerektirir. Protokol eksikse bulut yazısı
+başlatılmaz; yerel kayıtlar saklanır ve güncelleme gereksinimi bildirilir.
+Eski `scripts/supabase-upload-sync.cjs` yazıcısı devre dışıdır; yedekleri
+uygulamadaki içe aktarma akışıyla yükle.
 
 ---
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { clearAllSessions } from '../lib/db'
+import { clearLocalSessions, deleteAllSyncedSessions } from '../lib/sessionSync'
+import { SyncConflictPanel } from './SyncConflictPanel'
 import {
   checkSupabaseHealth,
   getCurrentUser,
@@ -12,8 +13,10 @@ import {
   signUp,
   syncCloud,
 } from '../lib/cloudSync'
-import { processQueue } from '../lib/offlineSync'
-import { exportData, exportFileName, importFromFile } from '../lib/sync'
+import { getUnownedQueueItems, processQueue, retryFailedQueue } from '../lib/offlineSync'
+import { exportData, exportFileName, exportUnownedQueue, importFromFile } from '../lib/sync'
+import { getScopedStorage } from '../lib/accountStorage'
+import { getDataScope, isCurrentScope } from '../lib/dataScope'
 import { useSettingsStore } from '../store/settings'
 import { useSessionsStore } from '../store/sessions'
 import { usePwaInstallStore } from '../store/pwaInstall'
@@ -24,6 +27,8 @@ export interface SettingsModalProps {
 }
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
+  const accountScope = getDataScope()
+  const storage = getScopedStorage(accountScope)
   const tema = useSettingsStore((s) => s.tema)
   const sesAçık = useSettingsStore((s) => s.sesAçık)
   const titreşimAçık = useSettingsStore((s) => s.titreşimAçık)
@@ -38,6 +43,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [iceAktariyor, setIceAktariyor] = useState(false)
   const [iceAktarHata, setIceAktarHata] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [unownedCount, setUnownedCount] = useState(0)
+  const isGuest = getDataScope().ownerId === null
+
+  useEffect(() => {
+    let mounted = true
+    void getUnownedQueueItems().then((items) => {
+      if (mounted) setUnownedCount(items.length)
+    }).catch(() => {})
+    return () => { mounted = false }
+  }, [])
 
   const [cloudUser, setCloudUser] = useState<Awaited<ReturnType<typeof getCurrentUser>>>(null)
   const [cloudEmail, setCloudEmail] = useState('')
@@ -90,8 +105,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         setCloudUser(r.user)
       }
       setCloudPassword('')
-    } catch (err: any) {
-      setCloudError(err.message || 'Bilinmeyen bir hata oluştu.')
+    } catch (err) {
+      setCloudError(err instanceof Error ? err.message : 'Bilinmeyen bir hata oluştu.')
     } finally {
       setCloudLoading(false)
     }
@@ -107,20 +122,19 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       }
       setCloudUser(r.user)
       setCloudPassword('')
-    } catch (err: any) {
-      setCloudError(err.message || 'Bilinmeyen bir hata oluştu.')
+    } catch (err) {
+      setCloudError(err instanceof Error ? err.message : 'Bilinmeyen bir hata oluştu.')
     } finally {
       setCloudLoading(false)
     }
   }
 
   const handleCikis = async () => {
-    await signOut()
-    setCloudUser(null)
-    setCloudEmail('')
-    setCloudPassword('')
-    setCloudIsim('')
-    setCloudError(null)
+    try {
+      await signOut()
+    } catch (error) {
+      setCloudError(error instanceof Error ? error.message : 'Çıkış yapılamadı.')
+    }
   }
 
   const handleBulutaKaydet = async () => {
@@ -130,7 +144,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     const r = await pushCloud()
     setCloudLoading(false)
     if (r.ok) {
-      setCloudPushPullMsg(`Buluta kaydedildi (${r.pushed} seans).`)
+      setCloudPushPullMsg(`Buluta kaydedildi (${r.pushed} seans).${r.conflicts ? ` ${r.conflicts} değişiklik aşağıda korundu.` : ''}`)
       setLastSync(new Date().toISOString())
       await refreshSyncStatuses()
     } else setCloudError(r.error)
@@ -146,7 +160,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       setCloudPushPullMsg(`Buluttan çekildi (${r.pulled} yeni, ${r.merged} güncellenen).`)
       setLastSync(new Date().toISOString())
       await refreshSyncStatuses()
-      window.location.reload()
     } else setCloudError(r.error)
   }
 
@@ -155,13 +168,15 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setCloudError(null)
     setCloudPushPullMsg(null)
     try {
-      const result = await processQueue()
-      await refreshSyncStatuses()
+      await retryFailedQueue(accountScope)
+      const result = await processQueue(accountScope)
+      if (!isCurrentScope(accountScope)) return
+      await useSessionsStore.getState().loadSessions()
       setLastForceSyncAt(new Date().toISOString())
       if (result.failed > 0) {
         setCloudError(`Bazı kayıtlar eşitlenemedi (${result.failed} başarısız).`)
       } else {
-        setCloudPushPullMsg(`Kuyruk işlendi: ${result.flushed} eşitlendi, ${result.scheduled} planlandı.`)
+        setCloudPushPullMsg(`Kuyruk işlendi: ${result.flushed} eşitlendi, ${result.scheduled} planlandı.${result.conflicts ? ` ${result.conflicts} değişiklik aşağıda korundu.` : ''}`)
       }
     } catch (error) {
       setCloudError((error as Error).message)
@@ -171,17 +186,33 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   }
 
   const handleTumVerileriTemizle = async () => {
-    if (!window.confirm('Tüm seanslar, zamanlayıcı durumu ve deneme ayarları silinecek. Tema ve ses ayarları korunur. Emin misin?')) return
+    if (!window.confirm('Bu cihazdaki seans önbelleği ve sayaç durumu temizlenecek. Tercihlerin ve bulut seansların korunur; eşitlemeyle kayıtlar yeniden yüklenebilir. Devam edilsin mi?')) return
     setTemizleniyor(true)
     try {
-      await clearAllSessions()
-      localStorage.removeItem('deneme-config')
-      localStorage.removeItem('timer-storage')
-      localStorage.removeItem('zaman-ders60-pause-state')
+      await clearLocalSessions()
+      if (!isCurrentScope(accountScope)) return
+      storage.removeItem('timer-storage')
+      storage.removeItem('zaman-ders60-pause-state')
       window.location.reload()
+    } catch (error) {
+      setIceAktarHata(error instanceof Error ? error.message : 'Önbellek temizlenemedi.')
     } finally {
       setTemizleniyor(false)
     }
+  }
+
+  const handleTumCihazlardanSil = async () => {
+    if (!window.confirm('Bu hesaptaki kayıtlı seanslar buluttan ve eşitlenen cihazlardan silinecek. Önce dışa aktararak yedek alabilirsin. Silinsin mi?')) return
+    setTemizleniyor(true)
+    setIceAktarHata(null)
+    try {
+      const result = await deleteAllSyncedSessions()
+      if (isCurrentScope(accountScope)) {
+        if (!result.ok) setIceAktarHata(result.error)
+        else setCloudPushPullMsg(result.conflicts ? 'Bazı seanslar değişti. Silinmeyen kayıtlar için aşağıdaki çakışmaları çöz.' : 'Silme işlemi eşitlendi. Yeni eklenen seanslar korunur; diğer cihazlara eşitlemeyle uygulanır.')
+      }
+    } catch (failure) { if (isCurrentScope(accountScope)) setIceAktarHata(failure instanceof Error ? failure.message : 'Silme tamamlanamadı.') }
+    finally { if (isCurrentScope(accountScope)) setTemizleniyor(false) }
   }
 
   const handleDisaAktar = async () => {
@@ -189,15 +220,35 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setIceAktarHata(null)
     try {
       const blob = await exportData()
+      if (!isCurrentScope(accountScope)) return
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = exportFileName()
       a.click()
       URL.revokeObjectURL(url)
+    } catch (error) {
+      setIceAktarHata(error instanceof Error ? error.message : 'Yedek oluşturulamadı.')
     } finally {
       setDisaAktariyor(false)
     }
+  }
+
+  const handleUnownedExport = async () => {
+    setDisaAktariyor(true)
+    setIceAktarHata(null)
+    try {
+      const blob = await exportUnownedQueue()
+      if (!isCurrentScope(accountScope)) return
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `zaman-eski-islemler-${new Date().toISOString().slice(0, 10)}.json`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      setIceAktarHata(error instanceof Error ? error.message : 'Eski işlemler yedeklenemedi.')
+    } finally { setDisaAktariyor(false) }
   }
 
   const handleIceAktar = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -416,10 +467,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           {cloudEnabled && (
             <div className="space-y-2 pt-3 border-t border-text-primary/10">
               <h3 className="text-base font-semibold text-text-primary">Hesap (online senkron)</h3>
-              {cloudUser ? (
+              {!isGuest ? (
                 <>
                   <p className="text-sm text-text-primary">
-                    Merhaba, {cloudUser.displayName || cloudUser.email}
+                    {cloudUser ? `Merhaba, ${cloudUser.displayName || cloudUser.email}` : 'Hesabının bu cihazdaki kayıtları açık.'}
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -448,7 +499,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       const r = await syncCloud()
                       setCloudLoading(false)
                       if (r.ok) {
-                        setCloudPushPullMsg(`Sync tamamlandı: ${r.pushed} gönderildi, ${r.pulled} yeni, ${r.merged} güncellendi.`)
+                        setCloudPushPullMsg(`Sync tamamlandı: ${r.pushed} gönderildi, ${r.pulled} yeni, ${r.merged} güncellendi.${r.conflicts ? ` ${r.conflicts} değişiklik aşağıda korundu.` : ''}`)
                         setLastSync(new Date().toISOString())
                         await refreshSyncStatuses()
                       } else setCloudError(r.error)
@@ -564,6 +615,19 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           <div className="space-y-2 pt-3 border-t border-text-primary/10">
             <h3 className="text-base font-semibold text-text-primary">Veri</h3>
             <p className="text-xs text-text-muted">
+              {isGuest
+                ? 'Misafir ve eski yerel kayıtlar bu cihazda korunur; giriş yaptığında hesabına otomatik taşınmaz. Taşımak için önce dışa aktar, giriş yaptıktan sonra içe aktar.'
+                : 'Her hesabın seansları ve ayarları ayrıdır. Çıkış yaptığında kayıtların silinmez. Misafir ve eski yerel kayıtlara çıkış yaptıktan sonra ulaşabilirsin.'}
+            </p>
+            {isGuest && unownedCount > 0 && (
+              <div className="space-y-2 text-xs text-text-muted">
+                <p>Sahibi belirlenemeyen {unownedCount} eski senkronizasyon işlemi korundu ve otomatik gönderilmiyor. Ham arşivi incelemek için indirebilirsin.</p>
+                <button type="button" onClick={handleUnownedExport} disabled={disaAktariyor} className="rounded-lg border border-text-primary/20 px-3 py-2 text-text-primary disabled:opacity-50">
+                  Eski işlemleri yedekle
+                </button>
+              </div>
+            )}
+            <p className="text-xs text-text-muted">
               Windows ve telefon arasında senkron için: buradan dışa aktar, diğer cihazda içe aktar.
             </p>
             <div className="flex gap-2">
@@ -591,11 +655,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 onChange={handleIceAktar}
               />
             </div>
+            <p className="text-xs text-text-muted">
+              İçe aktarma, bu cihazdaki seans ve ayarları yedekle değiştirir. Önce mevcut verilerini dışa aktarabilirsin. Bekleyen senkronizasyon işlemleri varsa önce tamamlanmaları gerekir.
+            </p>
             {iceAktarHata && (
               <p className="text-xs text-red-400">{iceAktarHata}</p>
             )}
             <p className="text-xs text-text-muted mt-2">
-              Tüm seansları, zamanlayıcı durumunu (tur, mola vb.) ve deneme bölüm ayarlarını siler. Deneme modu varsayılana (<strong>AGS 110 dk</strong>, <strong>ÖABT 90 dk</strong>) döner. Tema ve ses ayarları korunur.
+              Cihaz önbelleğini temizlemek buluttan silmez. Eşitleme sırasında kayıtlar yeniden yüklenebilir; tercihler ve korunan değişiklikler saklanır.
             </p>
             <button
               type="button"
@@ -603,9 +670,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               disabled={temizleniyor}
               className="w-full rounded-lg border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 px-3 py-2 text-sm font-medium text-red-400 transition disabled:opacity-50"
             >
-              {temizleniyor ? 'Temizleniyor…' : 'Tüm verileri temizle'}
+              {temizleniyor ? 'İşleniyor…' : 'Bu cihazın önbelleğini temizle'}
             </button>
+            {!isGuest && cloudEnabled && (
+              <button type="button" onClick={handleTumCihazlardanSil} disabled={temizleniyor} className="w-full rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-400 disabled:opacity-50">
+                Kayıtlı seansları tüm cihazlardan sil
+              </button>
+            )}
           </div>
+
+          <SyncConflictPanel />
 
           {/* PWA Yükleme */}
           {isInstallable && (
