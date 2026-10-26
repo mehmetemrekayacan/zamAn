@@ -4,6 +4,10 @@
 Bu aşamanın yeni Vercel yayını ve aşağıdaki gerçek cihaz kabulü bekliyor.
 Sürüm numarası değiştirilmedi; yayın kullanıcı tarafından yapılır.
 
+Sonraki durum: Kullanıcı 1.2.5'i yayımladı; site açılırken konsoldaki Auth
+kilidi hatasını paylaştı. [Auth kilidi düzeltmesi](AUTH-KILIT-DUZELTMESI.md)
+yerel olarak hazırlandı; yeniden yayın ve Firefox kontrolü bekliyor.
+
 ## Düzeltilen davranışlar
 
 - Ayarlar (paketi yüklenirken ve yükleme hatasında da), Ünvanlar, seans

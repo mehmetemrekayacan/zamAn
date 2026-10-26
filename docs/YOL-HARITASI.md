@@ -132,5 +132,6 @@ Tamamlanma ölçütü: Otomatik kontroller geçer; erişilebilen platformlarda t
 - [x] 7. Performans — kod/ölçümler tamam; kullanıcı Vercel yayını ve manuel kontrolleri doğruladı. Sonraki PWA düzeltmesinin yayını sonrası hata tekrarlanmadı.
 - [x] 8. Kullanım akışı — modal/klavye, işlem geri bildirimi, dört lint hatası, Windows mini geçişi ve güncel belgeler hazır; yerel kontroller başarılı
 - [ ] 8. Yayın ve platform kabulü — web/PWA, kullanılan Windows/Android platformları ve iki fiziksel cihaz kontrolü
+- [ ] 1.2.5 sonrası Auth konsol düzeltmesi — [kilit uyumluluğu](AUTH-KILIT-DUZELTMESI.md) ve 330 test hazır; yeniden yayın/Firefox kabulü bekliyor
 
 Sıradaki iş: 8. aşamanın Vercel yayını ve [kabul sırası](ASAMA-8-KULLANIM-VE-SURUM.md). Electron main değişikliği kullanılacaksa yeni Windows paketi gerekir; yalnızca Vercel yayını mevcut EXE'yi güncellemez. İki fiziksel cihaz senkron kabulü ayrıca takip ediliyor. TinyFish yalnızca canlı tarayıcı etkileşimi gerektiğinde kullanılacak; yerel inceleme/testler için çağrılmayacak.

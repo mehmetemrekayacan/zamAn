@@ -9,6 +9,8 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => {
     throw new Error('Testte gerçek Supabase istemcisi kullanılamaz; createSupabaseStub kullanın.')
   },
+  navigatorLock: () => { throw new Error('Testte SDK tarayıcı kilidi açık bir test taklidi gerektirir.') },
+  processLock: () => { throw new Error('Testte SDK süreç kilidi açık bir test taklidi gerektirir.') },
 }))
 
 // Store'lar bu nesnelere referans tutar; her testte nesneyi değiştirmek
