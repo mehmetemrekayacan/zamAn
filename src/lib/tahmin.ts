@@ -6,8 +6,11 @@ export function getTahmin150Saat(
   sessions: StudySession[]
 ): string | null {
   if (sessions.length === 0) return null
+  return getTahminFromStatistics(buildStudyStatistics(sessions))
+}
+
+export function getTahminFromStatistics(stats: Pick<ReturnType<typeof buildStudyStatistics>, 'totalSeconds' | 'dailySeconds'>): string | null {
   const hedefSn = 150 * 3600 // 540 000 sn = 150 saat
-  const stats = buildStudyStatistics(sessions)
   const toplamSn = stats.totalSeconds
   if (toplamSn <= 0) return null
   if (toplamSn >= hedefSn) return '150 saate ulaştın! Tebrikler 🎉'

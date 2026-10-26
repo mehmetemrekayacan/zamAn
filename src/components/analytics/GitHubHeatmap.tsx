@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import { useSessionsStore } from '../../store/sessions'
+import { useStudyStatistics } from '../../lib/useStudyStatistics'
 
 import { formatSeconds, getLocalDateString, startOfLocalWeek } from '../../lib/time'
-import { buildStudyStatistics, dailyStudyWindow } from '../../lib/studyStatistics'
+import { dailyStudyWindow } from '../../lib/studyStatistics'
 import { dateForCalendar, useLocalCalendar } from '../../lib/localCalendarClock'
 
 type HeatCell = { key: string; date: Date; minutes: number; levelClass: string }
@@ -17,12 +17,11 @@ function levelFromMinutes(minutes: number) {
 }
 
 export function GitHubHeatmap() {
-  const sessions = useSessionsStore((state) => state.sessions)
+  const stats = useStudyStatistics()
 
   const calendar = useLocalCalendar()
   const { weeks, totalMinutes } = useMemo(() => {
     const now = dateForCalendar(calendar)
-    const stats = buildStudyStatistics(sessions, now)
     const cells: HeatCell[] = dailyStudyWindow(stats.dailySeconds, 365, now).map(({ dayKey, date, seconds }) => ({
       key: dayKey, date, minutes: seconds / 60, levelClass: levelFromMinutes(seconds / 60),
     }))
@@ -33,7 +32,7 @@ export function GitHubHeatmap() {
     }
     const weeks: HeatWeek[] = [...groups].map(([key, days]) => ({ key, days }))
     return { weeks, totalMinutes: Math.round(cells.reduce((sum, cell) => sum + cell.minutes, 0)) }
-  }, [sessions, calendar])
+  }, [stats, calendar])
 
   return (
     <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">

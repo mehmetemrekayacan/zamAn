@@ -97,7 +97,10 @@ export function dailyStudyWindow(daily: Map<string, number>, count: number, now 
 }
 
 export function getStudySummary(sessions: SessionRecord[], now = new Date()) {
-  const stats = buildStudyStatistics(sessions, now)
+  return summarizeStudyStatistics(buildStudyStatistics(sessions, now), now)
+}
+
+export function summarizeStudyStatistics(stats: ReturnType<typeof buildStudyStatistics<SessionRecord>>, now = new Date()) {
   const todayKey = getLocalDateString(now)
   const sumFrom = (from: Date) => [...stats.dailySeconds].reduce((total, [day, seconds]) => total + (localDateFromKey(day) >= from ? seconds : 0), 0)
   const completedFrom = (from: Date) => stats.completed.filter((session) => sessionCompletedAt(session)! >= from)

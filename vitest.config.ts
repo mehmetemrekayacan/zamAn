@@ -1,6 +1,10 @@
 import { defineConfig } from 'vitest/config'
+import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
+  resolve: {
+    alias: { 'virtual:pwa-register/react': fileURLToPath(new URL('./src/test/helpers/pwa.ts', import.meta.url)) },
+  },
   // Testler .env.local içindeki gerçek Supabase yapılandırmasını yüklemez.
   envDir: false,
   test: {

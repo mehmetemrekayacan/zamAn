@@ -2,15 +2,10 @@ import { DailyStudyChart } from './DailyStudyChart'
 import { ProductiveHoursChart } from './ProductiveHoursChart'
 import { DenemeNetTrendChart } from './DenemeNetTrendChart'
 import { GitHubHeatmap } from './GitHubHeatmap'
-import { useMemo } from 'react'
-import { useSessionsStore } from '../../store/sessions'
-import { buildStudyStatistics } from '../../lib/studyStatistics'
-import { dateForCalendar, useLocalCalendar } from '../../lib/localCalendarClock'
+import { useStudyStatistics } from '../../lib/useStudyStatistics'
 
 export function AnalyticsPage() {
-  const sessions = useSessionsStore((state) => state.sessions)
-  const calendar = useLocalCalendar()
-  const legacyCount = useMemo(() => buildStudyStatistics(sessions, dateForCalendar(calendar)).legacySessions, [sessions, calendar])
+  const legacyCount = useStudyStatistics().legacySessions
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">

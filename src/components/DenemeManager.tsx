@@ -170,6 +170,7 @@ const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: Den
 interface DenemeManagerProps {
   onClose: () => void
 }
+const PAGE_SIZE = 20
 
 export function DenemeManager({ onClose }: DenemeManagerProps) {
   const sessions = useSessionsStore((s) => s.sessions)
@@ -177,6 +178,7 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
   const deleteSession = useSessionsStore((s) => s.deleteSession)
 
   const [filterName, setFilterName] = useState('all')
+  const [requestedPage, setRequestedPage] = useState(1)
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
 
   const handleRequestDelete = useCallback((id: string) => {
@@ -214,6 +216,12 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
     return denemeSessions.filter((s) => getDenemeTemplateName(s) === filterName)
   }, [denemeSessions, filterName])
 
+  const pageCount = Math.max(1, Math.ceil(filteredSessions.length / PAGE_SIZE))
+  // Son sayfadaki kayıt silinirse boş bir sayfada kalma.
+  const page = Math.min(requestedPage, pageCount)
+  const pageStart = (page - 1) * PAGE_SIZE
+  const visibleSessions = filteredSessions.slice(pageStart, pageStart + PAGE_SIZE)
+
   return (
     <div className="mx-auto w-full max-w-2xl flex flex-col gap-6">
       {/* Başlık + Geri butonu */}
@@ -235,7 +243,7 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
         <div className="relative">
           <select
             value={filterName}
-            onChange={(e) => setFilterName(e.target.value)}
+            onChange={(e) => { setFilterName(e.target.value); setRequestedPage(1) }}
             className="w-full appearance-none rounded-xl border border-text-primary/10 bg-surface-700 px-4 py-2.5 pr-10 text-sm font-medium text-text-primary shadow-sm focus:border-secondary/50 focus:outline-none"
           >
             <option value="all">Tüm Denemeler</option>
@@ -268,7 +276,7 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {filteredSessions.map((session) => (
+          {visibleSessions.map((session) => (
             <DenemeCard
               key={session.id}
               session={session}
@@ -277,6 +285,17 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
             />
           ))}
         </div>
+      )}
+
+      {filteredSessions.length > PAGE_SIZE && (
+        <nav aria-label="Deneme sayfaları" className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <span className="text-text-muted" aria-live="polite">{pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filteredSessions.length)} / {filteredSessions.length} deneme</span>
+          <div className="flex items-center gap-3">
+            <button type="button" disabled={page === 1} onClick={() => setRequestedPage(page - 1)} className="rounded-full border border-text-primary/15 px-4 py-2 text-text-primary disabled:opacity-40">Önceki</button>
+            <span className="text-text-muted">{page} / {pageCount}</span>
+            <button type="button" disabled={page === pageCount} onClick={() => setRequestedPage(page + 1)} className="rounded-full border border-text-primary/15 px-4 py-2 text-text-primary disabled:opacity-40">Sonraki</button>
+          </div>
+        </nav>
       )}
 
       {/* Silme onay modalı */}

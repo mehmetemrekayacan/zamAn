@@ -2,7 +2,7 @@
 
 Oluşturulma: 24 Ekim 2026.
 Dayanak: [Teknik inceleme](INCELEME-2026-10-24.md).
-Durum: İnceleme ve 1–6. aşamaların kod çalışması tamamlandı. Kullanıcı 5. aşamanın Vercel yayını ve manuel kontrollerinin başarılı olduğunu bildirdi. 6. aşamanın canlı çalışma aralığı geçişi doğrulandı; yeni frontend yayını bekliyor. Sonuçlar: [Test altyapısı](TEST-ALTYAPISI.md), [seans yaşam döngüsü](ASAMA-5-SEANS-YASAM-DONGUSU.md), [tarih ve istatistik](ASAMA-6-TARIH-ISTATISTIK.md). Son güncelleme: 26 Ekim 2026.
+Durum: İnceleme ve 1–7. aşamaların kod çalışması tamamlandı. Kullanıcı 5 ve 6. aşamaların Vercel yayını ve manuel kontrollerinin başarılı olduğunu bildirdi. 7. aşamanın ölçümleri ve otomatik kontrolleri tamam; yayın ve manuel kabul bekliyor. Sonuçlar: [Test altyapısı](TEST-ALTYAPISI.md), [seans yaşam döngüsü](ASAMA-5-SEANS-YASAM-DONGUSU.md), [tarih ve istatistik](ASAMA-6-TARIH-ISTATISTIK.md), [performans](ASAMA-7-PERFORMANS.md). Son güncelleme: 26 Ekim 2026.
 
 Amaç: Mevcut verileri korumak, sayaç ve istatistikleri doğru çalıştırmak, ardından ölçülebilir performans iyileştirmesi yapmak.
 
@@ -128,8 +128,8 @@ Tamamlanma ölçütü: Otomatik kontroller geçer; erişilebilen platformlarda t
 - [x] 4. Senkronizasyon ve silme — kod, canlı veritabanı geçişi ve protokol kontrolleri tamam
 - [ ] 4. aşama gerçek cihaz kabulü — Vercel yayını kullanıcı tarafından tamamlandı; iki fiziksel cihaz testi raporlanmadı
 - [x] 5. Seans yaşam döngüsü ve kurtarma — kod/testler tamam; kullanıcı yayın ve önerilen manuel kontrolleri doğruladı
-- [x] 6. Tarih ve istatistik doğruluğu — kod/testler ve canlı ek migration tamam; frontend yayını bekliyor
-- [ ] 7. Performans
+- [x] 6. Tarih ve istatistik doğruluğu — kod/testler ve canlı ek migration tamam; kullanıcı yayın ve manuel kontrolleri doğruladı
+- [x] 7. Performans — kod, önce/sonra ölçümleri ve 297 test tamam; Vercel yayını ve manuel kabul bekliyor
 - [ ] 8. Kullanım akışı ve sürüm doğrulama
 
-Sıradaki iş: 7. aşamada sayaç render/yazma sıklığı, açılış paketi ve çok kayıtlı kullanımın ölçülüp iyileştirilmesi. 6. aşamanın frontend yayını ve gerçek cihaz kabulü ayrıca takip edilecek.
+Sıradaki iş: 7. aşamanın Vercel yayını ve [manuel kabul listesi](ASAMA-7-PERFORMANS.md). Ardından 8. aşamada kullanım akışı, kalan lint hataları ve platform/sürüm doğrulaması. İki fiziksel cihaz senkron kabulü ayrıca takip ediliyor.

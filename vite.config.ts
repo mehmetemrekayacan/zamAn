@@ -13,7 +13,8 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
+            // react-is vb. grafik yardımcıları grafiklerle birlikte kalır.
+            if (/node_modules[/\\](react|react-dom|scheduler)[/\\]/.test(id)) {
               return 'react-vendor'
             }
             if (id.includes('zustand')) {

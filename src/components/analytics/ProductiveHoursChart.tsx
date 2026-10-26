@@ -8,18 +8,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useSessionsStore } from '../../store/sessions'
-
-import { buildStudyStatistics } from '../../lib/studyStatistics'
-import { dateForCalendar, useLocalCalendar } from '../../lib/localCalendarClock'
+import { useStudyStatistics } from '../../lib/useStudyStatistics'
 import { formatSeconds } from '../../lib/time'
 
 export function ProductiveHoursChart() {
-  const sessions = useSessionsStore((state) => state.sessions)
-  const calendar = useLocalCalendar()
-  const data = useMemo(() => buildStudyStatistics(sessions, dateForCalendar(calendar)).hourSeconds.map((seconds, hour) => ({
+  const stats = useStudyStatistics()
+  const data = useMemo(() => stats.hourSeconds.map((seconds, hour) => ({
     hour, label: `${String(hour).padStart(2, '0')}:00`, minutes: seconds / 60,
-  })), [sessions, calendar])
+  })), [stats])
 
   return (
     <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">

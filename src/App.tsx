@@ -1,9 +1,10 @@
-import { useMemo, useState, useEffect, useLayoutEffect, useCallback, useRef, useSyncExternalStore } from 'react'
+import { lazy, useMemo, useState, useEffect, useLayoutEffect, useCallback, useRef, useSyncExternalStore } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useTimerStore } from './store/timer'
 import { useSessionsStore } from './store/sessions'
 import { useSettingsStore } from './store/settings'
 import { getUnvan } from './lib/scoring'
-import { getTahmin150Saat } from './lib/tahmin'
+import { getTahminFromStatistics } from './lib/tahmin'
 import { syncCloud } from './lib/cloudSync'
 import { getRozetler } from './lib/rozetler'
 import { initDb } from './lib/db'
@@ -20,13 +21,11 @@ import { SessionHistory } from './components/SessionHistory'
 import { CareerPanel } from './components/CareerPanel'
 import { BottomSheet } from './components/BottomSheet'
 import { FinishScreen } from './components/FinishScreen'
-import { SettingsModal } from './components/SettingsModal'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { Toast } from './components/Toast'
-import { AnalyticsPage } from './components/analytics/AnalyticsPage'
 import { TimerTitleAndTraySync } from './components/TimerTitleAndTraySync'
 import { MiniPlayer } from './components/MiniPlayer'
-import { DenemeManager } from './components/DenemeManager'
+import { LazyContent } from './components/LazyContent'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import type { ModeConfig } from './types'
 import { getSupabase } from './lib/supabase'
@@ -35,8 +34,15 @@ import { activateAccount } from './lib/accountLifecycle'
 import { getScopedStorage } from './lib/accountStorage'
 import { saveFinishedSession } from './lib/saveFinishedSession'
 import { blockTimerControls, runTimerShortcut } from './lib/timerControls'
-import { getStudySummary } from './lib/studyStatistics'
+import { summarizeStudyStatistics } from './lib/studyStatistics'
+import { useStudyStatistics } from './lib/useStudyStatistics'
 import { dateForCalendar, useLocalCalendar } from './lib/localCalendarClock'
+
+const SettingsModal = lazy(() => import('./components/SettingsModal').then(module => ({ default: module.SettingsModal })))
+const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage').then(module => ({ default: module.AnalyticsPage })))
+const DenemeManager = lazy(() => import('./components/DenemeManager').then(module => ({ default: module.DenemeManager })))
+
+const viewLoading = <div role="status" className="p-6 text-sm text-text-muted">Yükleniyor…</div>
 
 /* ─── helpers ─── */
 
@@ -173,10 +179,10 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
   })
 
   /* ── stores ── */
-  const sessions = useSessionsStore((s) => s.sessions)
+  const statistics = useStudyStatistics()
   const syncStatusById = useSessionsStore((s) => s.syncStatusById)
   const refreshSyncStatuses = useSessionsStore((s) => s.refreshSyncStatuses)
-  const settings = useSettingsStore()
+  const settings = useSettingsStore(useShallow(s => ({ tema: s.tema, kısayollar: s.kısayollar, kullaniciAdi: s.kullaniciAdi, sinavTarihi: s.sinavTarihi })))
 
   const {
     mode,
@@ -203,7 +209,18 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
     finishForm,
     updateFinishForm,
     completeFinishedSession,
-  } = useTimerStore()
+  } = useTimerStore(useShallow(s => ({
+    mode: s.mode, modeConfig: s.modeConfig, status: s.status,
+    currentSectionIndex: s.currentSectionIndex, workBreakPhase: s.workBreakPhase,
+    dersCycle: s.dersCycle, pauses: s.pauses,
+    start: s.start, pause: s.pause, resume: s.resume, reset: s.reset,
+    setModeConfig: s.setModeConfig, jumpToSection: s.jumpToSection,
+    finishEarly: s.finishEarly, finishBreakEarly: s.finishBreakEarly,
+    recoverSession: s.recoverSession, continueRecoveredSession: s.continueRecoveredSession,
+    finishRecoveredSession: s.finishRecoveredSession, discardRecoveredSession: s.discardRecoveredSession,
+    finishedSession: s.finishedSession, finishScore: s.finishScore, finishForm: s.finishForm,
+    updateFinishForm: s.updateFinishForm, completeFinishedSession: s.completeFinishedSession,
+  })))
   const denemeAdi = finishForm?.examName ?? ''
   const setDenemeAdi = (examName: string) => updateFinishForm({ examName })
 
@@ -434,7 +451,7 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
   }, [settings.kısayollar, status, primaryAction, mode, setModeConfig, savedDenemeConfig, showSettings, showRecoveryModal, activeView, showToast, examStartTime, examDurationMinutes])
 
   const summary = useMemo(() => {
-    const stats = getStudySummary(sessions, dateForCalendar(calendar))
+    const stats = summarizeStudyStatistics(statistics, dateForCalendar(calendar))
     const lastSessions = [...stats.completed].sort((a, b) => Date.parse(b.tarihISO) - Date.parse(a.tarihISO)).slice(0, 10)
     const toplamKariyerPuan = stats.completed.reduce((sum, session) => sum + session.puan, 0)
     const gunluk5SaatGunSayisi = [...stats.dailySeconds.values()].filter((seconds) => seconds >= 5 * 3600).length
@@ -444,10 +461,10 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
       weekMinutes: Math.round(stats.weekSeconds / 60), weekSessions: stats.weekSessions.length,
       monthMinutes: Math.round(stats.monthSeconds / 60), monthSessions: stats.monthSessions.length,
       avgScoreMonth: stats.avgScoreMonth, lastSessions, toplamKariyerPuan,
-      unvan: getUnvan(toplamKariyerPuan), tahmin: getTahmin150Saat(stats.completed),
+      unvan: getUnvan(toplamKariyerPuan), tahmin: getTahminFromStatistics(stats),
       rozetler: getRozetler({ gunluk5SaatGunSayisi, streak: stats.streak, toplamKariyerPuan, monthSeconds: stats.monthSeconds, sessions: stats.completed }),
     }
-  }, [sessions, calendar])
+  }, [statistics, calendar])
 
   const statsData = useMemo(() => [
     { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} tamamlanan seans`, tone: 'primary' as const },
@@ -680,13 +697,15 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
             </BottomSheet>
           </>
         ) : activeView === 'analytics' ? (
-          <AnalyticsPage />
+          <LazyContent key="analytics" fallback={viewLoading} onClose={() => setActiveView('timer')}><AnalyticsPage /></LazyContent>
         ) : (
-          <DenemeManager onClose={() => setActiveView('timer')} />
+          <LazyContent key="deneme" fallback={viewLoading} onClose={() => setActiveView('timer')}><DenemeManager onClose={() => setActiveView('timer')} /></LazyContent>
         )}
 
         {/* Settings Modal */}
-        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+        {showSettings && <LazyContent onClose={() => setShowSettings(false)} fallback={
+          <div role="status" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 text-text-primary">Ayarlar yükleniyor…</div>
+        }><SettingsModal onClose={() => setShowSettings(false)} /></LazyContent>}
 
         {/* Session Recovery Modal */}
         {showRecoveryModal && (

@@ -8,22 +8,21 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useSessionsStore } from '../../store/sessions'
+import { useStudyStatistics } from '../../lib/useStudyStatistics'
 
-import { buildStudyStatistics, dailyStudyWindow } from '../../lib/studyStatistics'
+import { dailyStudyWindow } from '../../lib/studyStatistics'
 import { dateForCalendar, useLocalCalendar } from '../../lib/localCalendarClock'
 import { formatSeconds } from '../../lib/time'
 
 export function DailyStudyChart() {
-  const sessions = useSessionsStore((state) => state.sessions)
+  const stats = useStudyStatistics()
   const calendar = useLocalCalendar()
   const data = useMemo(() => {
     const now = dateForCalendar(calendar)
-    const stats = buildStudyStatistics(sessions, now)
     return dailyStudyWindow(stats.dailySeconds, 30, now).map(({ dayKey, date, seconds }) => ({
       dayKey, dayLabel: date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }), minutes: seconds / 60,
     }))
-  }, [sessions, calendar])
+  }, [stats, calendar])
 
   return (
     <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">

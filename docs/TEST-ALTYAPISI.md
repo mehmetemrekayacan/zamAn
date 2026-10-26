@@ -10,6 +10,8 @@
 | `npm run test:unit` | Geriye uyumlu, tüm testleri çalıştıran eşdeğer komut |
 | `npm run test:unit:watch` | İzleme modu |
 | `npm run test:data` | Veri katmanı ve izolasyon testleri |
+| `npm run test:performance` | Tek worker ile render/yazma, liste ve ortak hesap ölçümleri; React gezinme kontrolleri |
+| `npm run measure:bundle` | Üretim derlemesi + manifest üzerinden başlangıç JS ölçümü |
 | `npm run test:sync` | PGlite üzerinde SQL, eski veri geçişi ve iki cihaz protokolü |
 | `npm run test:rozetler` | Rozet testleri |
 | `npm run typecheck` | Uygulama, test kodu, Vitest ayarları ve setup için TypeScript kontrolü |
@@ -27,6 +29,7 @@ kontrolleri Vitest'e aktarıldı.
 - `vitest.setup.ts`, gerçek SDK'nin `createClient` çağrısını hata verecek şekilde değiştirir. Her testte `fetch` de engellenir. Bir test yanlışlıkla bulut değişkenlerini etkinleştirse bile gerçek istemci kurulamaz.
 - `fake-indexeddb` yalnızca geliştirme bağımlılığıdır. Her test ayrı bir bellek içi IndexedDB fabrikasıyla başlar; tarayıcı profiline veya üretim veritabanına erişmez.
 - localStorage/sessionStorage bellekte tutulur ve her test öncesi temizlenir. Mock'lar, ortam değişkeni değişiklikleri ve sahte saatler test sonunda geri alınır.
+- 7. aşamadaki React testleri dosya başına jsdom ortamını kullanır; gerçek tarayıcı profiline erişmez. PWA sanal modülü kayıt başlatmayan test yardımcısına yönlendirilir. Node testlerinin window taklidi korunur, jsdom'un kendi window nesnesi değiştirilmez.
 - Testler ve yardımcılar Tailwind kaynak taramasından çıkarılmıştır; test verilerindeki kelimeler üretim CSS'i oluşturmaz.
 - Bu ortam gerçek tarayıcı, SQL migration'ları, RLS, işletim sistemi arka plan davranışı veya iki fiziksel cihaz için uçtan uca doğrulama sağlamaz.
 

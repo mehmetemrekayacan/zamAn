@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { createJSONStorage, persist } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 import { accountStorage } from '../lib/accountStorage'
 import { getLocalDateString } from '../lib/time'
 import type { ModeConfig, TimerSnapshot, FinishForm, SessionRecord } from '../types'
@@ -8,25 +8,31 @@ import { MODE_DEFAULTS } from '../lib/modeConfig'
 import { getTimerElapsedMs } from '../lib/timerMath'
 import { captureFinishedSession, emptyFinishForm, scoreFinishedSession } from '../lib/finishedSession'
 import { closeWorkIntervals } from '../lib/workIntervals'
+import { createTimerPersistence } from '../lib/timerPersistence'
 
 let worker: Worker | null = null
+// Diskten hydrate edilen "running", bu sayfada başlatılmış sayaç değildir.
+let timerActiveInPage = false
 function startWorker(onTick: () => void) {
+  timerActiveInPage = true
   if (typeof Worker === 'undefined') return
   worker ??= new Worker(new URL('../lib/timerWorker.ts', import.meta.url), { type: 'module' })
   worker.onmessage = (event: MessageEvent) => { if (event.data === 'tick') onTick() }
   worker.postMessage('start')
 }
 function stopWorker() {
+  timerActiveInPage = false
   if (!worker) return
   worker.postMessage('stop')
   worker.onmessage = null
 }
 export function suspendTimerForAccountChange() {
-  useTimerStore.getState().syncTimer()
+  if (timerActiveInPage) useTimerStore.getState().syncTimer()
   stopWorker()
 }
 
 type TimerCoreState = TimerSnapshot & { modeConfig: ModeConfig; pomodoroRound: number; lastPomodoroDate: string }
+const timerPersistence = createTimerPersistence<Omit<TimerCoreState, 'running'>>()
 type GetState = () => TimerCoreState
 type SetState = (updates: Partial<TimerCoreState>) => void
 
@@ -287,7 +293,7 @@ export const useTimerStore = create<TimerState>()(
     },
 
     syncOnVisibilityChange: () => processTick(get, set),
-    syncTimer: () => processTick(get, set),
+    syncTimer: () => timerPersistence.checkpoint(() => processTick(get, set)),
     recoverSession: () => {
       const state = get()
       if (state.status !== 'running' && state.status !== 'paused') return false
@@ -356,7 +362,7 @@ export const useTimerStore = create<TimerState>()(
     },
   }), {
     name: 'timer-storage',
-    storage: createJSONStorage(() => accountStorage),
+    storage: timerPersistence.storage,
     merge: (persisted, current) => ({ ...current, ...initialTimerState(), ...(persisted as object) }),
     partialize: (state) => ({
       status: state.status, mode: state.mode, modeConfig: state.modeConfig,

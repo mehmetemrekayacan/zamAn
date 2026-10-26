@@ -15,7 +15,7 @@ vi.mock('@supabase/supabase-js', () => ({
 // yerine içeriğini temizleriz. Tarayıcının depolamasına erişim yoktur.
 globalThis.localStorage = createMemoryStorage()
 globalThis.sessionStorage = createMemoryStorage()
-globalThis.window = globalThis as typeof globalThis & Window
+if (typeof window === 'undefined') globalThis.window = globalThis as typeof globalThis & Window
 
 globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => (
   setTimeout(() => callback(performance.now()), 0) as unknown as number
