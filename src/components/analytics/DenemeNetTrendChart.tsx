@@ -105,7 +105,7 @@ export function DenemeNetTrendChart() {
   }, [denemeSessions, effectiveTemplateName])
 
   return (
-    <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 flex flex-col min-h-[380px]">
+    <div className="min-w-0 w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4 flex flex-col min-h-[380px]">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Deneme ve Sınav Net Trendi</h3>
@@ -135,7 +135,7 @@ export function DenemeNetTrendChart() {
         )}
       </div>
 
-      <div className="w-full h-72 min-h-[300px] mt-2">
+      <div className="min-w-0 w-full h-[300px] shrink-0 mt-2">
         {/* Empty State */}
         {templateStats.length === 0 ? (
           <div className="h-full w-full flex flex-col items-center justify-center p-8 text-center rounded-xl border border-dashed border-muted/20 bg-surface-900/40">
@@ -154,7 +154,7 @@ export function DenemeNetTrendChart() {
             </p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={300} minWidth={0}>
             <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis

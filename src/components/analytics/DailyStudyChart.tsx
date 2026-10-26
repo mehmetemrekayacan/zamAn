@@ -25,14 +25,14 @@ export function DailyStudyChart() {
   }, [stats, calendar])
 
   return (
-    <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
+    <div className="min-w-0 w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">Son 30 Gün · Günlük Çalışma</h3>
         <span className="text-xs text-muted">Dakika</span>
       </div>
 
-      <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="min-w-0 w-full">
+        <ResponsiveContainer width="100%" height={288} minWidth={0}>
           <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis

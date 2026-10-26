@@ -8,6 +8,27 @@ Sonraki durum: Kullanıcı 1.2.5'i yayımladı; site açılırken konsoldaki Aut
 kilidi hatasını paylaştı. [Auth kilidi düzeltmesi](AUTH-KILIT-DUZELTMESI.md)
 yerel olarak hazırlandı; yeniden yayın ve Firefox kontrolü bekliyor.
 
+Bir sonraki kontrolde kullanıcı Auth/LockManager hatalarının görünmediğini
+bildirdi. Üç istatistik grafiğindeki başlangıç boyutu uyarıları ayrıca
+düzeltildi: 288/300 px yükseklik doğrudan grafik kapsayıcısına veriliyor;
+genişlik ResizeObserver ile ölçülüyor ve kartlar `min-w-0` ile daralabiliyor.
+Gerçek Recharts bileşenleriyle üç testte eski uyarı önce üretildi; düzeltmeden
+sonra sıfır ölçü, görünür olma, 640 → 280 px daralma ve tekrar gizlenme
+doğrulandı. Konsol uyarıları bastırılmadı. Bu grafik değişikliği yeniden
+Vercel yayını ve tarayıcı kontrolü gerektirir.
+[Recharts boyutlandırma belgeleri](https://recharts.github.io/en-US/api/ResponsiveContainer/).
+
+Grafik düzeltmesinde üç boyut testi ve iki gerçek ekran gezinme/hata testi
+başarılı; artık bu gezinme testinde boyut uyarısı da üretilmiyor. TypeScript,
+genel ESLint ve web/PWA üretim derlemesi başarılı. Tam paket önceki Auth
+düzeltmesinde 330 test olarak doğrulanmıştı; bu küçük grafik değişikliğinde
+ilgili beş test çalıştırıldı. Fiziksel tarayıcı kabulü yeniden yayın sonrası.
+
+Kalan stil uyarısı için kullanıcı `document.body.scrollHeight >= 32 &&`
+satırını paylaştı. Bu ifade proje/bağımlılık kaynak taramasında bulunmadı;
+`index.js` dosyasının tam kaynak adresi olmadan eklenti/site kökeni
+kesinleştirilmedi. Stil uyarısını bastırmak için kod eklenmedi.
+
 ## Düzeltilen davranışlar
 
 - Ayarlar (paketi yüklenirken ve yükleme hatasında da), Ünvanlar, seans

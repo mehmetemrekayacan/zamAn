@@ -4,6 +4,9 @@
 `Acquiring an exclusive Navigator LockManager lock ... immediately failed`
 hatası bildirdi. Paylaşılan stack otomatik Auth token yenilemesine gidiyor.
 
+Sonraki durum: Kullanıcı son yayının ardından bu hataların artık
+görünmediğini bildirdi; kalan grafik boyutu uyarıları ayrı düzeltildi.
+
 ## Doğrulananlar ve sınır
 
 Kurulu `supabase-js`/`auth-js` sürümü 2.98.0. Varsayılan kilit fonksiyonunda
