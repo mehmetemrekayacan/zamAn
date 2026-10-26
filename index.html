@@ -16,7 +16,17 @@
     <title>zamAn</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-startup" style="max-width:36rem;margin:15vh auto;padding:1.5rem;font:16px/1.6 system-ui">
+        <p role="status" id="app-startup-message">Uygulama yükleniyor…</p>
+        <div id="app-startup-recovery" hidden>
+          <p>Uygulama dosyaları yüklenemedi. İnternet bağlantını kontrol et. Seansların korunarak uygulama önbelleği yenilenebilir.</p>
+          <button id="app-startup-retry" type="button">Uygulamayı onar ve yeniden aç</button>
+        </div>
+      </div>
+    </div>
+    <!-- React veya vendor paketi yüklenemese de kurtarma düğmesi çalışır. -->
+    <script src="/app-recovery.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

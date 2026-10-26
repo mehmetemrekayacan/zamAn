@@ -13,6 +13,13 @@ function visit(key) {
 }
 visit(entry)
 const files = [...visited].map(key => manifest[key].file).filter(file => file.endsWith('.js'))
+// React'ten bağımsız başlangıç/kurtarma scriptleri de açılış JS maliyetidir.
+const html = readFileSync('dist/index.html', 'utf8')
+for (const script of html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/g)) {
+  if (/\btype=["']module["']/.test(script[0]) || /^https?:\/\//.test(script[1])) continue
+  const file = new URL(script[1], 'https://build.local/').pathname.slice(1)
+  if (file.endsWith('.js') && !files.includes(file)) files.push(file)
+}
 const bytes = files.reduce((sum, file) => sum + statSync(`dist/${file}`).size, 0)
 const gzipBytes = files.reduce((sum, file) => sum + gzipSync(readFileSync(`dist/${file}`)).length, 0)
 const result = { initialJsBytes: bytes, initialJsGzipBytes: gzipBytes, files }

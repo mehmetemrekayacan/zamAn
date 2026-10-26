@@ -47,16 +47,10 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        runtimeCaching: [
-          {
-            urlPattern: ({ request }) => request.destination === 'document' || request.destination === 'script' || request.destination === 'style',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'app-shell',
-              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 },
-            },
-          },
-        ],
+        // Tüm uygulama paketleri zaten sürümlü precache'te. Aynı dosyaları
+        // ikinci bir NetworkFirst deposuna koymak sürümleri karıştırabilir.
+        // Uygulamanın ekranları kök URL'dedir; eksik JS/CSS'ye HTML döndürme.
+        navigateFallbackAllowlist: [/^\/(?:index\.html)?(?:\?.*)?$/],
       },
       devOptions: {
         enabled: false, // Disable plugin in dev, use manual manifest instead

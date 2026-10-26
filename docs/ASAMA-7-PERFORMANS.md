@@ -2,6 +2,8 @@
 
 26 Ekim 2026. Yerel kod ve otomatik kontroller tamamlandı; Vercel yayını ve aşağıdaki manuel kabul kullanıcı tarafından yapılacak. Bu aşama veritabanı migration'ı gerektirmez.
 
+Sonraki durum: Kullanıcı yayını ve manuel kontrolleri doğruladı; ardından Service Worker dosya yükleme hatası bildirdi. [PWA yayın düzeltmesi](PWA-YAYIN-DUZELTMESI.md) hazır; bu ek düzeltmenin yeniden yayını bekliyor. Aşağıdaki tablo ilk performans değişikliğinin ölçümleridir; ek kurtarma scriptini içeren güncel ölçüm düzeltme belgesindedir.
+
 ## Önce / sonra
 
 | Ölçüm | Önce | Sonra |
