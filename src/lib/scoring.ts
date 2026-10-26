@@ -1,5 +1,5 @@
 import type { SessionRecord, Mode } from '../types'
-import { getLocalDateString } from './time'
+import { buildStudyStatistics, currentStudyStreak } from './studyStatistics'
 
 /**
  * Gelişmiş Puanlama Sistemi v2
@@ -63,26 +63,9 @@ export function calculateStreakBonus(streakDays: number): number {
  * @param sessions Seans dizisi
  * @param todayHasSessions Bugün seans var mı (opsiyonel — verilmezse sessions'tan bakılır)
  */
-export function calculateStreak(sessions: SessionRecord[], todayHasSessions?: boolean): number {
-  const today = getLocalDateString()
-  const hasTodaySession = todayHasSessions ?? sessions.some(s => s.tarihISO.startsWith(today))
-  if (!hasTodaySession) return 0
-
-  let streak = 1
-  const checkDate = new Date()
-  checkDate.setHours(0, 0, 0, 0)
-
-  for (let i = 1; i <= 365; i++) {
-    checkDate.setDate(checkDate.getDate() - 1)
-    const checkDateStr = getLocalDateString(checkDate)
-    const hasSessions = sessions.some(s => s.tarihISO.startsWith(checkDateStr))
-    if (hasSessions) {
-      streak++
-    } else {
-      break
-    }
-  }
-  return streak
+export function calculateStreak(sessions: SessionRecord[], todayHasSessions?: boolean, now = new Date()): number {
+  const daily = buildStudyStatistics(sessions, now).dailySeconds
+  return currentStudyStreak([...daily].filter(([, seconds]) => seconds > 0).map(([day]) => day), now, todayHasSessions)
 }
 
 /**

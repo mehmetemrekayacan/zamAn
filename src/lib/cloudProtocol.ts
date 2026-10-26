@@ -13,7 +13,7 @@ export async function ensureSyncProtocol(client: SupabaseClient, scope: DataScop
     if (['PGRST202', '42883'].includes(error.code)) throw new Error(UPGRADE_MESSAGE)
     throw new Error(error.message)
   }
-  if (data?.version !== 3) throw new Error(UPGRADE_MESSAGE)
+  if (data?.version !== 3 || !Array.isArray(data.features) || !data.features.includes('work_intervals')) throw new Error(UPGRADE_MESSAGE)
   checked.add(scope)
 }
 

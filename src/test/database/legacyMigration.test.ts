@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import type { PGlite } from '@electric-sql/pglite'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createProtocolDatabase, SQL_USER } from '../helpers/postgres'
+import { createProtocolDatabase, SQL_USER, WORK_INTERVAL_MIGRATION } from '../helpers/postgres'
 import { makeSession } from '../helpers/fixtures'
 
 const OTHER_USER = '22222222-2222-4222-8222-222222222222'
@@ -65,6 +65,7 @@ describe('eski sync_data geçişi', () => {
   it('migration tekrarında yeni sürüm, kopya veya değişen kaynak üretmez', async () => {
     const before = (await pg.query('select * from public.sessions order by user_id,id')).rows
     await pg.exec(readFileSync('database/supabase-v3-sync.sql', 'utf8'))
+    await pg.exec(readFileSync(WORK_INTERVAL_MIGRATION, 'utf8'))
     expect((await pg.query('select * from public.sessions order by user_id,id')).rows).toEqual(before)
   })
 

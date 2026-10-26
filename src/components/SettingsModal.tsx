@@ -21,6 +21,7 @@ import { useSettingsStore } from '../store/settings'
 import { useSessionsStore } from '../store/sessions'
 import { usePwaInstallStore } from '../store/pwaInstall'
 import { isElectron, toggleAlwaysOnTop, toggleMiniPlayer } from '../lib/electronBridge'
+import { getLocalDateString } from '../lib/time'
 
 export interface SettingsModalProps {
   onClose: () => void
@@ -243,7 +244,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `zaman-eski-islemler-${new Date().toISOString().slice(0, 10)}.json`
+      anchor.download = `zaman-eski-islemler-${getLocalDateString()}.json`
       anchor.click()
       URL.revokeObjectURL(url)
     } catch (error) {

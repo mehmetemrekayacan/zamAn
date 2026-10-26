@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { getSelam, getSinavKalanGun } from '../lib/selam'
+import { useLocalCalendar } from '../lib/localCalendarClock'
 
 export interface DashboardHeaderProps {
   kullaniciAdi: string
@@ -16,6 +17,7 @@ export const DashboardHeader = memo(function DashboardHeader({
   unvanText,
   onSettingsClick,
 }: DashboardHeaderProps) {
+  useLocalCalendar()
   const kalan = sinavTarihi ? getSinavKalanGun(sinavTarihi) : null
 
   return (

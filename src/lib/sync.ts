@@ -9,6 +9,7 @@ import type { SessionRecord } from '../types'
 import { assertCurrentScope, getDataScope } from './dataScope'
 import { getScopedStorage } from './accountStorage'
 import type { SyncConflict } from './syncProtocol'
+import { getLocalDateString } from './time'
 
 const EXPORT_VERSION = 2
 const TIMER_STORAGE_KEY = 'timer-storage'
@@ -53,7 +54,7 @@ export async function exportData(): Promise<Blob> {
  * İndirilecek dosya adı (tarayıcıda "indir" için).
  */
 export function exportFileName(): string {
-  return `zaman-yedek-${new Date().toISOString().slice(0, 10)}.json`
+  return `zaman-yedek-${getLocalDateString()}.json`
 }
 
 /** Sahibi bilinmeyen eski işlemler ham arşivdir; normal yedek gibi içe alınmaz. */

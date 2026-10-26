@@ -1,3 +1,5 @@
+import { calendarDayNumber, getLocalDateString, localDateFromKey } from './time'
+
 /** Saate göre selamlama (isim varsa kullan) */
 export function getSelam(kullaniciAdi: string): string {
   const ad = (kullaniciAdi || '').trim()
@@ -13,10 +15,9 @@ export function getSelam(kullaniciAdi: string): string {
 /** Sınav tarihine kalan gün (null ise tarih yok) */
 export function getSinavKalanGun(sinavTarihi: string | null): number | null {
   if (!sinavTarihi || !sinavTarihi.trim()) return null
-  const hedef = new Date(sinavTarihi)
-  const bugun = new Date()
-  hedef.setHours(0, 0, 0, 0)
-  bugun.setHours(0, 0, 0, 0)
-  const diff = Math.ceil((hedef.getTime() - bugun.getTime()) / (24 * 60 * 60 * 1000))
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(sinavTarihi)) return null
+  const hedef = localDateFromKey(sinavTarihi)
+  if (!Number.isFinite(hedef.getTime()) || getLocalDateString(hedef) !== sinavTarihi) return null
+  const diff = calendarDayNumber(sinavTarihi) - calendarDayNumber(getLocalDateString())
   return diff >= 0 ? diff : 0
 }

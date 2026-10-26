@@ -9,6 +9,8 @@ export default defineConfig({
     setupFiles: ['vitest.setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     env: {
+      // Takvim beklentileri çalıştıran bilgisayarın saat dilimine bağlı kalmaz.
+      TZ: 'Europe/Istanbul',
       VITE_SUPABASE_URL: '',
       VITE_SUPABASE_ANON_KEY: '',
     },

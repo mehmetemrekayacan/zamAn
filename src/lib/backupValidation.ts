@@ -1,5 +1,6 @@
 import type { ExportPayload } from './sync'
 import type { SyncConflict } from './syncProtocol'
+import { intervalDuration, validWorkIntervals } from './workIntervals'
 
 type Fields = Record<string, unknown>
 const MODES = ['serbest', 'gerisayim', 'ders60mola15', 'deneme', 'EXAM_SIMULATOR']
@@ -82,6 +83,7 @@ function session(value: unknown, path: string) {
   optionalFields(record, ['dogruSayisi', 'yanlisSayisi', 'bosSayisi'], count, path)
   optionalFields(record, ['not', 'templateId', 'templateName'], text, path)
   optionalFields(record, ['createdAt', 'updatedAt'], timestamp, path)
+  if (record.workIntervals != null) requireValue(validWorkIntervals(record.workIntervals, record.sureGercek as number, Date.parse(record.tarihISO as string)), `${path}.workIntervals`)
   if (record.denemeMolalarSaniye != null) {
     requireValue(Array.isArray(record.denemeMolalarSaniye) && record.denemeMolalarSaniye.every(number), `${path}.denemeMolalarSaniye`)
   }
@@ -130,10 +132,11 @@ function settings(value: unknown) {
 function timer(value: unknown) {
   const path = 'timerStorage'
   const state = persisted(value, path)
-  const numeric = ['elapsedMs', 'plannedMs', 'remainingMs', 'expectedEndTime', 'startWallTime', 'molaToplamMs', 'totalPauseDurationMs', 'pauseStartTs', 'lastTickTs', 'backgroundBreakStartTs', 'backgroundBreakPlannedMs', 'sessionStartedAt', 'checkpointAt']
+  const numeric = ['elapsedMs', 'plannedMs', 'remainingMs', 'expectedEndTime', 'startWallTime', 'molaToplamMs', 'totalPauseDurationMs', 'pauseStartTs', 'lastTickTs', 'backgroundBreakStartTs', 'backgroundBreakPlannedMs', 'sessionStartedAt', 'checkpointAt', 'activeWorkStartedAt']
   const counts = ['currentSectionIndex', 'dersCycle', 'pomodoroRound', 'pauses']
   const dates = ['dersCycleDate', 'lastPomodoroDate']
-  allowedKeys(state, [...numeric, ...counts, ...dates, 'status', 'mode', 'modeConfig', 'workBreakPhase', 'isOvertime', 'running', 'wasEarlyFinish', 'denemeMolalarSaniye', 'sessionId', 'recoveryPending', 'finishedSession', 'finishScore', 'finishForm'], path)
+  allowedKeys(state, [...numeric, ...counts, ...dates, 'status', 'mode', 'modeConfig', 'workBreakPhase', 'isOvertime', 'running', 'wasEarlyFinish', 'denemeMolalarSaniye', 'sessionId', 'recoveryPending', 'finishedSession', 'finishScore', 'finishForm', 'workIntervals'], path)
+  if (state.workIntervals != null) requireValue(validWorkIntervals(state.workIntervals), `${path}.workIntervals`)
   requireValue(MODES.includes(String(state.mode)), `${path}.mode`)
   const config = modeConfig(state.modeConfig, `${path}.modeConfig`)
   requireValue(config.mode === state.mode, `${path}.modeConfig.mode`)
@@ -147,11 +150,15 @@ function timer(value: unknown) {
   if (state.finishedSession != null) {
     const draftPath = `${path}.finishedSession`
     const draft = object(state.finishedSession, draftPath)
-    allowedKeys(draft, ['id','startedAt','endedAt','config','elapsedMs','plannedMs','pauses','totalPauseDurationMs','molaToplamMs','denemeMolalarSaniye','currentSectionIndex','wasEarlyFinish'], draftPath)
+    allowedKeys(draft, ['id','startedAt','endedAt','config','elapsedMs','plannedMs','pauses','totalPauseDurationMs','molaToplamMs','denemeMolalarSaniye','currentSectionIndex','wasEarlyFinish','workIntervals'], draftPath)
     requireValue(text(draft.id) && draft.id === state.sessionId, `${draftPath}.id`)
     requireValue(modeConfig(draft.config, `${draftPath}.config`).mode === state.mode, `${draftPath}.config.mode`)
     for (const key of ['startedAt','endedAt','elapsedMs','totalPauseDurationMs']) requireValue(number(draft[key]), `${draftPath}.${key}`)
     requireValue((draft.endedAt as number) >= (draft.startedAt as number), `${draftPath}.endedAt`)
+    if (draft.workIntervals != null) {
+      requireValue(validWorkIntervals(draft.workIntervals, undefined, draft.endedAt as number), `${draftPath}.workIntervals`)
+      requireValue(intervalDuration(draft.workIntervals) === draft.elapsedMs, `${draftPath}.workIntervals.duration`)
+    }
     requireValue(count(draft.pauses) && typeof draft.wasEarlyFinish === 'boolean', draftPath)
     optionalFields(draft, ['plannedMs','molaToplamMs'], number, draftPath)
     optionalFields(draft, ['currentSectionIndex'], count, draftPath)

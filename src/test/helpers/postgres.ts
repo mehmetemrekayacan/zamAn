@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { vi } from 'vitest'
 
 export const SQL_USER = '11111111-1111-4111-8111-111111111111'
+export const WORK_INTERVAL_MIGRATION = 'supabase/migrations/20261026150258_session_work_intervals.sql'
 
 export async function createProtocolDatabase(beforeMigration?: (pg: PGlite) => Promise<void>) {
   const windowShim = globalThis.window
@@ -21,6 +22,7 @@ export async function createProtocolDatabase(beforeMigration?: (pg: PGlite) => P
     await pg.exec(readFileSync('database/supabase-v2-sessions.sql','utf8'))
     await beforeMigration?.(pg)
     await pg.exec(readFileSync('database/supabase-v3-sync.sql','utf8'))
+    await pg.exec(readFileSync(WORK_INTERVAL_MIGRATION,'utf8'))
     return pg
   } finally { vi.stubGlobal('window', windowShim) }
 }

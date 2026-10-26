@@ -1,31 +1,12 @@
 import { useMemo } from 'react'
 import { useSessionsStore } from '../../store/sessions'
 
-type HeatCell = {
-  key: string
-  date: Date
-  minutes: number
-  levelClass: string
-}
+import { formatSeconds, getLocalDateString, startOfLocalWeek } from '../../lib/time'
+import { buildStudyStatistics, dailyStudyWindow } from '../../lib/studyStatistics'
+import { dateForCalendar, useLocalCalendar } from '../../lib/localCalendarClock'
 
-type HeatWeek = {
-  key: string
-  days: HeatCell[]
-}
-
-const DAYS = 365
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-}
-
-function toValidDate(raw?: string) {
-  const date = raw ? new Date(raw) : null
-  if (!date || Number.isNaN(date.getTime())) {
-    return null
-  }
-  return date
-}
+type HeatCell = { key: string; date: Date; minutes: number; levelClass: string }
+type HeatWeek = { key: string; days: HeatCell[] }
 
 function levelFromMinutes(minutes: number) {
   if (minutes <= 0) return 'opacity-20'
@@ -38,69 +19,21 @@ function levelFromMinutes(minutes: number) {
 export function GitHubHeatmap() {
   const sessions = useSessionsStore((state) => state.sessions)
 
+  const calendar = useLocalCalendar()
   const { weeks, totalMinutes } = useMemo(() => {
-    const now = new Date()
-    const today = startOfDay(now)
-    const startDate = new Date(today)
-    startDate.setDate(startDate.getDate() - (DAYS - 1))
-
-    const dailySeconds = new Map<string, number>()
-
-    for (let i = 0; i < DAYS; i += 1) {
-      const day = new Date(startDate)
-      day.setDate(startDate.getDate() + i)
-      dailySeconds.set(day.toISOString().slice(0, 10), 0)
-    }
-
-    for (const session of sessions) {
-      const date = toValidDate(session.createdAt ?? session.tarihISO)
-      if (!date || date < startDate || date > now) {
-        continue
-      }
-
-      const day = startOfDay(date)
-      const key = day.toISOString().slice(0, 10)
-      if (!dailySeconds.has(key)) {
-        continue
-      }
-
-      dailySeconds.set(key, (dailySeconds.get(key) ?? 0) + Math.max(session.sureGercek ?? 0, 0))
-    }
-
-    const cells: HeatCell[] = Array.from(dailySeconds.entries()).map(([key, seconds]) => {
-      const minutes = Math.round(seconds / 60)
-      const date = new Date(`${key}T00:00:00`)
-      return {
-        key,
-        date,
-        minutes,
-        levelClass: levelFromMinutes(minutes),
-      }
-    })
-
-    const weekGroups = new Map<string, HeatCell[]>()
+    const now = dateForCalendar(calendar)
+    const stats = buildStudyStatistics(sessions, now)
+    const cells: HeatCell[] = dailyStudyWindow(stats.dailySeconds, 365, now).map(({ dayKey, date, seconds }) => ({
+      key: dayKey, date, minutes: seconds / 60, levelClass: levelFromMinutes(seconds / 60),
+    }))
+    const groups = new Map<string, HeatCell[]>()
     for (const cell of cells) {
-      const weekStart = new Date(cell.date)
-      const dayOfWeek = weekStart.getDay()
-      weekStart.setDate(weekStart.getDate() - dayOfWeek)
-      const weekKey = weekStart.toISOString().slice(0, 10)
-      const existing = weekGroups.get(weekKey) ?? []
-      existing.push(cell)
-      weekGroups.set(weekKey, existing)
+      const key = getLocalDateString(startOfLocalWeek(cell.date))
+      groups.set(key, [...(groups.get(key) ?? []), cell])
     }
-
-    const weeksData: HeatWeek[] = Array.from(weekGroups.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([weekKey, days]) => ({
-        key: weekKey,
-        days: [...days].sort((a, b) => a.date.getDay() - b.date.getDay()),
-      }))
-
-    return {
-      weeks: weeksData,
-      totalMinutes: cells.reduce((sum, cell) => sum + cell.minutes, 0),
-    }
-  }, [sessions])
+    const weeks: HeatWeek[] = [...groups].map(([key, days]) => ({ key, days }))
+    return { weeks, totalMinutes: Math.round(cells.reduce((sum, cell) => sum + cell.minutes, 0)) }
+  }, [sessions, calendar])
 
   return (
     <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
@@ -117,8 +50,8 @@ export function GitHubHeatmap() {
                 <div
                   key={day.key}
                   className={`h-3.5 w-3.5 rounded-sm ${day.levelClass}`}
-                  style={{ backgroundColor: 'var(--success)' }}
-                  title={`${day.date.toLocaleDateString('tr-TR')}: ${day.minutes} dk`}
+                  style={{ backgroundColor: 'var(--success)', gridRow: ((day.date.getDay() + 6) % 7) + 1 }}
+                  title={`${day.date.toLocaleDateString('tr-TR')}: ${formatSeconds(Math.round(day.minutes * 60))}`}
                 />
               ))}
             </div>

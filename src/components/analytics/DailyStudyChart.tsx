@@ -10,79 +10,25 @@ import {
 } from 'recharts'
 import { useSessionsStore } from '../../store/sessions'
 
-type DailyStudyPoint = {
-  dayKey: string
-  dayLabel: string
-  minutes: number
-}
-
-const DAY_COUNT = 30
-
-function toSessionDate(sessionDateRaw?: string) {
-  const parsed = sessionDateRaw ? new Date(sessionDateRaw) : null
-  if (!parsed || Number.isNaN(parsed.getTime())) {
-    return null
-  }
-  return parsed
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-}
+import { buildStudyStatistics, dailyStudyWindow } from '../../lib/studyStatistics'
+import { dateForCalendar, useLocalCalendar } from '../../lib/localCalendarClock'
+import { formatSeconds } from '../../lib/time'
 
 export function DailyStudyChart() {
   const sessions = useSessionsStore((state) => state.sessions)
-
-  const data = useMemo<DailyStudyPoint[]>(() => {
-    const now = new Date()
-    const todayStart = startOfDay(now)
-    const startWindow = new Date(todayStart)
-    startWindow.setDate(startWindow.getDate() - (DAY_COUNT - 1))
-
-    const map = new Map<string, number>()
-
-    for (let i = 0; i < DAY_COUNT; i += 1) {
-      const day = new Date(startWindow)
-      day.setDate(startWindow.getDate() + i)
-      const key = day.toISOString().slice(0, 10)
-      map.set(key, 0)
-    }
-
-    for (const session of sessions) {
-      const baseDate = toSessionDate(session.createdAt ?? session.tarihISO)
-      if (!baseDate || baseDate < startWindow || baseDate > now) {
-        continue
-      }
-
-      const day = startOfDay(baseDate)
-      const key = day.toISOString().slice(0, 10)
-      if (!map.has(key)) {
-        continue
-      }
-
-      const nextSeconds = map.get(key)! + Math.max(session.sureGercek ?? 0, 0)
-      map.set(key, nextSeconds)
-    }
-
-    return Array.from(map.entries()).map(([dayKey, totalSeconds]) => {
-      const date = new Date(`${dayKey}T00:00:00`)
-      const dayLabel = date.toLocaleDateString('tr-TR', {
-        day: '2-digit',
-        month: 'short',
-      })
-
-      return {
-        dayKey,
-        dayLabel,
-        minutes: Math.round(totalSeconds / 60),
-      }
-    })
-  }, [sessions])
+  const calendar = useLocalCalendar()
+  const data = useMemo(() => {
+    const now = dateForCalendar(calendar)
+    const stats = buildStudyStatistics(sessions, now)
+    return dailyStudyWindow(stats.dailySeconds, 30, now).map(({ dayKey, date, seconds }) => ({
+      dayKey, dayLabel: date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }), minutes: seconds / 60,
+    }))
+  }, [sessions, calendar])
 
   return (
     <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Son 1 Ay Günlük Çalışma Süresi</h3>
+        <h3 className="text-sm font-semibold text-foreground">Son 30 Gün · Günlük Çalışma</h3>
         <span className="text-xs text-muted">Dakika</span>
       </div>
 
@@ -110,7 +56,7 @@ export function DailyStudyChart() {
                 borderRadius: '0.75rem',
                 color: 'var(--card-foreground)',
               }}
-              formatter={(value: number | string | undefined) => [`${Number(value ?? 0)} dk`, 'Çalışma']}
+              formatter={(value: number | string | undefined) => [formatSeconds(Math.round(Number(value ?? 0) * 60)), 'Çalışma']}
               labelFormatter={(label) => `Gün: ${label}`}
             />
             <Bar dataKey="minutes" radius={[8, 8, 0, 0]} fill="var(--primary)" />

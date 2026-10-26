@@ -1,5 +1,5 @@
 import type { SessionRecord } from '../types'
-import { getLocalDateString } from './time'
+import { buildStudyStatistics, longestStudyStreak } from './studyStatistics'
 
 export type RozetId =
   | 'ilk_seans'
@@ -39,55 +39,16 @@ interface SummaryForRozet {
   sessions: SessionRecord[]
 }
 
-function localDateToDayNumber(localDate: string): number {
-  const [y, m, d] = localDate.split('-').map(Number)
-  return Math.floor(Date.UTC(y, m - 1, d) / (24 * 60 * 60 * 1000))
-}
-
-function getSessionEndDate(session: SessionRecord): Date {
-  const rawTimestamp = (session as SessionRecord & { timestamp?: string | number }).timestamp
-  if (session.createdAt) return new Date(session.createdAt)
-  if (typeof rawTimestamp === 'number') return new Date(rawTimestamp)
-  if (typeof rawTimestamp === 'string') return new Date(rawTimestamp)
-  return new Date(session.tarihISO)
-}
-
-/** Tarihteki en uzun ardışık gün serisini hesapla (rozetler için) */
-function enUzunSeri(sessions: SessionRecord[]): number {
-  const gunler = new Set<string>()
-  sessions.forEach((s) => gunler.add(getLocalDateString(getSessionEndDate(s))))
-  const sorted = [...gunler].sort((a, b) => localDateToDayNumber(a) - localDateToDayNumber(b))
-  if (sorted.length === 0) return 0
-  let max = 1
-  let current = 1
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = localDateToDayNumber(sorted[i - 1])
-    const curr = localDateToDayNumber(sorted[i])
-    const diffDays = curr - prev
-    if (diffDays === 1) {
-      current++
-      max = Math.max(max, current)
-    } else {
-      current = 1
-    }
-  }
-  return max
-}
-
 export function getRozetler(summary: SummaryForRozet): Rozet[] {
-  const { gunluk5SaatGunSayisi, streak, toplamKariyerPuan, monthSeconds, sessions } = summary
+  const { gunluk5SaatGunSayisi, streak, toplamKariyerPuan, monthSeconds } = summary
+  const stats = buildStudyStatistics(summary.sessions)
+  const sessions = stats.completed
   const denemeSayisi = sessions.filter((s) => s.mod === 'deneme' || s.mod === 'EXAM_SIMULATOR').length
-
-  const gunlukSnByDate: Record<string, number> = {}
-  sessions.forEach((s) => {
-    const d = getLocalDateString(getSessionEndDate(s))
-    gunlukSnByDate[d] = (gunlukSnByDate[d] ?? 0) + (s.sureGercek ?? 0)
-  })
 
   const HEDEF_5_SAAT_SN = 5 * 3600
   const MIN_180_DK_SN = 180 * 60
 
-  const besSaatlikGunSayisi = Object.values(gunlukSnByDate).filter((sn) => sn >= HEDEF_5_SAAT_SN).length
+  const besSaatlikGunSayisi = [...stats.dailySeconds.values()].filter((sn) => sn >= HEDEF_5_SAAT_SN).length
   const hedefGunToplam = Math.max(gunluk5SaatGunSayisi, besSaatlikGunSayisi)
 
   const toplamCalismaSaniye = sessions.reduce((acc, s) => acc + (s.sureGercek ?? 0), 0)
@@ -97,19 +58,19 @@ export function getRozetler(summary: SummaryForRozet): Rozet[] {
   const pomodoroSayisi = sessions.filter((s) => s.mod === 'ders60mola15' || (s.mod as unknown as string) === '60/15').length
 
   const geceKusu = sessions.some((s) => {
-    const d = getSessionEndDate(s)
+    const d = new Date(s.tarihISO)
     const minuteOfDay = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60
     return minuteOfDay > 0 && minuteOfDay < 4 * 60
   })
 
   const erkenciKus = sessions.some((s) => {
-    const d = getSessionEndDate(s)
+    const d = new Date(s.tarihISO)
     const minuteOfDay = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60
     return minuteOfDay > 4 * 60 && minuteOfDay < 7 * 60
   })
 
   /** Seri rozetleri: mevcut streak VEYA tarihteki en uzun seri (hangisi büyükse) */
-  const seriDeger = Math.max(streak, enUzunSeri(sessions))
+  const seriDeger = Math.max(streak, longestStudyStreak([...stats.dailySeconds].filter(([, seconds]) => seconds > 0).map(([day]) => day)))
 
   const list: Rozet[] = [
     { id: 'ilk_seans', ad: 'İlk Seans', emoji: '🎯', aciklama: 'İlk seansını tamamladın', kazanildi: sessions.length >= 1 },

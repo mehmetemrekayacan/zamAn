@@ -30,7 +30,7 @@ function getGroupKey(session: SessionRecord): string {
 }
 
 function toDate(session: SessionRecord) {
-  const raw = session.createdAt ?? session.tarihISO
+  const raw = session.tarihISO
   const date = new Date(raw)
   if (Number.isNaN(date.getTime())) {
     return null

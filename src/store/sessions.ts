@@ -3,7 +3,8 @@ import type { SessionRecord, Mode } from '../types'
 import { saveSession as dbSaveSession, listSessions, deleteSession as dbDeleteSession } from '../lib/db'
 import { getQueueItems } from '../lib/offlineSync'
 import { isCloudSyncEnabled } from '../lib/supabase'
-import { getLocalDateString } from '../lib/time'
+import { startOfLocalDay } from '../lib/time'
+import { buildStudyStatistics } from '../lib/studyStatistics'
 import { getDataScope, isCurrentScope } from '../lib/dataScope'
 import { getPendingSessions } from '../lib/localSync'
 
@@ -146,8 +147,9 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   },
 
   getTodaySessions: () => {
-    const today = getLocalDateString()
-    return get().sessions.filter((s) => getLocalDateString(new Date(s.tarihISO)) === today)
+    const now = new Date()
+    const today = startOfLocalDay(now)
+    return buildStudyStatistics(get().sessions, now).completed.filter((session) => new Date(session.tarihISO) >= today)
   },
 
   getSessionsByMode: (mode) => {

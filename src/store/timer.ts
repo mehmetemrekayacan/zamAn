@@ -7,6 +7,7 @@ import { TIMER_STRATEGIES } from '../lib/timerStrategies'
 import { MODE_DEFAULTS } from '../lib/modeConfig'
 import { getTimerElapsedMs } from '../lib/timerMath'
 import { captureFinishedSession, emptyFinishForm, scoreFinishedSession } from '../lib/finishedSession'
+import { closeWorkIntervals } from '../lib/workIntervals'
 
 let worker: Worker | null = null
 function startWorker(onTick: () => void) {
@@ -39,6 +40,8 @@ function processTick(get: GetState, set: SetState) {
     const endedAt = state.mode === 'EXAM_SIMULATOR' ? Math.min(now, state.expectedEndTime ?? now) : now
     updates.finishedSession = captureFinishedSession(next, endedAt)
     updates.sessionId = updates.finishedSession.id
+    updates.workIntervals = updates.finishedSession.workIntervals
+    updates.activeWorkStartedAt = undefined
     updates.finishForm = { ...emptyFinishForm(), examName: state.finishForm?.examName ?? '' }
   } else if (next.status === 'idle') {
     updates.sessionId = undefined
@@ -80,6 +83,7 @@ function initialTimerState(): TimerCoreState {
     backgroundBreakPlannedMs: undefined, expectedEndTime: undefined, startWallTime: undefined,
     isOvertime: false, pomodoroRound: 1, lastPomodoroDate: getLocalDateString(),
     sessionId: undefined, sessionStartedAt: undefined, checkpointAt: undefined,
+    workIntervals: undefined, activeWorkStartedAt: undefined,
     recoveryPending: false, finishedSession: undefined, finishScore: undefined, finishForm: emptyFinishForm(),
   }
 }
@@ -150,9 +154,11 @@ export const useTimerStore = create<TimerState>()(
       const rounds = roundState(current)
       stopWorker()
       const updates = TIMER_STRATEGIES[cfg.mode].onStart(cfg, current, rounds.lastPomodoroDate, rounds.pomodoroRound)
-      const now = Date.now()
+      const now = updates.lastTickTs ?? Date.now()
       set({
         ...rounds, ...updates, sessionId: crypto.randomUUID(), sessionStartedAt: now, checkpointAt: now,
+        workIntervals: cfg.mode === 'ders60mola15' && updates.workBreakPhase === 'break' ? undefined : [],
+        activeWorkStartedAt: cfg.mode === 'ders60mola15' && updates.workBreakPhase === 'break' ? undefined : now,
         recoveryPending: false, finishedSession: undefined, finishScore: undefined,
         finishForm: { ...emptyFinishForm(), examName: current.finishForm?.examName ?? '' },
         pauseStartTs: null,
@@ -167,7 +173,9 @@ export const useTimerStore = create<TimerState>()(
       if (state.status !== 'running') return
       stopWorker()
       const now = Date.now()
-      set({ ...TIMER_STRATEGIES[state.mode].onPause(now, state), checkpointAt: now })
+      const updates = TIMER_STRATEGIES[state.mode].onPause(now, state)
+      set({ ...updates, checkpointAt: now,
+        workIntervals: closeWorkIntervals(state, now, updates.elapsedMs ?? state.elapsedMs), activeWorkStartedAt: undefined })
     },
 
     resume: () => {
@@ -180,6 +188,7 @@ export const useTimerStore = create<TimerState>()(
         startWallTime: now - state.elapsedMs,
         expectedEndTime: state.plannedMs != null ? now + state.plannedMs - state.elapsedMs : undefined,
         checkpointAt: now,
+        activeWorkStartedAt: state.workIntervals !== undefined ? now : undefined,
       })
       startWorker(() => processTick(get, set))
     },
@@ -216,6 +225,7 @@ export const useTimerStore = create<TimerState>()(
       set({
         ...updates, checkpointAt: now, pauseStartTs: null,
         sessionId: draft?.id, finishedSession: draft, finishScore: undefined,
+        workIntervals: draft?.workIntervals, activeWorkStartedAt: undefined,
         finishForm: { ...emptyFinishForm(), examName: state.finishForm?.examName ?? '' },
       })
     },
@@ -231,6 +241,7 @@ export const useTimerStore = create<TimerState>()(
       const workPlan = TIMER_STRATEGIES[state.mode].getPlannedMs(state.modeConfig, 'work')
       const common = {
         sessionId: undefined, sessionStartedAt: undefined, finishedSession: undefined,
+        workIntervals: undefined, activeWorkStartedAt: undefined,
         finishScore: undefined, finishForm: emptyFinishForm(), recoveryPending: false,
         totalPauseDurationMs: 0, pauseStartTs: null, pauses: 0, isOvertime: false, wasEarlyFinish: undefined,
         backgroundBreakStartTs: null, backgroundBreakPlannedMs: undefined, checkpointAt: now,
@@ -300,11 +311,14 @@ export const useTimerStore = create<TimerState>()(
       }
       const current = get()
       const checkpoint = state.checkpointAt ?? state.lastTickTs ?? now
+      const recoveredAt = state.mode === 'EXAM_SIMULATOR' && state.status === 'running' ? current.checkpointAt ?? now : now
       set({
+        workIntervals: state.status === 'running' ? closeWorkIntervals(current, state.mode === 'EXAM_SIMULATOR' ? recoveredAt : checkpoint, current.elapsedMs) : current.workIntervals,
+        activeWorkStartedAt: undefined,
         sessionId: current.sessionId ?? crypto.randomUUID(),
         sessionStartedAt: current.sessionStartedAt ?? Math.max(0, checkpoint - current.elapsedMs - current.totalPauseDurationMs),
         status: 'paused', running: false, lastTickTs: null, recoveryPending: true,
-        pauseStartTs: state.status === 'paused' ? state.pauseStartTs ?? now : state.mode === 'EXAM_SIMULATOR' ? now : Math.min(now, checkpoint),
+        pauseStartTs: state.status === 'paused' ? state.pauseStartTs ?? now : state.mode === 'EXAM_SIMULATOR' ? recoveredAt : Math.min(now, checkpoint),
         expectedEndTime: undefined, startWallTime: undefined,
       })
       return true
@@ -356,6 +370,7 @@ export const useTimerStore = create<TimerState>()(
       wasEarlyFinish: state.wasEarlyFinish, denemeMolalarSaniye: state.denemeMolalarSaniye,
       backgroundBreakStartTs: state.backgroundBreakStartTs, backgroundBreakPlannedMs: state.backgroundBreakPlannedMs,
       sessionId: state.sessionId, sessionStartedAt: state.sessionStartedAt, checkpointAt: state.checkpointAt,
+      workIntervals: state.workIntervals, activeWorkStartedAt: state.activeWorkStartedAt,
       recoveryPending: state.recoveryPending, finishedSession: state.finishedSession,
       finishScore: state.finishScore, finishForm: state.finishForm,
     }),

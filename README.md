@@ -219,11 +219,12 @@ kullanır. Yeniden açılışta çalışma, sınav ve mola için uygulanan süre
    VITE_SUPABASE_URL=https://xxxxxxxx.supabase.co
    VITE_SUPABASE_ANON_KEY=eyJ...
    ```
-4. Yeni kurulumda önce `database/supabase-v2-sessions.sql`, ardından `database/supabase-v3-sync.sql` uygulanır. Mevcut projede önce `database/sync-preflight.sql` ile şemayı kontrol et ve yedek al; ayrıntılı sıra [4. aşama belgesindedir](docs/ASAMA-4-SENKRONIZASYON.md).
+4. Yeni kurulumda sırasıyla `database/supabase-v2-sessions.sql`, `database/supabase-v3-sync.sql` ve `supabase/migrations/20261026150258_session_work_intervals.sql` uygulanır. Mevcut projede önce şemayı kontrol et ve yedek al. Hedef canlı projede bu geçişler zaten uygulanmıştır; tekrar SQL çalıştırılması gerekmez. Ayrıntılar: [senkronizasyon](docs/ASAMA-4-SENKRONIZASYON.md), [takvim ve çalışma aralıkları](docs/ASAMA-6-TARIH-ISTATISTIK.md).
 5. Ayarlar'da "Hesap (online senkron)" bölümü görünür
 
 Yeni istemci sürümlü v3 RPC protokolünü gerektirir. Protokol eksikse bulut yazısı
 başlatılmaz; yerel kayıtlar saklanır ve güncelleme gereksinimi bildirilir.
+Çalışma aralığı desteği `work_intervals` özellik bayrağıyla doğrulanır.
 Eski `scripts/supabase-upload-sync.cjs` yazıcısı devre dışıdır; yedekleri
 uygulamadaki içe aktarma akışıyla yükle.
 

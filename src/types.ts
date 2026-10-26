@@ -17,9 +17,12 @@ export type ModeConfig =
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'finished'
 
 export type FinishForm = { note: string; examName: string; analysis: DenemeAnaliz | null }
+/** Yalnızca net çalışma aralıkları; epoch milisaniye, [start,end). */
+export type WorkInterval = { start: number; end: number }
 
 /** Bitişte sabitlenir; kayıt ekranında geçen süre veya sonraki ayarlar bunu değiştirmez. */
 export type FinishedSession = {
+  workIntervals?: WorkInterval[]
   id: string
   startedAt: number
   endedAt: number
@@ -35,6 +38,8 @@ export type FinishedSession = {
 }
 
 export type TimerSnapshot = {
+  workIntervals?: WorkInterval[]
+  activeWorkStartedAt?: number
   sessionId?: string
   sessionStartedAt?: number
   checkpointAt?: number
@@ -85,6 +90,8 @@ export type TimerSnapshot = {
 export type DenemeAnaliz = { dogru: number; yanlis: number; bos: number }
 
 export type SessionRecord = {
+  /** Eski kayıtlarda yoktur; başlangıç/duraklama tahmini yapılmaz. */
+  workIntervals?: WorkInterval[]
   id: string
   mod: Mode
   /** Planlanan süre (saniye) */

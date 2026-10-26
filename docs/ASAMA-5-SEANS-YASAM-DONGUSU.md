@@ -1,6 +1,8 @@
 # 5. aşama — Seans yaşam döngüsü ve kurtarma
 
-26 Ekim 2026. Uygulama kodu tamamlandı; yeni kodun yayını ve gerçek cihaz kabulü bekliyor.
+26 Ekim 2026. Uygulama kodu tamamlandı. Kullanıcı Vercel yayınının ve önerilen
+manuel kontrol listesinin sorunsuz olduğunu bildirdi. Tam Windows/Android ve
+iki fiziksel cihaz kabulü ayrıca takip edilir.
 Bu aşamada canlı Supabase şeması veya mevcut seanslar değiştirilmedi.
 
 ## Düzeltilen davranışlar
@@ -62,9 +64,9 @@ yeniden yazılmaz; önceden oluşmuş olası kopyalar otomatik birleştirilmez.
 Çalışma aralıklarını gün/saat sınırlarına dağıtma ve ortak tarih hesapları 6. aşamadır.
 Her tick'teki persist yazısını azaltma ve kök render optimizasyonu 7. aşamadır.
 
-Web için yeni kodla Vercel deploy gerekir. Yeni Electron preload temizliğinin
+Web yayını ve önerilen manuel kontroller kullanıcı tarafından doğrulandı. Yeni Electron preload temizliğinin
 pakete alınması sonraki Windows derlemesinde yapılır; frontend eski preload ile
-de güvenli callback iptalini destekler. Bu oturumda yayın veya paket oluşturulmadı.
+de güvenli callback iptalini destekler. Ajan tarafından yayın veya paket oluşturulmadı.
 
 ## Doğrulama
 

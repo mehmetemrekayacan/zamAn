@@ -1,9 +1,39 @@
-/** Yerel tarih string (YYYY-MM-DD) - timezone'dan bağımsız */
+/** Cihazın yerel takvim tarihi; UTC depolama tarihi değildir. */
 export function getLocalDateString(d: Date = new Date()): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+export function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+export function addLocalDays(date: Date, days: number): Date {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
+}
+
+/** Pazartesi başlangıçlı takvim haftası. */
+export function startOfLocalWeek(date: Date): Date {
+  const day = startOfLocalDay(date)
+  return addLocalDays(day, -((day.getDay() + 6) % 7))
+}
+
+export function startOfLocalMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+export function localDateFromKey(key: string): Date {
+  const [year, month, day] = key.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+export function calendarDayNumber(key: string): number {
+  const [year, month, day] = key.split('-').map(Number)
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000)
 }
 
 export function formatDuration(ms: number): string {

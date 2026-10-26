@@ -1,11 +1,14 @@
 import type { FinishedSession, FinishForm, SessionRecord, TimerSnapshot, ModeConfig } from '../types'
 import { calculateScore, calculateStreak, type ScoreBreakdown } from './scoring'
+import { getLocalDateString } from './time'
+import { closeWorkIntervals } from './workIntervals'
 
 export const emptyFinishForm = (): FinishForm => ({ note: '', examName: '', analysis: null })
 
 export function captureFinishedSession(state: TimerSnapshot & { modeConfig: ModeConfig }, endedAt: number): FinishedSession {
   return structuredClone({
     id: state.sessionId ?? crypto.randomUUID(),
+    workIntervals: closeWorkIntervals(state, endedAt, state.elapsedMs),
     startedAt: state.sessionStartedAt ?? Math.max(0, endedAt - state.elapsedMs - state.totalPauseDurationMs),
     endedAt,
     config: state.modeConfig,
@@ -21,11 +24,16 @@ export function captureFinishedSession(state: TimerSnapshot & { modeConfig: Mode
 }
 
 export function scoreFinishedSession(draft: FinishedSession, sessions: SessionRecord[]): ScoreBreakdown {
-  const day = new Date(draft.endedAt).toISOString().split('T')[0]
-  const previous = sessions.filter((session) => session.id !== draft.id)
-  const rounds = previous.filter((session) => session.mod === draft.config.mode && session.tarihISO.startsWith(day)).length
+  const endDate = new Date(draft.endedAt)
+  const day = getLocalDateString(endDate)
+  const previous = sessions.filter((session) => session.id !== draft.id && Date.parse(session.tarihISO) <= draft.endedAt)
+  const rounds = previous.filter((session) => session.mod === draft.config.mode && getLocalDateString(new Date(session.tarihISO)) === day).length
+  const candidate: SessionRecord = {
+    id: draft.id, mod: draft.config.mode, sureGercek: Math.round(draft.elapsedMs / 1000),
+    tarihISO: endDate.toISOString(), duraklatmaSayisi: draft.pauses, puan: 0, workIntervals: draft.workIntervals,
+  }
   return calculateScore(draft.elapsedMs, draft.config.mode, draft.pauses, !draft.wasEarlyFinish,
-    rounds, calculateStreak(previous), draft.plannedMs,
+    rounds, calculateStreak([...previous, candidate], undefined, endDate), draft.plannedMs,
     draft.plannedMs != null ? Math.max(0, draft.elapsedMs - draft.plannedMs) : undefined)
 }
 
@@ -35,6 +43,7 @@ export function finishedSessionRecord(draft: FinishedSession, score: ScoreBreakd
   const timestamp = new Date(draft.endedAt).toISOString()
   return {
     id: draft.id, mod: config.mode,
+    workIntervals: draft.workIntervals?.map((part) => ({ ...part })),
     surePlan: draft.plannedMs != null ? Math.round(draft.plannedMs / 1000) : undefined,
     sureGercek: Math.round(draft.elapsedMs / 1000), puan: score.totalScore,
     tarihISO: timestamp, createdAt: timestamp, updatedAt: timestamp,

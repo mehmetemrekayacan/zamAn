@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useLayoutEffect, useCallback, useRef, use
 import { useTimerStore } from './store/timer'
 import { useSessionsStore } from './store/sessions'
 import { useSettingsStore } from './store/settings'
-import { calculateStreak, getUnvan } from './lib/scoring'
+import { getUnvan } from './lib/scoring'
 import { getTahmin150Saat } from './lib/tahmin'
 import { syncCloud } from './lib/cloudSync'
 import { getRozetler } from './lib/rozetler'
@@ -35,6 +35,8 @@ import { activateAccount } from './lib/accountLifecycle'
 import { getScopedStorage } from './lib/accountStorage'
 import { saveFinishedSession } from './lib/saveFinishedSession'
 import { blockTimerControls, runTimerShortcut } from './lib/timerControls'
+import { getStudySummary } from './lib/studyStatistics'
+import { dateForCalendar, useLocalCalendar } from './lib/localCalendarClock'
 
 /* ─── helpers ─── */
 
@@ -128,6 +130,7 @@ function App() {
 }
 
 function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
+  const calendar = useLocalCalendar()
   const accountScope = getDataScope()
   const scopedStorage = useMemo(() => getScopedStorage(accountScope), [accountScope])
   const didRunRecoveryCheckRef = useRef(false)
@@ -252,10 +255,6 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
   }, [discardRecoveredSession])
 
   /* ── effects ── */
-  const todaySessions = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
-    return sessions.filter((s) => s.tarihISO.startsWith(today))
-  }, [sessions])
 
   useEffect(() => {
     if (!isCurrentScope(accountScope)) return
@@ -435,58 +434,25 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
   }, [settings.kısayollar, status, primaryAction, mode, setModeConfig, savedDenemeConfig, showSettings, showRecoveryModal, activeView, showToast, examStartTime, examDurationMinutes])
 
   const summary = useMemo(() => {
-    const totalMinutes = Math.round(todaySessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0) / 60)
-    const todayCount = todaySessions.length
-    const todayScore = todaySessions.reduce((acc, s) => acc + (s.puan || 0), 0)
-    const streakDays = calculateStreak(sessions, todayCount > 0)
-
-    const weekAgo = new Date()
-    weekAgo.setDate(weekAgo.getDate() - 7)
-    const weekSessions = sessions.filter((s) => new Date(s.tarihISO) >= weekAgo)
-    const weekMinutes = Math.round(weekSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0) / 60)
-
-    const monthAgo = new Date()
-    monthAgo.setDate(monthAgo.getDate() - 30)
-    const monthSessions = sessions.filter((s) => new Date(s.tarihISO) >= monthAgo)
-    const monthMinutes = Math.round(monthSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0) / 60)
-    const avgScoreMonth =
-      monthSessions.length > 0 ? Math.round(monthSessions.reduce((acc, s) => acc + (s.puan || 0), 0) / monthSessions.length) : 0
-
-    const lastSessions = sessions.slice(0, 10)
-    const toplamKariyerPuan = sessions.reduce((acc, s) => acc + (s.puan || 0), 0)
-    const unvan = getUnvan(toplamKariyerPuan)
-    const monthSeconds = monthSessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0)
-    const tahmin = getTahmin150Saat(sessions)
-
-    const gunlukSnByDate: Record<string, number> = {}
-    sessions.forEach((s) => {
-      const d = s.tarihISO.split('T')[0]
-      gunlukSnByDate[d] = (gunlukSnByDate[d] ?? 0) + (s.sureGercek ?? 0)
-    })
-    const gunluk5SaatGunSayisi = Object.values(gunlukSnByDate).filter((sn) => sn >= 5 * 3600).length
-    const rozetler = getRozetler({ gunluk5SaatGunSayisi, streak: streakDays, toplamKariyerPuan, monthSeconds, sessions })
-
+    const stats = getStudySummary(sessions, dateForCalendar(calendar))
+    const lastSessions = [...stats.completed].sort((a, b) => Date.parse(b.tarihISO) - Date.parse(a.tarihISO)).slice(0, 10)
+    const toplamKariyerPuan = stats.completed.reduce((sum, session) => sum + session.puan, 0)
+    const gunluk5SaatGunSayisi = [...stats.dailySeconds.values()].filter((seconds) => seconds >= 5 * 3600).length
     return {
-      todayMinutes: totalMinutes,
-      todayScore,
-      todaySessions: todayCount,
-      streak: streakDays,
-      weekMinutes,
-      weekSessions: weekSessions.length,
-      monthMinutes,
-      monthSessions: monthSessions.length,
-      avgScoreMonth,
-      lastSessions,
-      toplamKariyerPuan,
-      unvan,
-      tahmin,
-      rozetler,
+      todayMinutes: Math.round(stats.todaySeconds / 60), todayScore: stats.todayScore,
+      todaySessions: stats.todaySessions.length, streak: stats.streak,
+      weekMinutes: Math.round(stats.weekSeconds / 60), weekSessions: stats.weekSessions.length,
+      monthMinutes: Math.round(stats.monthSeconds / 60), monthSessions: stats.monthSessions.length,
+      avgScoreMonth: stats.avgScoreMonth, lastSessions, toplamKariyerPuan,
+      unvan: getUnvan(toplamKariyerPuan), tahmin: getTahmin150Saat(stats.completed),
+      legacySessions: stats.legacySessions,
+      rozetler: getRozetler({ gunluk5SaatGunSayisi, streak: stats.streak, toplamKariyerPuan, monthSeconds: stats.monthSeconds, sessions: stats.completed }),
     }
-  }, [todaySessions, sessions])
+  }, [sessions, calendar])
 
   const statsData = useMemo(() => [
-    { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} seans`, tone: 'primary' as const },
-    { label: 'Bu Hafta', value: formatMinutesHuman(summary.weekMinutes), hint: `${summary.weekSessions} seans`, tone: 'info' as const },
+    { label: 'Bugün', value: formatMinutesHuman(summary.todayMinutes), hint: `${summary.todaySessions} tamamlanan seans`, tone: 'primary' as const },
+    { label: 'Bu Hafta', value: formatMinutesHuman(summary.weekMinutes), hint: `${summary.weekSessions} tamamlanan seans`, tone: 'info' as const },
     { label: 'Seri', value: `${summary.streak}`, hint: 'ardışık gün', tone: 'warning' as const },
     { label: 'Puan', value: `${summary.todayScore}`, hint: 'bugün', tone: 'success' as const },
   ], [summary])
@@ -613,6 +579,7 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
           <>
             {/* Hızlı istatistik çubuğu */}
             <QuickStatsBar stats={statsData} />
+            {summary.legacySessions > 0 && <p className="text-xs text-text-muted">Çalışma aralıkları bulunmayan eski kayıtlar bitiş gününe göre toplanır.</p>}
 
             {/* ════════  BÖLÜM 2 — TIMER HERO  ════════ */}
             <TimerHero

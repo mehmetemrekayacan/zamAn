@@ -10,48 +10,22 @@ import {
 } from 'recharts'
 import { useSessionsStore } from '../../store/sessions'
 
-type HourPoint = {
-  hour: number
-  label: string
-  minutes: number
-}
-
-function toValidDate(dateRaw?: string) {
-  const date = dateRaw ? new Date(dateRaw) : null
-  if (!date || Number.isNaN(date.getTime())) {
-    return null
-  }
-  return date
-}
+import { buildStudyStatistics } from '../../lib/studyStatistics'
+import { dateForCalendar, useLocalCalendar } from '../../lib/localCalendarClock'
+import { formatSeconds } from '../../lib/time'
 
 export function ProductiveHoursChart() {
   const sessions = useSessionsStore((state) => state.sessions)
-
-  const data = useMemo<HourPoint[]>(() => {
-    const buckets = new Array<number>(24).fill(0)
-
-    for (const session of sessions) {
-      const sessionDate = toValidDate(session.createdAt ?? session.tarihISO)
-      if (!sessionDate) {
-        continue
-      }
-
-      const hour = sessionDate.getHours()
-      buckets[hour] += Math.max(session.sureGercek ?? 0, 0)
-    }
-
-    return buckets.map((seconds, hour) => ({
-      hour,
-      label: `${String(hour).padStart(2, '0')}:00`,
-      minutes: Math.round(seconds / 60),
-    }))
-  }, [sessions])
+  const calendar = useLocalCalendar()
+  const data = useMemo(() => buildStudyStatistics(sessions, dateForCalendar(calendar)).hourSeconds.map((seconds, hour) => ({
+    hour, label: `${String(hour).padStart(2, '0')}:00`, minutes: seconds / 60,
+  })), [sessions, calendar])
 
   return (
     <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Günün En Verimli Saati</h3>
-        <span className="text-xs text-muted">24 saat dağılımı</span>
+        <h3 className="text-sm font-semibold text-foreground">Saatlere Göre Çalışma</h3>
+        <span className="text-xs text-muted">Tüm kayıtlar · yerel saat</span>
       </div>
 
       <div className="h-72 w-full">
@@ -78,7 +52,7 @@ export function ProductiveHoursChart() {
                 borderRadius: '0.75rem',
                 color: 'var(--card-foreground)',
               }}
-              formatter={(value: number | string | undefined) => [`${Number(value ?? 0)} dk`, 'Toplam çalışma']}
+              formatter={(value: number | string | undefined) => [formatSeconds(Math.round(Number(value ?? 0) * 60)), 'Toplam çalışma']}
               labelFormatter={(label) => `Saat: ${label}`}
             />
             <Bar

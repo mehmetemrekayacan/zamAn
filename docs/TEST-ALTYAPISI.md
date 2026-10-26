@@ -163,3 +163,12 @@ TypeScript ve üretim derlemesi başarılı; değişen kaynaklar lint temiz,
 genel lint'te 4 mevcut hata kaldı (Toast 1, notifications 3).
 [5. aşama raporu](ASAMA-5-SEANS-YASAM-DONGUSU.md) kurtarma kurallarını ve
 gerçek cihaz kabulü sınırını açıklar.
+
+26 Ekim 2026: 6. aşamada **275 test** (23 dosya) karıştırılmış sırada da geçti
+(seed 26102026). Yeni 44 test yerel gece yarısı, hafta/ay/yıl ve DST sınırlarını,
+net çalışma aralıklarını, eski veri gösterimini ve gerçek PostgreSQL protokolünü
+kapsar. Testlerin varsayılan TZ'si Europe/Istanbul olarak sabitlendi; DST testleri
+sonrasında eski varsayılan saate dönüş, test sırasından bağımsızdır.
+Gerçek veri yedeği PGlite'a geri yüklendi; mevcut alanlar korundu ve günlük/saatlik
+toplamlar eşleşti. Canlı ek migration ve rollback edilen RPC testleri de başarılı.
+[6. aşama raporu](ASAMA-6-TARIH-ISTATISTIK.md) yayın/cihaz sınırlarını açıklar.

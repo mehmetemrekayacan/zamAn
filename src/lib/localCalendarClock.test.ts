@@ -1,0 +1,50 @@
+import { describe, expect, it, vi } from 'vitest'
+import { localCalendarSnapshot, subscribeLocalCalendar } from './localCalendarClock'
+
+describe('açık ekranda takvim yenilenmesi', () => {
+  it('yerel gece yarısında gün anahtarı değişir ve tek zamanlayıcı paylaşılır', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-26T23:59:59.900+03:00'))
+    const first = vi.fn(),second = vi.fn()
+    const one = subscribeLocalCalendar(first),two = subscribeLocalCalendar(second)
+    expect(vi.getTimerCount()).toBe(1)
+    expect(localCalendarSnapshot()).toContain('2026-10-26')
+    vi.advanceTimersByTime(110)
+    expect(localCalendarSnapshot()).toContain('2026-10-27')
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(second).toHaveBeenCalledTimes(1)
+    one();two()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('uykudan dönüşte visibility/focus kontrolü takvimi yeniden okur', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-26T12:00:00+03:00'))
+    const documentSurface = new EventTarget(),windowSurface = new EventTarget()
+    vi.stubGlobal('document',documentSurface)
+    vi.stubGlobal('window',windowSurface)
+    const listener = vi.fn()
+    const stop = subscribeLocalCalendar(listener)
+    vi.setSystemTime(new Date('2026-10-27T09:00:00+03:00'))
+    documentSurface.dispatchEvent(new Event('visibilitychange'))
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(localCalendarSnapshot()).toContain('2026-10-27')
+    stop()
+    windowSurface.dispatchEvent(new Event('focus'))
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('UTC ofseti aynı iki saat dilimi arasında geçişte de takvim yenilenir', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-15T12:00:00Z'))
+    vi.stubEnv('TZ','Europe/London')
+    const surface = new EventTarget()
+    vi.stubGlobal('window',surface)
+    const stop=subscribeLocalCalendar(vi.fn())
+    const before=localCalendarSnapshot()
+    vi.stubEnv('TZ','Africa/Abidjan')
+    surface.dispatchEvent(new Event('focus'))
+    expect(localCalendarSnapshot()).not.toBe(before)
+    stop()
+  })
+})

@@ -2,6 +2,7 @@ import type { SessionRecord } from '../types'
 import { validateBackup } from './backupValidation'
 
 export interface RemoteSessionRow {
+  work_intervals?: SessionRecord['workIntervals'] | null
   id: string; user_id: string; mod: string; sure_plan: number | null; sure_gercek: number
   puan: number; tarih_iso: string; not_text: string | null; duraklatma: number
   mola_saniye: number | null; deneme_molalar: number[] | null
@@ -60,6 +61,7 @@ export function canonical(value: unknown): string {
 export function sessionToRow(s: SessionRecord) {
   return {
     id: s.id, mod: s.mod, sure_plan: s.surePlan ?? null, sure_gercek: s.sureGercek,
+    ...(s.workIntervals !== undefined ? { work_intervals: s.workIntervals } : {}),
     puan: s.puan, tarih_iso: new Date(s.tarihISO).toISOString(), not_text: s.not ?? null, duraklatma: s.duraklatmaSayisi,
     mola_saniye: s.molaSaniye ?? null, deneme_molalar: s.denemeMolalarSaniye ?? null,
     dogru_sayisi: s.dogruSayisi ?? null, yanlis_sayisi: s.yanlisSayisi ?? null, bos_sayisi: s.bosSayisi ?? null,
@@ -72,6 +74,7 @@ export function sessionToRow(s: SessionRecord) {
 export function rowToSession(r: RemoteSessionRow): SessionRecord {
   return {
     id: r.id, mod: r.mod as SessionRecord['mod'], surePlan: r.sure_plan ?? undefined,
+    workIntervals: r.work_intervals ?? undefined,
     sureGercek: r.sure_gercek, puan: r.puan, tarihISO: new Date(r.tarih_iso).toISOString(), not: r.not_text ?? undefined,
     duraklatmaSayisi: r.duraklatma, molaSaniye: r.mola_saniye ?? undefined,
     denemeMolalarSaniye: r.deneme_molalar ?? undefined, dogruSayisi: r.dogru_sayisi ?? undefined,
@@ -86,7 +89,7 @@ export function rowToSession(r: RemoteSessionRow): SessionRecord {
 export function sessionFingerprint(session: SessionRecord): string {
   const row = sessionToRow(session)
   // Oluşturma/güncelleme metadatası içerik değişikliği değildir.
-  return canonical({ ...row, created_at: undefined })
+  return canonical({ ...row, created_at: undefined, work_intervals: session.workIntervals ?? undefined })
 }
 
 export function newMutationId(): string { return crypto.randomUUID() }

@@ -95,7 +95,7 @@ export const CareerPanel = memo(function CareerPanel({
             <span className="font-semibold text-text-primary">{monthMinutes} dk</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-text-secondary">Seans Sayısı</span>
+            <span className="text-sm text-text-secondary">Tamamlanan Seans</span>
             <span className="font-semibold text-info">{monthSessions}</span>
           </div>
           <div className="flex items-center justify-between">

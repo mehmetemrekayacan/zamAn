@@ -27,7 +27,7 @@ export function createSupabaseStub(initialUserId: string | null = 'test-user-a')
   const responses: (CloudResponse | Promise<CloudResponse>)[] = []
   const signals: AbortSignal[] = []
   const rpcCalls: { name: string; args: Record<string, unknown> }[] = []
-  let protocolResponse: CloudResponse = { data: { version: 3 }, error: null }
+  let protocolResponse: CloudResponse = { data: { version: 3, features: ['work_intervals'] }, error: null }
   const calls: QueryCall[] = []
   const getUser = vi.fn(async () => ({
     data: { user: userId ? { id: userId, email: `${userId}@example.invalid`, user_metadata: {} } : null },
