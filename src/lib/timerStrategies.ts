@@ -1,6 +1,7 @@
 import type { ModeConfig, TimerSnapshot, WorkBreakPhase } from '../types'
 import { getLocalDateString } from './time'
 import { notifyOvertimeStarted } from './notifications'
+import { getTimerElapsedMs } from './timerMath'
 
 const DERS_MS = 60 * 60 * 1000
 const MOLA_MS = 15 * 60 * 1000
@@ -32,7 +33,7 @@ export const FreeTimerStrategy: TimerModeStrategy = {
   getPlannedMs() {
     return undefined
   },
-  onStart(_config, _state) {
+  onStart() {
     const now = Date.now()
     return {
       plannedMs: undefined,
@@ -53,7 +54,7 @@ export const FreeTimerStrategy: TimerModeStrategy = {
     }
   },
   onTick(now, state) {
-    const elapsed = state.startWallTime != null ? now - state.startWallTime : state.elapsedMs
+    const elapsed = getTimerElapsedMs(state, now)
     return {
       elapsedMs: elapsed,
       lastTickTs: now,
@@ -64,7 +65,7 @@ export const FreeTimerStrategy: TimerModeStrategy = {
     return true
   },
   onPause(now, state) {
-    const elapsed = state.startWallTime != null ? now - state.startWallTime : state.elapsedMs
+    const elapsed = getTimerElapsedMs(state, now)
     return {
       status: 'paused',
       running: false,
@@ -138,7 +139,7 @@ export const CountdownTimerStrategy: TimerModeStrategy = {
   getPlannedMs(config) {
     return config.mode === 'gerisayim' ? config.sureMs : undefined
   },
-  onStart(config, _state) {
+  onStart(config) {
     const plannedMs = config.mode === 'gerisayim' ? config.sureMs : undefined
     const now = Date.now()
     return {
@@ -165,7 +166,7 @@ export const CountdownTimerStrategy: TimerModeStrategy = {
     }
 
     const remaining = Math.max(0, state.expectedEndTime - now)
-    const elapsed = state.plannedMs - remaining
+    const elapsed = getTimerElapsedMs(state, now)
     const finished = remaining === 0
 
     if (finished) {
@@ -347,7 +348,7 @@ export const PomodoroTimerStrategy: TimerModeStrategy = {
     }
 
     const remaining = Math.max(0, state.expectedEndTime - now)
-    const elapsed = state.plannedMs - remaining
+    const elapsed = getTimerElapsedMs(state, now)
     const finished = remaining === 0
 
     if (finished) {
@@ -584,7 +585,7 @@ export const DenemeTimerStrategy: TimerModeStrategy = {
     if (config.mode !== 'deneme') return undefined
     return config.bolumler[currentSectionIndex]?.surePlanMs
   },
-  onStart(config, _state, _today, _pomodoroRound) {
+  onStart(config) {
     const sectionIdx = config.mode === 'deneme' ? config.currentSectionIndex ?? 0 : 0
     const plannedMs = config.mode === 'deneme' ? config.bolumler[sectionIdx]?.surePlanMs : undefined
     const now = Date.now()
@@ -612,7 +613,7 @@ export const DenemeTimerStrategy: TimerModeStrategy = {
     }
 
     const remaining = Math.max(0, state.expectedEndTime - now)
-    const elapsed = state.plannedMs - remaining
+    const elapsed = getTimerElapsedMs(state, now)
     const finished = remaining === 0
 
     if (finished) {
@@ -747,7 +748,7 @@ export const ExamSimulatorTimerStrategy: TimerModeStrategy = {
   getPlannedMs(config) {
     return config.mode === 'EXAM_SIMULATOR' ? config.sureMs : undefined
   },
-  onStart(config, _state) {
+  onStart(config) {
     const plannedMs = config.mode === 'EXAM_SIMULATOR' ? config.sureMs : undefined
     const now = Date.now()
     return {
@@ -774,7 +775,7 @@ export const ExamSimulatorTimerStrategy: TimerModeStrategy = {
     }
 
     const remaining = Math.max(0, state.expectedEndTime - now)
-    const elapsed = state.plannedMs - remaining
+    const elapsed = getTimerElapsedMs(state, now)
     const finished = remaining === 0
 
     return {

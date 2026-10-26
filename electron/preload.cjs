@@ -16,12 +16,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   /** Global hotkey dinleyicisi */
   onGlobalHotkey: (callback) => {
-    ipcRenderer.on('global-hotkey', (_event, action) => callback(action));
+    const listener = (_event, action) => callback(action);
+    ipcRenderer.on('global-hotkey', listener);
+    return () => ipcRenderer.removeListener('global-hotkey', listener);
   },
 
   /** Mini-player değişim dinleyicisi */
   onMiniPlayerChanged: (callback) => {
-    ipcRenderer.on('mini-player-changed', (_event, enabled) => callback(enabled));
+    const listener = (_event, enabled) => callback(enabled);
+    ipcRenderer.on('mini-player-changed', listener);
+    return () => ipcRenderer.removeListener('mini-player-changed', listener);
   },
 
   /** Electron ortamında olduğumuzu belirtir */

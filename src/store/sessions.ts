@@ -82,7 +82,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       if (!isCurrentScope(scope)) return
       const state = get()
       const sortTs = (s: SessionRecord) => (s.createdAt ?? s.tarihISO)
-      const sorted = [normalizedSession, ...state.sessions].sort(
+      const sorted = [normalizedSession, ...state.sessions.filter((existing) => existing.id !== normalizedSession.id)].sort(
         (a, b) => new Date(sortTs(b)).getTime() - new Date(sortTs(a)).getTime(),
       )
       const nextStatus: SyncStatus = scope.ownerId !== null && isCloudSyncEnabled() ? 'pending' : 'synced'

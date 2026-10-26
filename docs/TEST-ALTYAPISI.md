@@ -155,3 +155,11 @@ Aynı gün canlı şema farkları ve TRUNCATE yetkisi kontrolleriyle toplam **19
 alan ve içerik özetleri doğrulandı; v3 migration canlıya uygulandı. Canlıda
 rollback edilen RPC/RLS testleri ve anonim REST erişim kontrolleri de geçti.
 Vercel yayını ile fiziksel iki cihaz kontrolü kullanıcı yayınından sonra yapılacak.
+
+26 Ekim 2026: 5. aşamada **231 test** (18 dosya) geçti. Yeni 40 test seans
+kurtarma, bitiş taslağı, beş modda kayıt hatası/tekrar deneme, yedek uyumu ve
+web/Electron kısayollarını kapsar. İlk 15 regression eski kodda başarısızdı.
+TypeScript ve üretim derlemesi başarılı; değişen kaynaklar lint temiz,
+genel lint'te 4 mevcut hata kaldı (Toast 1, notifications 3).
+[5. aşama raporu](ASAMA-5-SEANS-YASAM-DONGUSU.md) kurtarma kurallarını ve
+gerçek cihaz kabulü sınırını açıklar.

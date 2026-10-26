@@ -130,10 +130,10 @@ function settings(value: unknown) {
 function timer(value: unknown) {
   const path = 'timerStorage'
   const state = persisted(value, path)
-  const numeric = ['elapsedMs', 'plannedMs', 'remainingMs', 'expectedEndTime', 'startWallTime', 'molaToplamMs', 'totalPauseDurationMs', 'pauseStartTs', 'lastTickTs', 'backgroundBreakStartTs', 'backgroundBreakPlannedMs']
+  const numeric = ['elapsedMs', 'plannedMs', 'remainingMs', 'expectedEndTime', 'startWallTime', 'molaToplamMs', 'totalPauseDurationMs', 'pauseStartTs', 'lastTickTs', 'backgroundBreakStartTs', 'backgroundBreakPlannedMs', 'sessionStartedAt', 'checkpointAt']
   const counts = ['currentSectionIndex', 'dersCycle', 'pomodoroRound', 'pauses']
   const dates = ['dersCycleDate', 'lastPomodoroDate']
-  allowedKeys(state, [...numeric, ...counts, ...dates, 'status', 'mode', 'modeConfig', 'workBreakPhase', 'isOvertime', 'running', 'wasEarlyFinish', 'denemeMolalarSaniye'], path)
+  allowedKeys(state, [...numeric, ...counts, ...dates, 'status', 'mode', 'modeConfig', 'workBreakPhase', 'isOvertime', 'running', 'wasEarlyFinish', 'denemeMolalarSaniye', 'sessionId', 'recoveryPending', 'finishedSession', 'finishScore', 'finishForm'], path)
   requireValue(MODES.includes(String(state.mode)), `${path}.mode`)
   const config = modeConfig(state.modeConfig, `${path}.modeConfig`)
   requireValue(config.mode === state.mode, `${path}.modeConfig.mode`)
@@ -142,7 +142,38 @@ function timer(value: unknown) {
   optionalFields(state, numeric, number, path)
   optionalFields(state, counts, count, path)
   optionalFields(state, dates, calendarDate, path)
-  optionalFields(state, ['isOvertime', 'running', 'wasEarlyFinish'], (v) => typeof v === 'boolean', path)
+  optionalFields(state, ['isOvertime', 'running', 'wasEarlyFinish', 'recoveryPending'], (v) => typeof v === 'boolean', path)
+  if (state.sessionId != null) requireValue(text(state.sessionId) && state.sessionId.trim().length > 0, `${path}.sessionId`)
+  if (state.finishedSession != null) {
+    const draftPath = `${path}.finishedSession`
+    const draft = object(state.finishedSession, draftPath)
+    allowedKeys(draft, ['id','startedAt','endedAt','config','elapsedMs','plannedMs','pauses','totalPauseDurationMs','molaToplamMs','denemeMolalarSaniye','currentSectionIndex','wasEarlyFinish'], draftPath)
+    requireValue(text(draft.id) && draft.id === state.sessionId, `${draftPath}.id`)
+    requireValue(modeConfig(draft.config, `${draftPath}.config`).mode === state.mode, `${draftPath}.config.mode`)
+    for (const key of ['startedAt','endedAt','elapsedMs','totalPauseDurationMs']) requireValue(number(draft[key]), `${draftPath}.${key}`)
+    requireValue((draft.endedAt as number) >= (draft.startedAt as number), `${draftPath}.endedAt`)
+    requireValue(count(draft.pauses) && typeof draft.wasEarlyFinish === 'boolean', draftPath)
+    optionalFields(draft, ['plannedMs','molaToplamMs'], number, draftPath)
+    optionalFields(draft, ['currentSectionIndex'], count, draftPath)
+    if (draft.denemeMolalarSaniye != null) requireValue(Array.isArray(draft.denemeMolalarSaniye) && draft.denemeMolalarSaniye.every(number), `${draftPath}.denemeMolalarSaniye`)
+  }
+  if (state.finishScore != null) {
+    const score = object(state.finishScore, `${path}.finishScore`)
+    const keys = ['baseScore','overtimeBonus','completionBonus','roundMultiplier','roundBonusPoints','pausePenalty','streakBonus','totalScore']
+    allowedKeys(score, keys, `${path}.finishScore`)
+    for (const key of keys) requireValue(number(score[key]), `${path}.finishScore.${key}`)
+    requireValue(state.finishedSession != null, `${path}.finishedSession`)
+  }
+  if (state.finishForm != null) {
+    const form = object(state.finishForm, `${path}.finishForm`)
+    allowedKeys(form, ['note','examName','analysis'], `${path}.finishForm`)
+    requireValue(text(form.note) && text(form.examName), `${path}.finishForm`)
+    if (form.analysis != null) {
+      const analysis = object(form.analysis, `${path}.finishForm.analysis`)
+      allowedKeys(analysis, ['dogru','yanlis','bos'], `${path}.finishForm.analysis`)
+      for (const key of ['dogru','yanlis','bos']) requireValue(count(analysis[key]), `${path}.finishForm.analysis.${key}`)
+    }
+  }
   if (state.workBreakPhase != null) requireValue(['work', 'break'].includes(String(state.workBreakPhase)), `${path}.workBreakPhase`)
   if (state.denemeMolalarSaniye != null) requireValue(Array.isArray(state.denemeMolalarSaniye) && state.denemeMolalarSaniye.every(number), `${path}.denemeMolalarSaniye`)
 }

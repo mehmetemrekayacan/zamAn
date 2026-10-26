@@ -66,6 +66,7 @@ export const TimerHero = memo(function TimerHero({
   const remainingMs = useTimerStore((s) => s.remainingMs)
   const plannedMs = useTimerStore((s) => s.plannedMs)
   const isOvertime = useTimerStore((s) => s.isOvertime)
+  const pauseStartTs = useTimerStore((s) => s.pauseStartTs)
 
   const timeToDisplay = isOvertime && plannedMs != null
     ? Math.max(0, elapsedMs - plannedMs)
@@ -80,18 +81,12 @@ export const TimerHero = memo(function TimerHero({
   const remainingLabel = formatDuration(remainingMs ?? timeToDisplay)
 
   /* ── Duraklatma sayacı: pause süresi ── */
-  const [pauseElapsedMs, setPauseElapsedMs] = useState(0)
+  const [pauseNow, setPauseNow] = useState(() => Date.now())
+  const pauseElapsedMs = isPaused && pauseStartTs != null ? Math.max(0, pauseNow - pauseStartTs) : 0
   useEffect(() => {
-    if (isPaused) {
-      setPauseElapsedMs(0)
-      const start = Date.now()
-      const interval = setInterval(() => {
-        setPauseElapsedMs(Date.now() - start)
-      }, 1000)
-      return () => clearInterval(interval)
-    } else {
-      setPauseElapsedMs(0)
-    }
+    if (!isPaused) return
+    const interval = setInterval(() => setPauseNow(Date.now()), 1000)
+    return () => clearInterval(interval)
   }, [isPaused])
 
   /* ── Buton pulse: durum değiştiğinde tetiklenir ── */

@@ -1,3 +1,5 @@
+import type { ScoreBreakdown } from './lib/scoring'
+
 export type Mode = 'serbest' | 'gerisayim' | 'ders60mola15' | 'deneme' | 'EXAM_SIMULATOR'
 
 export type Section = { ad: string; surePlanMs: number }
@@ -14,7 +16,32 @@ export type ModeConfig =
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'finished'
 
+export type FinishForm = { note: string; examName: string; analysis: DenemeAnaliz | null }
+
+/** Bitişte sabitlenir; kayıt ekranında geçen süre veya sonraki ayarlar bunu değiştirmez. */
+export type FinishedSession = {
+  id: string
+  startedAt: number
+  endedAt: number
+  config: ModeConfig
+  elapsedMs: number
+  plannedMs?: number
+  pauses: number
+  totalPauseDurationMs: number
+  molaToplamMs?: number
+  denemeMolalarSaniye?: number[]
+  currentSectionIndex?: number
+  wasEarlyFinish: boolean
+}
+
 export type TimerSnapshot = {
+  sessionId?: string
+  sessionStartedAt?: number
+  checkpointAt?: number
+  recoveryPending?: boolean
+  finishedSession?: FinishedSession
+  finishScore?: ScoreBreakdown
+  finishForm?: FinishForm
   running: boolean
   elapsedMs: number
   plannedMs?: number
@@ -33,7 +60,7 @@ export type TimerSnapshot = {
   denemeMolalarSaniye?: number[]
   pauses: number
   lastTickTs: number | null
-  /** Duraklatmanın başladığı zaman (performance.now()). Resume'da süre telafisi için kullanılır. */
+  /** Duraklatmanın başladığı kalıcı zaman (Date.now epoch ms). */
   pauseStartTs?: number | null
   status: TimerStatus
   /** Erken bitirme ile mi bitti? (Scoring için: true = kısmi, false = tam tamamlandı) */

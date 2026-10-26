@@ -203,6 +203,11 @@ Taşımak için misafir alanında dışa aktar, hedef hesaba giriş yaptıktan s
 içe aktar. Sahibi belirlenemeyen eski kuyruk işlemleri misafir alanından ham
 arşiv olarak indirilebilir. Ayrıntılar: [hesap ve kuyruk ayrımı](docs/ASAMA-3-HESAPLAR.md).
 
+Kaydedilmemiş bitişler, not ve analizleriyle yenilemede korunur. Kayıt hatasında
+aynı seans kimliğiyle yeniden denenir; deneme kayıtları aktif bölümün planını
+kullanır. Yeniden açılışta çalışma, sınav ve mola için uygulanan süre kuralları:
+[seans yaşam döngüsü ve kurtarma](docs/ASAMA-5-SEANS-YASAM-DONGUSU.md).
+
 ---
 
 ## Supabase kurulum (online senkron)

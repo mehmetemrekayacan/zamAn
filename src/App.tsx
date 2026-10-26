@@ -1,8 +1,8 @@
-import { useMemo, useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react'
+import { useMemo, useState, useEffect, useLayoutEffect, useCallback, useRef, useSyncExternalStore } from 'react'
 import { useTimerStore } from './store/timer'
 import { useSessionsStore } from './store/sessions'
 import { useSettingsStore } from './store/settings'
-import { calculateScore, calculateStreak, getUnvan } from './lib/scoring'
+import { calculateStreak, getUnvan } from './lib/scoring'
 import { getTahmin150Saat } from './lib/tahmin'
 import { syncCloud } from './lib/cloudSync'
 import { getRozetler } from './lib/rozetler'
@@ -28,11 +28,13 @@ import { TimerTitleAndTraySync } from './components/TimerTitleAndTraySync'
 import { MiniPlayer } from './components/MiniPlayer'
 import { DenemeManager } from './components/DenemeManager'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
-import type { ModeConfig, SessionRecord, DenemeAnaliz } from './types'
+import type { ModeConfig } from './types'
 import { getSupabase } from './lib/supabase'
 import { getDataScope, isCurrentScope, subscribeDataScope, type DataScope } from './lib/dataScope'
 import { activateAccount } from './lib/accountLifecycle'
 import { getScopedStorage } from './lib/accountStorage'
+import { saveFinishedSession } from './lib/saveFinishedSession'
+import { blockTimerControls, runTimerShortcut } from './lib/timerControls'
 
 /* ─── helpers ─── */
 
@@ -61,6 +63,10 @@ function App() {
   const [hydrated, setHydrated] = useState<DataScope | null>(null)
   const [error, setError] = useState<{ scope: DataScope; message: string } | null>(null)
   const [isMiniPlayerMode, setIsMiniPlayerMode] = useState(false)
+
+  useLayoutEffect(() => {
+    if (hydrated !== scope || error?.scope === scope) return blockTimerControls()
+  }, [hydrated, scope, error])
 
   useEffect(() => {
     let mounted = true
@@ -104,16 +110,12 @@ function App() {
   // Bu dinleyiciler hesap ekranıyla birlikte tekrar kaydedilmez.
   useEffect(() => {
     if (!isElectron()) return
-    onGlobalHotkey((action) => {
-      if (!getDataScope().ready) return
-      const timer = useTimerStore.getState()
-      if (action === 'startStop') {
-        if (timer.status === 'running') timer.pause()
-        else if (timer.status === 'paused') timer.resume()
-        else timer.start()
-      } else if (action === 'reset') timer.reset()
+    const stopHotkeys = onGlobalHotkey((action) => {
+      if (action === 'startStop' || action === 'reset') runTimerShortcut(action)
+
     })
-    onMiniPlayerChanged((enabled) => setIsMiniPlayerMode(Boolean(enabled)))
+    const stopMiniPlayer = onMiniPlayerChanged((enabled) => setIsMiniPlayerMode(Boolean(enabled)))
+    return () => { stopHotkeys(); stopMiniPlayer() }
   }, [])
 
   if (error?.scope === scope) {
@@ -131,15 +133,14 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
   const didRunRecoveryCheckRef = useRef(false)
 
   /* ── local state ── */
-  const [sessionNote, setSessionNote] = useState('')
-  const [denemeAdi, setDenemeAdi] = useState('')
-  // Veritabanı ve arayüz optimizasyonu için atıl kalan sessionRuhHali state'i kaldırıldı.
-  const [denemeAnaliz, setDenemeAnaliz] = useState<DenemeAnaliz | null>(null)
-  const [showFinishScreen, setShowFinishScreen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showRecoveryModal, setShowRecoveryModal] = useState(false)
   const [activeView, setActiveView] = useState<'timer' | 'analytics' | 'deneme-manager'>('timer')
-  const [lastSessionScore, setLastSessionScore] = useState<ReturnType<typeof calculateScore> | null>(null)
+  const [savingSession, setSavingSession] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const savingSessionRef = useRef(false)
+  const notifiedSessionRef = useRef<string | null>(null)
+  const [sessionsReady, setSessionsReady] = useState(false)
 
   /* Toast geri bildirim state */
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'celebration'; key: number } | null>(null)
@@ -172,7 +173,6 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
   const sessions = useSessionsStore((s) => s.sessions)
   const syncStatusById = useSessionsStore((s) => s.syncStatusById)
   const refreshSyncStatuses = useSessionsStore((s) => s.refreshSyncStatuses)
-  const addSession = useSessionsStore((s) => s.addSession)
   const settings = useSettingsStore()
 
   const {
@@ -182,10 +182,7 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
     currentSectionIndex,
     workBreakPhase,
     dersCycle,
-    denemeMolalarSaniye,
     pauses,
-    molaToplamMs,
-    totalPauseDurationMs,
     start,
     pause,
     resume,
@@ -193,11 +190,19 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
     setModeConfig,
     jumpToSection,
     finishEarly,
-    transitionToBreak,
     finishBreakEarly,
     recoverSession,
+    continueRecoveredSession,
+    finishRecoveredSession,
     discardRecoveredSession,
+    finishedSession,
+    finishScore,
+    finishForm,
+    updateFinishForm,
+    completeFinishedSession,
   } = useTimerStore()
+  const denemeAdi = finishForm?.examName ?? ''
+  const setDenemeAdi = (examName: string) => updateFinishForm({ examName })
 
   /* ── init ── */
   const loadSessions = useCallback(async () => {
@@ -208,18 +213,19 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
       }) // Offline sync kuyruğu dinleyicisini başlat
       const state = useSessionsStore.getState()
       await state.loadSessions()
+      if (isCurrentScope(accountScope)) setSessionsReady(true)
       await processQueue()
       await refreshSyncStatuses()
     } catch (error) {
       console.error('Failed to initialize DB:', error)
     }
-  }, [refreshSyncStatuses])
+  }, [refreshSyncStatuses, accountScope])
 
   useEffect(() => {
     loadSessions()
   }, [loadSessions])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (didRunRecoveryCheckRef.current) return
     didRunRecoveryCheckRef.current = true
 
@@ -227,25 +233,18 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
     const hasRecoverableSession = timerState.status === 'running' || timerState.status === 'paused'
     if (!hasRecoverableSession) return
 
-    recoverSession()
-    setShowRecoveryModal(true)
+    setShowRecoveryModal(recoverSession())
   }, [recoverSession])
 
   const handleRecoveryFinish = useCallback(() => {
-    useTimerStore.setState({
-      status: 'finished',
-      running: false,
-      remainingMs: 0,
-      expectedEndTime: undefined,
-      startWallTime: undefined,
-      wasEarlyFinish: false,
-    })
+    finishRecoveredSession()
     setShowRecoveryModal(false)
-  }, [])
+  }, [finishRecoveredSession])
 
   const handleRecoveryContinue = useCallback(() => {
+    continueRecoveredSession()
     setShowRecoveryModal(false)
-  }, [])
+  }, [continueRecoveredSession])
 
   const handleRecoveryDiscard = useCallback(() => {
     discardRecoveredSession()
@@ -324,54 +323,44 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
   /* ── Visibility API Fallback: sekmeye dönünce timer senkronize et ── */
   useEffect(() => {
     const handler = () => {
-      if (document.visibilityState === 'visible') {
-        useTimerStore.getState().syncTimer()
-      }
+      useTimerStore.getState().syncTimer()
     }
     document.addEventListener('visibilitychange', handler)
-    return () => document.removeEventListener('visibilitychange', handler)
+    window.addEventListener('pagehide', handler)
+    return () => {
+      document.removeEventListener('visibilitychange', handler)
+      window.removeEventListener('pagehide', handler)
+    }
   }, [])
 
   useEffect(() => {
-    if (status === 'finished' && !showFinishScreen) {
-      const timerState = useTimerStore.getState()
-      const elapsedMs = timerState.elapsedMs
-      const plannedMs = timerState.plannedMs
-      const isOvertime = timerState.isOvertime
-      const wasEarlyFinish = timerState.wasEarlyFinish
-
-      const sessionsState = useSessionsStore.getState()
-      const streakDays = calculateStreak(sessionsState.sessions)
-      const isFullCompletion = !(wasEarlyFinish ?? false)
-      const todayStr = new Date().toISOString().split('T')[0]
-      const todayCompletedRounds = sessionsState.sessions.filter(
-        (s) => s.tarihISO.startsWith(todayStr) && s.mod === mode
-      ).length
-      const resolvedOvertimeDurationMs = isOvertime && plannedMs != null && elapsedMs > plannedMs
-        ? elapsedMs - plannedMs
-        : undefined
-      const score = calculateScore(elapsedMs, mode, pauses, isFullCompletion, todayCompletedRounds, streakDays, plannedMs, resolvedOvertimeDurationMs)
-      setLastSessionScore(score)
-      setShowFinishScreen(true)
-
-      const s = useSettingsStore.getState()
-      const isSessiz = s.sessizMod
-      import('./lib/notifications').then(({ notifySessionComplete }) => {
-        if (!isCurrentScope(accountScope)) return
-        notifySessionComplete({
-          enableSound: !isSessiz && s.sesAçık,
-          enableVibration: !isSessiz && s.titreşimAçık,
-          enableBrowserNotification: s.bildirimİzni === 'granted',
-          title: `Seans Tamamlandı! 🎉 (${score.totalScore} puan)`,
-          body: `${MODE_LABELS[mode] ?? mode} seansınız tamamlandı.`,
-        })
+    if (status !== 'finished' || !sessionsReady) return
+    const timer = useTimerStore.getState()
+    timer.prepareFinishedSession(useSessionsStore.getState().sessions)
+    const current = useTimerStore.getState()
+    if (!current.finishedSession || !current.finishScore || notifiedSessionRef.current === current.finishedSession.id) return
+    notifiedSessionRef.current = current.finishedSession.id
+    const s = useSettingsStore.getState()
+    const score = current.finishScore
+    import('./lib/notifications').then(({ notifySessionComplete }) => {
+      if (!isCurrentScope(accountScope)) return
+      notifySessionComplete({
+        enableSound: !s.sessizMod && s.sesAçık,
+        enableVibration: !s.sessizMod && s.titreşimAçık,
+        enableBrowserNotification: s.bildirimİzni === 'granted',
+        title: `Seans Tamamlandı! 🎉 (${score.totalScore} puan)`,
+        body: `${MODE_LABELS[mode] ?? mode} seansınız tamamlandı.`,
       })
-    }
-  }, [status, showFinishScreen, mode, pauses, accountScope])
+    })
+  }, [status, sessionsReady, mode, accountScope])
+
+  useLayoutEffect(() => {
+    if (showSettings || showRecoveryModal || status === 'finished' || activeView !== 'timer') return blockTimerControls()
+  }, [showSettings, showRecoveryModal, status, activeView])
 
   const primaryLabel = status === 'running' ? 'Duraklat' : status === 'paused' ? 'Devam' : 'Başlat'
   const primaryAction = useCallback(() => {
-    if (!isCurrentScope(accountScope)) return
+    if (!isCurrentScope(accountScope) || showSettings || showRecoveryModal || status === 'finished') return
     // Kullanıcı gesture'ı altında AudioContext'i unlock et (autoplay politikası)
     if (status !== 'running') {
       unlockAudio()
@@ -379,90 +368,51 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
     if (status === 'running') return pause()
     if (status === 'paused') return resume()
     return start()
-  }, [status, pause, resume, start, accountScope])
+  }, [status, pause, resume, start, accountScope, showSettings, showRecoveryModal])
 
   const saveSession = async () => {
-    if (!isCurrentScope(accountScope)) return
-    if (!lastSessionScore) return
-    const timerState = useTimerStore.getState()
-    const elapsedMs = timerState.elapsedMs
-    const plannedMs = timerState.plannedMs
-    // Vercel build TS6133 hatasını önlemek için kullanılmayan wasEarlyFinish değişkeni kaldırıldı.
-
-    const sureGercekSaniye = Math.round(elapsedMs / 1000)
-    const surePlanSaniye = plannedMs != null ? Math.round(plannedMs / 1000) : undefined
-    const denemeToplamPlanSaniye = mode === 'deneme' && modeConfig.mode === 'deneme'
-      ? Math.round(modeConfig.bolumler.reduce((acc, bolum) => acc + bolum.surePlanMs, 0) / 1000)
-      : surePlanSaniye
-    const session: SessionRecord = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      mod: mode,
-      surePlan: denemeToplamPlanSaniye,
-      sureGercek: sureGercekSaniye,
-      puan: lastSessionScore.totalScore,
-      tarihISO: new Date().toISOString(),
-      not: (mode === 'deneme' || mode === 'EXAM_SIMULATOR') && denemeAdi.trim()
-        ? denemeAdi.trim()
-        : sessionNote || undefined,
-      duraklatmaSayisi: pauses,
-      toplamDuraklamaSureSaniye: totalPauseDurationMs > 0 ? Math.round(totalPauseDurationMs / 1000) : undefined,
-      molaSaniye: mode === 'ders60mola15' && molaToplamMs != null ? Math.round(molaToplamMs / 1000) : undefined,
-      denemeMolalarSaniye: mode === 'deneme' ? [...(denemeMolalarSaniye ?? [])] : undefined,
-      dogruSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.dogru : undefined,
-      yanlisSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.yanlis : undefined,
-      bosSayisi: mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz?.bos : undefined,
-      templateId: mode === 'deneme' && modeConfig.mode === 'deneme' ? modeConfig.templateId : undefined,
-      // Her bölüm (AGS, ÖABT vb.) bağımsız bir deneme kaydı oluşturduğu için veritabanına kaydedilirken aktif bölümün adı (bolumler[currentSectionIndex].ad) öncelikli olarak templateName yapılır.
-      templateName: mode === 'deneme' && modeConfig.mode === 'deneme'
-        ? (modeConfig.bolumler[currentSectionIndex ?? 0]?.ad ?? modeConfig.templateName)
-        : undefined,
-      ekstraSureMs: plannedMs != null && elapsedMs > plannedMs
-        ? elapsedMs - plannedMs
-        : undefined,
-      // Veritabanı ve performans optimizasyonu için atıl olan erkenBitirmeSuresi, odakSkoru ve ruhHali atamaları kaldırıldı.
-    }
+    if (!isCurrentScope(accountScope) || savingSessionRef.current) return
+    savingSessionRef.current = true
+    setSavingSession(true)
+    setSaveError(null)
     try {
-      await addSession(session)
+      const record = await saveFinishedSession(accountScope)
       if (!isCurrentScope(accountScope)) return
-      showToast(`Seans kaydedildi! +${lastSessionScore.totalScore} puan 🎉`, 'success')
-      setShowFinishScreen(false)
-      setSessionNote('')
-      // State sızıntısını (Memory Leak) önlemek için önceki deneme analiz verisini sıfırla
-      setDenemeAnaliz(null)
-
-      /*
-       * Asenkron geçiş: ders60mola15 modunda arka planda mola başlamışsa,
-       * reset yerine transitionToBreak çağrılır — mola kaldığı yerden devam eder.
-       */
-      const timerState = useTimerStore.getState()
-      if (mode === 'ders60mola15' && timerState.backgroundBreakStartTs != null) {
-        transitionToBreak()
-      } else {
-        reset()
-      }
+      completeFinishedSession(record.id)
+      setDenemeAdi('')
+      showToast(`Seans kaydedildi! +${record.puan} puan 🎉`, 'success')
     } catch (error) {
-      console.error('Failed to save session:', error)
+      if (isCurrentScope(accountScope)) setSaveError(error instanceof Error ? error.message : 'Seans kaydedilemedi. Tekrar deneyebilirsiniz.')
+    } finally {
+      savingSessionRef.current = false
+      if (isCurrentScope(accountScope)) setSavingSession(false)
     }
   }
 
   /* ── keyboard shortcuts ── */
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.repeat || (e.target as HTMLElement).isContentEditable) return
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
       if (e.code === 'Escape' && showSettings) {
         setShowSettings(false)
         return
       }
+      if (showSettings || showRecoveryModal || status === 'finished' || activeView !== 'timer') return
       if (e.code === settings.kısayollar.startStop) {
         e.preventDefault()
         primaryAction()
       }
       if (e.code === settings.kısayollar.reset) {
         e.preventDefault()
-        reset()
+        runTimerShortcut('reset')
       }
       if (e.code === settings.kısayollar.modGeçiş) {
         e.preventDefault()
+        if (useTimerStore.getState().status !== 'idle') {
+          showToast('Mod değiştirmek için önce seansı bitirin veya sıfırlayın.')
+          return
+        }
         const modeList = ['serbest', 'gerisayim', 'EXAM_SIMULATOR', 'ders60mola15', 'deneme'] as const
         const currentIdx = modeList.indexOf(mode as (typeof modeList)[number])
         const nextIdx = (currentIdx + 1) % modeList.length
@@ -482,7 +432,7 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
     }
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [settings.kısayollar, status, primaryAction, reset, mode, setModeConfig, savedDenemeConfig, showSettings, examStartTime, examDurationMinutes])
+  }, [settings.kısayollar, status, primaryAction, mode, setModeConfig, savedDenemeConfig, showSettings, showRecoveryModal, activeView, showToast, examStartTime, examDurationMinutes])
 
   const summary = useMemo(() => {
     const totalMinutes = Math.round(todaySessions.reduce((acc, s) => acc + (s.sureGercek || 0), 0) / 60)
@@ -548,6 +498,10 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
   /* ── mode select handler ── */
   const handleModeSelect = useCallback(
     (modeId: 'serbest' | 'gerisayim' | 'EXAM_SIMULATOR' | 'ders60mola15' | 'deneme') => {
+      if (useTimerStore.getState().status !== 'idle') {
+        showToast('Mod değiştirmek için önce seansı bitirin veya sıfırlayın.')
+        return
+      }
       if (modeId === 'deneme' && savedDenemeConfig) {
         setModeConfig(savedDenemeConfig)
       } else if (modeId === 'EXAM_SIMULATOR') {
@@ -566,35 +520,34 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
 
   /* ═══════════════════════ RENDER ═══════════════════════ */
 
-  // Bitiş ekranı
-  if (showFinishScreen && lastSessionScore) {
+  // Taslak ve form hesap deposunda tutulur; yenilemede aynı seans açılır.
+  if (status === 'finished') {
+    if (!finishedSession || !finishScore) return <div role="status" className="min-h-screen bg-surface-900 p-8 text-text-primary">Seans hazırlanıyor…</div>
+    const isExam = mode === 'deneme' || mode === 'EXAM_SIMULATOR'
     return (
       <FinishScreen
-        score={lastSessionScore}
+        score={finishScore}
         mode={mode}
-        sessionNote={sessionNote}
-        onSessionNoteChange={setSessionNote}
-        denemeAnaliz={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? denemeAnaliz : undefined}
-        onDenemeAnalizChange={mode === 'deneme' || mode === 'EXAM_SIMULATOR' ? setDenemeAnaliz : undefined}
+        sessionNote={finishForm?.note ?? ''}
+        onSessionNoteChange={(note) => updateFinishForm({ note })}
+        denemeAnaliz={isExam ? finishForm?.analysis : undefined}
+        onDenemeAnalizChange={isExam ? (analysis) => updateFinishForm({ analysis }) : undefined}
+        examName={isExam ? finishForm?.examName || denemeAdi : undefined}
+        onExamNameChange={isExam ? (examName) => updateFinishForm({ examName }) : undefined}
+        saving={savingSession}
+        saveError={saveError}
         onSave={saveSession}
         onCancel={() => {
-          setShowFinishScreen(false)
-          setSessionNote('')
-          setDenemeAnaliz(null)
-
-          // Arka planda mola varsa break'e geç, yoksa reset
-          const timerState = useTimerStore.getState()
-          if (mode === 'ders60mola15' && timerState.backgroundBreakStartTs != null) {
-            transitionToBreak()
-          } else {
-            reset()
-          }
+          if (savingSessionRef.current) return
+          completeFinishedSession(finishedSession.id)
+          setSaveError(null)
+          setDenemeAdi('')
         }}
       />
     )
   }
 
-  if (isMiniPlayerMode) {
+  if (isMiniPlayerMode && !showRecoveryModal && !showSettings) {
     return (
       <MiniPlayer
         primaryLabel={primaryLabel}
@@ -684,6 +637,7 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
             <ModeSelector currentMode={modeConfig.mode} onSelect={handleModeSelect} />
 
             {/* Mod konfigürasyon paneli (gerisayim / deneme) */}
+            <fieldset disabled={status !== 'idle'} className="min-w-0">
             <ModeConfigPanel
               modeConfig={modeConfig}
               setModeConfig={setModeConfig}
@@ -708,6 +662,7 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
               denemeAdi={denemeAdi}
               setDenemeAdi={setDenemeAdi}
             />
+            </fieldset>
 
             {/* ════════  BÖLÜM 3 — DASHBOARD  ════════ */}
 
@@ -771,10 +726,10 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
         {/* Session Recovery Modal */}
         {showRecoveryModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-            <div className="w-full max-w-md rounded-card border border-text-primary/10 bg-surface-800 p-6 shadow-2xl">
-              <h3 className="font-display text-xl text-text-primary">Oturum Kurtarma</h3>
+            <div role="dialog" aria-modal="true" aria-labelledby="recovery-title" className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-card border border-text-primary/10 bg-surface-800 p-6 shadow-2xl">
+              <h3 id="recovery-title" className="font-display text-xl text-text-primary">Oturum Kurtarma</h3>
               <p className="mt-3 text-sm text-text-muted">
-                Son kapatmanızda bir seans açık kaldı. Ne yapmak istersiniz?
+                Son kaydedilen çalışma süreniz korundu. Kapalı kaldığı bilinmeyen süre ve bu ekranda bekleme çalışma süresine eklenmez. Sınav Saati modunda açılışa kadar sabit bitiş saati uygulanır.
               </p>
 
               <div className="mt-6 flex flex-col gap-3">
@@ -783,7 +738,7 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
                   onClick={handleRecoveryFinish}
                   className="w-full rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
                 >
-                  Kaydet ve Bitir
+                  Bitir ve Kayıt Ekranını Aç
                 </button>
                 <button
                   type="button"

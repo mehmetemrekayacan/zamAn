@@ -46,6 +46,10 @@ export interface FinishScreenProps {
   /** Sadece deneme modunda: doğru / yanlış / boş sayıları */
   denemeAnaliz?: DenemeAnalizType | null
   onDenemeAnalizChange?: (value: DenemeAnalizType | null) => void
+  examName?: string
+  onExamNameChange?: (value: string) => void
+  saving?: boolean
+  saveError?: string | null
   onSave: () => void
   onCancel: () => void
   // Veritabanı ve arayüz optimizasyonu amacıyla kullanılmayan ruh hali prop'ları kaldırıldı.
@@ -64,14 +68,19 @@ export function FinishScreen({
   onSessionNoteChange,
   denemeAnaliz,
   onDenemeAnalizChange,
+  examName,
+  onExamNameChange,
+  saving = false,
+  saveError,
   onSave,
   onCancel,
 }: FinishScreenProps) {
-  const elapsedMs = useTimerStore((s) => s.elapsedMs)
-  const pauses = useTimerStore((s) => s.pauses)
-  const totalPauseDurationMs = useTimerStore((s) => s.totalPauseDurationMs ?? 0)
+  const elapsedMs = useTimerStore((s) => s.finishedSession?.elapsedMs ?? s.elapsedMs)
+  const pauses = useTimerStore((s) => s.finishedSession?.pauses ?? s.pauses)
+  const totalPauseDurationMs = useTimerStore((s) => s.finishedSession?.totalPauseDurationMs ?? s.totalPauseDurationMs ?? 0)
   const backgroundBreakStartTs = useTimerStore((s) => s.backgroundBreakStartTs)
   const backgroundBreakPlannedMs = useTimerStore((s) => s.backgroundBreakPlannedMs)
+  const endedAt = useTimerStore((s) => s.finishedSession?.endedAt)
   const isDeneme = mode === 'deneme' || mode === 'EXAM_SIMULATOR'
   const analiz = denemeAnaliz ?? { dogru: 0, yanlis: 0, bos: 0 }
   const setAnaliz = (next: Partial<DenemeAnalizType>) => {
@@ -85,19 +94,18 @@ export function FinishScreen({
     && typeof backgroundBreakPlannedMs === 'number'
     && Number.isFinite(backgroundBreakPlannedMs)
     && backgroundBreakPlannedMs > 0
-  const [breakRemainingMs, setBreakRemainingMs] = useState(0)
+  const [breakNow, setBreakNow] = useState(() => Date.now())
+  const breakRemainingMs = hasBackgroundBreak
+    ? Math.max(0, backgroundBreakPlannedMs! - Math.max(0, breakNow - backgroundBreakStartTs!)) : 0
 
   useEffect(() => {
     if (!hasBackgroundBreak || !isValidEpochMs(backgroundBreakStartTs) || backgroundBreakPlannedMs == null) {
-      setBreakRemainingMs(0)
       return
     }
 
     const update = () => {
-      const elapsed = Math.max(0, Date.now() - backgroundBreakStartTs)
-      setBreakRemainingMs(Math.max(0, backgroundBreakPlannedMs - elapsed))
+      setBreakNow(Date.now())
     }
-    update()
     const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
   }, [hasBackgroundBreak, backgroundBreakStartTs, backgroundBreakPlannedMs])
@@ -174,7 +182,7 @@ export function FinishScreen({
             <div>
               <p className="text-xs text-text-muted">Duraklatma {pauses > 0 ? `(${pauses}×)` : ''}</p>
               <p className="font-semibold text-text-primary">
-                {pauses > 0
+                {hasPauses
                   ? formatSeconds(Math.round(totalPauseDurationMs / 1000))
                   : 'Yok'}
               </p>
@@ -182,12 +190,20 @@ export function FinishScreen({
             <div>
               <p className="text-xs text-text-muted">Saat</p>
               <p className="font-semibold text-text-primary">
-                {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                {new Date(endedAt ?? breakNow).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>
         </div>
 
+        {isDeneme && onExamNameChange && (
+          <label className="space-y-2 text-sm font-semibold text-text-primary">
+            Deneme Adı (opsiyonel)
+            <input value={examName ?? ''} disabled={saving} onChange={(event) => onExamNameChange(event.target.value)}
+              className="mt-2 w-full rounded-card border border-text-primary/10 bg-surface-800 px-3 py-2" />
+          </label>
+        )}
+        <fieldset disabled={saving} className="contents">
         {isDeneme && onDenemeAnalizChange && (
           <div className="space-y-3 rounded-card border border-primary/30 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-text-primary">Deneme analizi (opsiyonel)</p>
@@ -251,16 +267,21 @@ export function FinishScreen({
             rows={3}
           />
         </div>
+        </fieldset>
 
+        {saveError && <p role="alert" className="text-sm text-danger">Kayıt tamamlanamadı: {saveError} Taslak korundu; yeniden deneyebilirsiniz.</p>}
         <div className="flex gap-3">
           <button
             onClick={onSave}
+            disabled={saving}
+            aria-busy={saving}
             className="flex-1 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/40 active:scale-[0.98] transition"
           >
-            Kaydet ve Devam Et
+            {saving ? 'Kaydediliyor…' : saveError ? 'Tekrar Dene' : 'Kaydet ve Devam Et'}
           </button>
           <button
             onClick={onCancel}
+            disabled={saving}
             className="rounded-full border border-text-primary/10 px-6 py-3 font-semibold text-text-primary hover:border-primary/60 active:scale-[0.98] transition"
           >
             İptal

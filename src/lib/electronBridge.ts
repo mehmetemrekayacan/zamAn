@@ -9,8 +9,8 @@ export interface ElectronAPI {
   sendTimerUpdate: (timeStr: string) => void
   toggleMiniPlayer: (enabled: boolean) => void
   toggleAlwaysOnTop: (isTop: boolean) => void
-  onGlobalHotkey: (callback: (action: string) => void) => void
-  onMiniPlayerChanged: (callback: (enabled: boolean) => void) => void
+  onGlobalHotkey: (callback: (action: string) => void) => void | (() => void)
+  onMiniPlayerChanged: (callback: (enabled: boolean) => void) => void | (() => void)
   isElectron: boolean
 }
 
@@ -41,11 +41,15 @@ export function toggleAlwaysOnTop(isTop: boolean): void {
 }
 
 /** Global hotkey dinle (başlat/duraklat, sıfırla vb.) */
-export function onGlobalHotkey(callback: (action: string) => void): void {
-  window.electronAPI?.onGlobalHotkey(callback)
+export function onGlobalHotkey(callback: (action: string) => void): () => void {
+  let active = true
+  const unsubscribe = window.electronAPI?.onGlobalHotkey((action) => { if (active) callback(action) })
+  return () => { active = false; unsubscribe?.() }
 }
 
 /** Mini-player değişim dinle */
-export function onMiniPlayerChanged(callback: (enabled: boolean) => void): void {
-  window.electronAPI?.onMiniPlayerChanged(callback)
+export function onMiniPlayerChanged(callback: (enabled: boolean) => void): () => void {
+  let active = true
+  const unsubscribe = window.electronAPI?.onMiniPlayerChanged((enabled) => { if (active) callback(enabled) })
+  return () => { active = false; unsubscribe?.() }
 }

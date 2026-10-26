@@ -2,7 +2,7 @@
 
 Oluşturulma: 24 Ekim 2026.
 Dayanak: [Teknik inceleme](INCELEME-2026-10-24.md).
-Durum: İnceleme ve 1–4. aşamaların kod çalışması tamamlandı. 4. aşamanın canlı Supabase geçişi ve RPC/RLS kontrolleri geçti; Vercel yayınını kullanıcı yapacak, yayın sonrası gerçek iki cihaz kabulü bekliyor. Sonuçlar: [Test altyapısı](TEST-ALTYAPISI.md), [güvenli yedekleme](ASAMA-2-YEDEKLEME.md), [hesap ve kuyruk ayrımı](ASAMA-3-HESAPLAR.md), [senkronizasyon geçişi](ASAMA-4-SENKRONIZASYON.md). Son güncelleme: 26 Ekim 2026.
+Durum: İnceleme ve 1–5. aşamaların kod çalışması tamamlandı. 4. aşamanın canlı Supabase geçişi doğrulandı ve kullanıcı Vercel yayınının başarılı olduğunu bildirdi. 5. aşamanın yeni kodu yayınlanmayı bekliyor. Sonuçlar: [Test altyapısı](TEST-ALTYAPISI.md), [güvenli yedekleme](ASAMA-2-YEDEKLEME.md), [hesap ayrımı](ASAMA-3-HESAPLAR.md), [senkronizasyon](ASAMA-4-SENKRONIZASYON.md), [seans yaşam döngüsü](ASAMA-5-SEANS-YASAM-DONGUSU.md). Son güncelleme: 26 Ekim 2026.
 
 Amaç: Mevcut verileri korumak, sayaç ve istatistikleri doğru çalıştırmak, ardından ölçülebilir performans iyileştirmesi yapmak.
 
@@ -126,10 +126,10 @@ Tamamlanma ölçütü: Otomatik kontroller geçer; erişilebilen platformlarda t
 - [x] 2. Güvenli yedek içe aktarma
 - [x] 3. Hesap ve kuyruk sahipliği
 - [x] 4. Senkronizasyon ve silme — kod, canlı veritabanı geçişi ve protokol kontrolleri tamam
-- [ ] 4. aşama yayın kabulü — kullanıcı Vercel'e yayımlayacak; gerçek iki cihaz kontrolü bekliyor
-- [ ] 5. Seans yaşam döngüsü ve kurtarma
+- [ ] 4. aşama gerçek cihaz kabulü — Vercel yayını kullanıcı tarafından tamamlandı; iki fiziksel cihaz testi raporlanmadı
+- [x] 5. Seans yaşam döngüsü ve kurtarma — kod ve otomatik kontroller tamam; yeni yayın/cihaz kabulü bekliyor
 - [ ] 6. Tarih ve istatistik doğruluğu
 - [ ] 7. Performans
 - [ ] 8. Kullanım akışı ve sürüm doğrulama
 
-Sıradaki iş: Supabase SQL araçları oturuma geldiğinde hedef projenin salt okunur preflight kontrolü, yedekleme ve kontrollü canlı geçiş. Hazır dosyalar ve test sonuçları 4. aşama belgesinde kayıtlıdır.
+Sıradaki iş: 6. aşamada ortak yerel tarih hesapları, istatistik sınırları ve süre dağılımı. 5. aşamanın yayın ve gerçek cihaz kontrolü ayrıca takip edilecek.
