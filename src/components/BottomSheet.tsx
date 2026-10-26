@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { hasOpenDialog } from '../lib/dialogStack'
 
 /**
  * Mobil Bottom Sheet — iOS/Android tarzı sürüklenebilir alt panel.
@@ -29,6 +30,8 @@ export const BottomSheet = memo(function BottomSheet({
   children,
 }: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null)
+  const handleRef = useRef<HTMLButtonElement>(null)
+  const contentId = useId()
   const [snap, setSnap] = useState<SnapPoint>('peek')
   const [dragging, setDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState(0)
@@ -97,7 +100,10 @@ export const BottomSheet = memo(function BottomSheet({
   /* ── Escape ile küçült ── */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && snap !== 'peek') setSnap('peek')
+      if (e.key === 'Escape' && !e.defaultPrevented && !hasOpenDialog() && snap !== 'peek') {
+        setSnap('peek')
+        handleRef.current?.focus()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -132,9 +138,12 @@ export const BottomSheet = memo(function BottomSheet({
         {/* Handle bar */}
         <button
           type="button"
+          ref={handleRef}
           onClick={handleTap}
           className="flex flex-col items-center gap-2 px-4 pb-2 pt-3 focus:outline-none"
-          aria-label="Bottom sheet'i aç/kapat"
+          aria-label="Çalışma özetini aç veya küçült"
+          aria-expanded={snap !== 'peek'}
+          aria-controls={contentId}
         >
           <span className="h-1 w-10 rounded-full bg-text-muted/40" />
           {/* Peek özet satırı */}
@@ -149,6 +158,9 @@ export const BottomSheet = memo(function BottomSheet({
 
         {/* İçerik */}
         <div
+          id={contentId}
+          inert={snap === 'peek'}
+          aria-hidden={snap === 'peek'}
           data-sheet-content
           className={`flex-1 overflow-y-auto overscroll-contain px-4 pb-6
                       ${snap === 'peek' ? 'pointer-events-none opacity-0' : 'opacity-100'}

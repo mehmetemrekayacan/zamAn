@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:rozetler": "vitest run src/lib/rozetler.test.ts",
     "test:data": "vitest run src/test/data",
+    "test:ui": "vitest run src/test/ui --maxWorkers=1",
     "test:performance": "vitest run src/test/performance --maxWorkers=1",
     "measure:bundle": "npm run build -- --manifest && node scripts/measure-bundle.mjs",
     "test:sync": "vitest run src/test/database",

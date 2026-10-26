@@ -43,6 +43,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [disaAktariyor, setDisaAktariyor] = useState(false)
   const [iceAktariyor, setIceAktariyor] = useState(false)
   const [iceAktarHata, setIceAktarHata] = useState<string | null>(null)
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [unownedCount, setUnownedCount] = useState(0)
   const isGuest = getDataScope().ownerId === null
@@ -60,6 +61,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [cloudPassword, setCloudPassword] = useState('')
   const [cloudIsim, setCloudIsim] = useState('')
   const [cloudLoading, setCloudLoading] = useState(false)
+  const cloudBusyRef = useRef(false)
   const [forceSyncLoading, setForceSyncLoading] = useState(false)
   const [lastForceSyncAt, setLastForceSyncAt] = useState<string | null>(null)
   const [cloudError, setCloudError] = useState<string | null>(null)
@@ -116,6 +118,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const handleGiris = async () => {
     setCloudLoading(true)
     setCloudError(null)
+    setCloudPushPullMsg(null)
     try {
       const r = await signIn(cloudEmail, cloudPassword)
       if (!r.ok) {
@@ -131,37 +134,61 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   }
 
   const handleCikis = async () => {
+    setCloudLoading(true)
+    setCloudError(null)
+    setCloudPushPullMsg(null)
     try {
       await signOut()
     } catch (error) {
       setCloudError(error instanceof Error ? error.message : 'Çıkış yapılamadı.')
+    } finally {
+      setCloudLoading(false)
     }
   }
 
   const handleBulutaKaydet = async () => {
-    setCloudLoading(true)
-    setCloudError(null)
-    setCloudPushPullMsg(null)
-    const r = await pushCloud()
-    setCloudLoading(false)
-    if (r.ok) {
-      setCloudPushPullMsg(`Buluta kaydedildi (${r.pushed} seans).${r.conflicts ? ` ${r.conflicts} değişiklik aşağıda korundu.` : ''}`)
-      setLastSync(new Date().toISOString())
-      await refreshSyncStatuses()
-    } else setCloudError(r.error)
+    await runCloudAction(async () => {
+      const r = await pushCloud()
+      if (!r.ok) throw new Error(r.error)
+      return `Gönderme tamamlandı: ${r.pushed} seans.${r.conflicts ? ` ${r.conflicts} değişiklik aşağıda korundu.` : ''}`
+    })
   }
 
   const handleBuluttanCek = async () => {
+    await runCloudAction(async () => {
+      const r = await pullCloud()
+      if (!r.ok) throw new Error(r.error)
+      return `Alma tamamlandı: ${r.pulled} yeni, ${r.merged} güncellenen seans.`
+    })
+  }
+
+  const runCloudAction = async (action: () => Promise<string>) => {
+    if (cloudBusyRef.current) return
+    cloudBusyRef.current = true
     setCloudLoading(true)
     setCloudError(null)
     setCloudPushPullMsg(null)
-    const r = await pullCloud()
-    setCloudLoading(false)
-    if (r.ok) {
-      setCloudPushPullMsg(`Buluttan çekildi (${r.pulled} yeni, ${r.merged} güncellenen).`)
-      setLastSync(new Date().toISOString())
+    try {
+      const message = await action()
+      if (!isCurrentScope(accountScope)) return
       await refreshSyncStatuses()
-    } else setCloudError(r.error)
+      if (!isCurrentScope(accountScope)) return
+      setCloudPushPullMsg(message)
+      setLastSync(getLastSyncTime())
+    } catch (failure) {
+      if (isCurrentScope(accountScope)) setCloudError(failure instanceof Error ? failure.message : 'Eşitleme tamamlanamadı. Yeniden deneyebilirsin.')
+    } finally {
+      cloudBusyRef.current = false
+      if (isCurrentScope(accountScope)) setCloudLoading(false)
+    }
+  }
+
+  const handleEsitle = async () => {
+    await runCloudAction(async () => {
+      const r = await syncCloud()
+      if (!r.ok) throw new Error(r.error)
+      return `Eşitleme tamamlandı: ${r.pushed} gönderildi, ${r.pulled} yeni, ${r.merged} güncellendi.${r.conflicts ? ` ${r.conflicts} değişiklik aşağıda korundu.` : ''}`
+    })
   }
 
   const handleForceSync = async () => {
@@ -189,6 +216,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const handleTumVerileriTemizle = async () => {
     if (!window.confirm('Bu cihazdaki seans önbelleği ve sayaç durumu temizlenecek. Tercihlerin ve bulut seansların korunur; eşitlemeyle kayıtlar yeniden yüklenebilir. Devam edilsin mi?')) return
     setTemizleniyor(true)
+    setIceAktarHata(null)
     try {
       await clearLocalSessions()
       if (!isCurrentScope(accountScope)) return
@@ -258,21 +286,25 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     if (!file) return
     setIceAktariyor(true)
     setIceAktarHata(null)
-    const result = await importFromFile(file)
-    setIceAktariyor(false)
-    if (result.ok) {
-      window.location.reload()
-    } else {
-      setIceAktarHata(result.error)
+    try {
+      const result = await importFromFile(file)
+      if (!isCurrentScope(accountScope)) return
+      if (result.ok) window.location.reload()
+      else setIceAktarHata(result.error)
+    } catch (failure) {
+      if (isCurrentScope(accountScope)) setIceAktarHata(failure instanceof Error ? failure.message : 'Yedek içe aktarılamadı.')
+    } finally {
+      if (isCurrentScope(accountScope)) setIceAktariyor(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-800 border border-text-primary/10 rounded-card max-w-sm w-full max-h-[85vh] shadow-2xl flex flex-col">
+      <div className="flex min-h-0 flex-col">
         <div className="flex items-center justify-between bg-surface-800 px-4 sm:px-6 py-4 sm:py-5 border-b border-text-primary/10">
           <h2 className="font-display text-lg sm:text-xl text-text-primary">Ayarlar</h2>
           <button
+            type="button"
+            aria-label="Ayarları kapat"
             onClick={onClose}
             className="text-text-muted hover:text-text-primary transition flex-shrink-0"
           >
@@ -295,6 +327,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <label className="text-sm sm:text-base text-text-primary cursor-pointer whitespace-nowrap">Ses</label>
               </div>
               <button
+                role="switch"
+                aria-label="Ses"
+                aria-checked={sesAçık}
                 onClick={() => setSetting('sesAçık', !sesAçık)}
                 className={`w-10 h-5 sm:w-11 sm:h-6 rounded-full transition flex-shrink-0 ml-2 ${
                   sesAçık ? 'bg-primary' : 'bg-surface-600'
@@ -314,6 +349,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <label className="text-sm sm:text-base text-text-primary cursor-pointer whitespace-nowrap">Titreşim</label>
               </div>
               <button
+                role="switch"
+                aria-label="Titreşim"
+                aria-checked={titreşimAçık}
                 onClick={() => setSetting('titreşimAçık', !titreşimAçık)}
                 className={`w-10 h-5 sm:w-11 sm:h-6 rounded-full transition flex-shrink-0 ml-2 ${
                   titreşimAçık ? 'bg-primary' : 'bg-surface-600'
@@ -333,6 +371,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <label className="text-sm sm:text-base text-text-primary cursor-pointer whitespace-nowrap" title="Seans sırasında ses kapalı">Sessiz mod</label>
               </div>
               <button
+                role="switch"
+                aria-label="Sessiz mod"
+                aria-checked={sessizMod}
                 onClick={() => setSetting('sessizMod', !sessizMod)}
                 className={`w-10 h-5 sm:w-11 sm:h-6 rounded-full transition flex-shrink-0 ml-2 ${
                   sessizMod ? 'bg-primary' : 'bg-surface-600'
@@ -352,16 +393,25 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <label className="text-sm sm:text-base text-text-primary cursor-pointer whitespace-nowrap">Tarayıcı Bildirimi</label>
               </div>
               <button
+                role="switch"
+                aria-label="Tarayıcı bildirimi"
+                aria-checked={bildirimİzni === 'granted'}
                 onClick={async () => {
+                  setNotificationMessage(null)
+                  try {
                   if (bildirimİzni !== 'granted') {
                     if (!('Notification' in window)) {
-                      alert('Tarayıcınız bildirimleri desteklemiyor')
+                      setNotificationMessage('Bu tarayıcı bildirimleri desteklemiyor.')
                       return
                     }
                     const permission = await Notification.requestPermission()
                     setSetting('bildirimİzni', permission === 'granted' ? 'granted' : 'denied')
+                    if (permission !== 'granted') setNotificationMessage('Bildirim izni verilmedi. Tarayıcının site izinlerinden değiştirebilirsin.')
                   } else {
                     setSetting('bildirimİzni', 'denied')
+                  }
+                  } catch {
+                    setNotificationMessage('Bildirim izni alınamadı. Tarayıcının site izinlerini kontrol edebilirsin.')
                   }
                 }}
                 className={`w-10 h-5 sm:w-11 sm:h-6 rounded-full transition flex-shrink-0 ml-2 ${
@@ -373,6 +423,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 }`} />
               </button>
             </div>
+            {notificationMessage && <p role="status" className="text-xs text-text-muted">{notificationMessage}</p>}
           </div>
 
           <div className="space-y-2 pt-3 border-t border-text-primary/10">
@@ -382,6 +433,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <label className="block text-xs text-text-muted mb-1">İsim (selamda kullanılır)</label>
                 <input
                   type="text"
+                  aria-label="Selamlamada kullanılacak isim"
                   value={kullaniciAdi}
                   onChange={(e) => setSetting('kullaniciAdi', e.target.value)}
                   placeholder="ör. Luna"
@@ -392,6 +444,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <label className="block text-xs text-text-muted mb-1">Sınav tarihi (X gün kaldı)</label>
                 <input
                   type="date"
+                  aria-label="Sınav tarihi"
                   value={sinavTarihi ?? ''}
                   onChange={(e) => setSetting('sinavTarihi', e.target.value || null)}
                   className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary text-sm focus:border-primary/50 focus:outline-none"
@@ -406,6 +459,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               {(['dark', 'light', 'high-contrast'] as const).map((themeOption) => (
                 <button
                   key={themeOption}
+                  aria-pressed={tema === themeOption}
                   onClick={() => setSetting('tema', themeOption)}
                   className={`w-full p-2 sm:p-3 rounded-lg border transition text-left text-sm sm:text-base ${
                     tema === themeOption
@@ -460,14 +514,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 </div>
               ))}
               <p className="text-xs text-text-muted mt-2">
-                💡 Tuş kodlarını görmek için: Browser DevTools → Console üzerinde <code className="bg-surface-700 px-1 py-0.5 rounded">event.code</code> yazın
+                Sayaç kısayolları yazı alanlarında ve açık pencerelerde çalışmaz. Tuş örnekleri: Space, KeyA, KeyR.
               </p>
             </div>
           </div>
 
           {cloudEnabled && (
             <div className="space-y-2 pt-3 border-t border-text-primary/10">
-              <h3 className="text-base font-semibold text-text-primary">Hesap (online senkron)</h3>
+              <h3 className="text-base font-semibold text-text-primary">Hesap ve eşitleme</h3>
               {!isGuest ? (
                 <>
                   <p className="text-sm text-text-primary">
@@ -477,45 +531,34 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     <button
                       type="button"
                       onClick={handleBulutaKaydet}
-                      disabled={cloudLoading}
+                      disabled={cloudLoading || forceSyncLoading}
                       className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                     >
-                      {cloudLoading ? '…' : '⬆ Gönder'}
+                      {cloudLoading ? 'İşleniyor…' : '⬆ Gönder'}
                     </button>
                     <button
                       type="button"
                       onClick={handleBuluttanCek}
-                      disabled={cloudLoading}
+                      disabled={cloudLoading || forceSyncLoading}
                       className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                     >
-                      {cloudLoading ? '…' : '⬇ Çek'}
+                      {cloudLoading ? 'İşleniyor…' : '⬇ Çek'}
                     </button>
                   </div>
                   <button
                     type="button"
-                    onClick={async () => {
-                      setCloudLoading(true)
-                      setCloudError(null)
-                      setCloudPushPullMsg(null)
-                      const r = await syncCloud()
-                      setCloudLoading(false)
-                      if (r.ok) {
-                        setCloudPushPullMsg(`Sync tamamlandı: ${r.pushed} gönderildi, ${r.pulled} yeni, ${r.merged} güncellendi.${r.conflicts ? ` ${r.conflicts} değişiklik aşağıda korundu.` : ''}`)
-                        setLastSync(new Date().toISOString())
-                        await refreshSyncStatuses()
-                      } else setCloudError(r.error)
-                    }}
-                    disabled={cloudLoading}
+                    onClick={handleEsitle}
+                    disabled={cloudLoading || forceSyncLoading}
                     className="w-full rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                   >
-                    {cloudLoading ? '…' : '🔄 Çift yönlü sync'}
+                    {cloudLoading ? 'Eşitleniyor…' : '🔄 Şimdi eşitle'}
                   </button>
                   {pendingCount > 0 && (
-                    <p className="text-xs text-primary">⏳ {pendingCount} bekleyen işlem kuyruktadır.</p>
+                    <p className="text-xs text-primary">⏳ {pendingCount} seans eşitlenmeyi bekliyor.</p>
                   )}
                   <div className="rounded-lg border border-text-primary/10 bg-surface-700/40 p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold text-text-primary">Veri Senkronizasyonu</h4>
+                      <h4 className="text-sm font-semibold text-text-primary">Seansların eşitleme durumu</h4>
                       <span className="text-[11px] text-text-muted">Canlı durum</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
@@ -534,12 +577,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         disabled={forceSyncLoading || cloudLoading}
                         className="w-full rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
                       >
-                        {forceSyncLoading ? '…' : 'Şimdi Eşitle (Force Sync)'}
+                        {forceSyncLoading ? 'Yeniden deneniyor…' : 'Başarısız işlemleri yeniden dene'}
                       </button>
                     ) : pendingCount === 0 ? (
                       <p className="inline-flex items-center gap-1 text-xs text-primary">
                         <span>✓</span>
-                        Tüm verileriniz bulutla eşitlendi.
+                        Listelenen seanslarda bekleyen işlem yok.
                       </p>
                     ) : (
                       <p className="text-xs text-primary">Bekleyen kayıtlar internet/işlem sırasına göre otomatik eşitlenecek.</p>
@@ -547,17 +590,17 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
                     {lastForceSyncAt && (
                       <p className="text-[11px] text-text-muted">
-                        Son force sync: {new Date(lastForceSyncAt).toLocaleString('tr-TR')}
+                        Son yeniden deneme: {new Date(lastForceSyncAt).toLocaleString('tr-TR')}
                       </p>
                     )}
                   </div>
                   {lastSync && (
-                    <p className="text-xs text-text-muted">Son sync: {new Date(lastSync).toLocaleString('tr-TR')}</p>
+                    <p className="text-xs text-text-muted">Son başarılı eşitleme: {new Date(lastSync).toLocaleString('tr-TR')}</p>
                   )}
-                  {cloudPushPullMsg && <p className="text-xs text-primary">{cloudPushPullMsg}</p>}
                   <button
                     type="button"
                     onClick={handleCikis}
+                    disabled={cloudLoading || forceSyncLoading}
                     className="w-full rounded-lg border border-text-primary/20 bg-surface-700/50 px-3 py-2 text-sm font-medium text-text-muted hover:text-text-primary transition"
                   >
                     Çıkış yap
@@ -565,10 +608,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 </>
               ) : (
                 <>
-                  <p className="text-xs text-text-muted">İsim / e-posta ve şifreyle kayıt ol veya giriş yap. Veriler aynı hesaba her cihazda sync olur.</p>
+                  <p className="text-xs text-text-muted">İsim / e-posta ve şifreyle kayıt ol veya giriş yap. Kayıtların aynı hesaba giriş yaptığın cihazlarda eşitlenir.</p>
                   <input
                     type="text"
                     placeholder="İsim (kayıt için)"
+                    aria-label="Hesap adı (kayıt için)"
+                    autoComplete="name"
                     value={cloudIsim}
                     onChange={(e) => setCloudIsim(e.target.value)}
                     className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-primary/50 focus:outline-none"
@@ -576,6 +621,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   <input
                     type="email"
                     placeholder="E-posta"
+                    aria-label="E-posta"
+                    autoComplete="email"
                     value={cloudEmail}
                     onChange={(e) => setCloudEmail(e.target.value)}
                     className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-primary/50 focus:outline-none"
@@ -583,13 +630,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   <input
                     type="password"
                     placeholder="Şifre"
+                    aria-label="Şifre"
                     value={cloudPassword}
                     onChange={(e) => setCloudPassword(e.target.value)}
                     className="w-full rounded-lg border border-text-primary/10 bg-surface-700 px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:border-primary/50 focus:outline-none"
                   />
-                  {cloudError && <p className="text-xs text-red-400">{cloudError}</p>}
-                  {cloudPushPullMsg && <p className="text-xs text-primary whitespace-pre-line">{cloudPushPullMsg}</p>}
-                  {healthMsg && <p className="text-xs text-primary">{healthMsg}</p>}
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -610,6 +655,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   </div>
                 </>
               )}
+              {cloudError && <p role="alert" className="text-xs text-red-400">{cloudError}</p>}
+              {cloudPushPullMsg && <p role="status" className="whitespace-pre-line text-xs text-primary">{cloudPushPullMsg}</p>}
+              {healthMsg && <p role="status" className="text-xs text-text-muted">{healthMsg}</p>}
             </div>
           )}
 
@@ -629,7 +677,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               </div>
             )}
             <p className="text-xs text-text-muted">
-              Windows ve telefon arasında senkron için: buradan dışa aktar, diğer cihazda içe aktar.
+              Dosyayla taşımak için buradan dışa aktar, diğer cihazda içe aktar. Hesapla eşitleme ayrı çalışır.
             </p>
             <div className="flex gap-2">
               <button
@@ -638,7 +686,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 disabled={disaAktariyor}
                 className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
               >
-                {disaAktariyor ? '…' : 'Dışa aktar'}
+                {disaAktariyor ? 'Hazırlanıyor…' : 'Dışa aktar'}
               </button>
               <button
                 type="button"
@@ -646,7 +694,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 disabled={iceAktariyor}
                 className="flex-1 rounded-lg border border-primary/50 bg-primary/10 hover:bg-primary/20 px-3 py-2 text-sm font-medium text-primary transition disabled:opacity-50"
               >
-                {iceAktariyor ? '…' : 'İçe aktar'}
+                {iceAktariyor ? 'Yükleniyor…' : 'İçe aktar'}
               </button>
               <input
                 ref={fileInputRef}
@@ -660,7 +708,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               İçe aktarma, bu cihazdaki seans ve ayarları yedekle değiştirir. Önce mevcut verilerini dışa aktarabilirsin. Bekleyen senkronizasyon işlemleri varsa önce tamamlanmaları gerekir.
             </p>
             {iceAktarHata && (
-              <p className="text-xs text-red-400">{iceAktarHata}</p>
+              <p role="alert" className="text-xs text-red-400">{iceAktarHata}</p>
             )}
             <p className="text-xs text-text-muted mt-2">
               Cihaz önbelleğini temizlemek buluttan silmez. Eşitleme sırasında kayıtlar yeniden yüklenebilir; tercihler ve korunan değişiklikler saklanır.
@@ -757,6 +805,5 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           </p>
         </div>
       </div>
-    </div>
   )
 }

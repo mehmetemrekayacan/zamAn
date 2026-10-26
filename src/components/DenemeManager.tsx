@@ -1,7 +1,8 @@
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useId, useMemo, useRef, useState } from 'react'
 import { useSessionsStore } from '../store/sessions'
 import type { SessionRecord } from '../types'
 import { getDenemeTemplateName } from '../lib/utils'
+import { ModalDialog } from './ModalDialog'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -38,6 +39,9 @@ interface DenemeCardProps {
 const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: DenemeCardProps) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+  const [error, setError] = useState<string | null>(null)
+  const inputId = useId()
   const [form, setForm] = useState<EditState>({
     dogru: String(session.dogruSayisi ?? ''),
     yanlis: String(session.yanlisSayisi ?? ''),
@@ -53,7 +57,14 @@ const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: Den
   const dkGercek = Math.round(session.sureGercek / 60)
 
   const handleSave = async () => {
+    if (savingRef.current) return
+    if (Object.values(form).some(value => value !== '' && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 999))) {
+      setError('Doğru, yanlış ve boş sayıları 0–999 arasında tam sayı olmalı.')
+      return
+    }
+    savingRef.current = true
     setSaving(true)
+    setError(null)
     try {
       await onUpdate({
         ...session,
@@ -62,7 +73,10 @@ const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: Den
         bosSayisi: form.bos === '' ? undefined : Number(form.bos),
       })
       setEditing(false)
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Değişiklik kaydedilemedi. Yeniden deneyebilirsin.')
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }
@@ -74,6 +88,7 @@ const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: Den
       bos: String(session.bosSayisi ?? ''),
     })
     setEditing(false)
+    setError(null)
   }
 
   return (
@@ -105,7 +120,7 @@ const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: Den
 
       {/* Düzenleme formu */}
       {editing && (
-        <div className="space-y-3 rounded-xl border border-warning/25 bg-warning/5 p-3">
+        <fieldset disabled={saving} className="space-y-3 rounded-xl border border-warning/25 bg-warning/5 p-3" aria-busy={saving}>
           <p className="text-xs font-semibold text-warning">Doğru / Yanlış / Boş Düzenle</p>
           <div className="grid grid-cols-3 gap-2">
             {(
@@ -116,10 +131,13 @@ const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: Den
               ] as { label: string; key: keyof EditState; color: string }[]
             ).map((f) => (
               <div key={f.key}>
-                <label className={`mb-1 block text-xs font-medium ${f.color}`}>{f.label}</label>
+                <label htmlFor={`${inputId}-${f.key}`} className={`mb-1 block text-xs font-medium ${f.color}`}>{f.label}</label>
                 <input
+                  id={`${inputId}-${f.key}`}
                   type="number"
                   min="0"
+                  max="999"
+                  step="1"
                   value={form[f.key]}
                   onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
                   className="w-full rounded-xl border border-text-primary/10 bg-surface-700 px-2 py-2 text-center text-sm text-text-primary focus:border-warning/50 focus:outline-none"
@@ -143,8 +161,9 @@ const DenemeCard = memo(function DenemeCard({ session, onUpdate, onDelete }: Den
               İptal
             </button>
           </div>
-        </div>
+        </fieldset>
       )}
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
       {/* Aksiyon butonları */}
       {!editing && (
@@ -180,10 +199,30 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
   const [filterName, setFilterName] = useState('all')
   const [requestedPage, setRequestedPage] = useState(1)
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const deletingRef = useRef(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const handleRequestDelete = useCallback((id: string) => {
+    setDeleteError(null)
     setSessionToDelete(id)
   }, [])
+
+  const handleDelete = async () => {
+    if (!sessionToDelete || deletingRef.current) return
+    deletingRef.current = true
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteSession(sessionToDelete)
+      setSessionToDelete(null)
+    } catch (failure) {
+      setDeleteError(failure instanceof Error ? failure.message : 'Seans silinemedi. Yeniden deneyebilirsin.')
+    } finally {
+      deletingRef.current = false
+      setDeleting(false)
+    }
+  }
 
   /**
    * Hem 'deneme' hem de 'EXAM_SIMULATOR' modlarındaki seansları kapsayacak şekilde filtreler.
@@ -242,6 +281,7 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
       {denemeSessions.length > 0 && (
         <div className="relative">
           <select
+            aria-label="Deneme filtresi"
             value={filterName}
             onChange={(e) => { setFilterName(e.target.value); setRequestedPage(1) }}
             className="w-full appearance-none rounded-xl border border-text-primary/10 bg-surface-700 px-4 py-2.5 pr-10 text-sm font-medium text-text-primary shadow-sm focus:border-secondary/50 focus:outline-none"
@@ -300,28 +340,31 @@ export function DenemeManager({ onClose }: DenemeManagerProps) {
 
       {/* Silme onay modalı */}
       {sessionToDelete !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-surface-800 border border-text-primary/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-lg font-semibold text-text-primary">Emin misiniz?</h3>
+        <ModalDialog label="Deneme seansını sil" role="alertdialog" onClose={() => setSessionToDelete(null)} busy={deleting}
+          className="w-full max-w-sm rounded-2xl border border-text-primary/10 bg-surface-800 p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-text-primary">Deneme seansını sil?</h3>
             <p className="mt-2 text-sm text-text-muted">
-              Bu deneme seansı kalıcı olarak silinecek. Bu işlem geri alınamaz.
+              Bu deneme seansı silinecek. Hesaba giriş yaptıysan silme diğer cihazlarına da eşitlenir. Bu işlem geri alınamaz.
             </p>
+            {deleteError && <p role="alert" className="mt-3 text-sm text-danger">{deleteError}</p>}
             <div className="mt-6 flex gap-3 justify-end">
               <button
+                data-dialog-initial-focus
+                disabled={deleting}
                 onClick={() => setSessionToDelete(null)}
                 className="rounded-full border border-text-primary/15 px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-surface-700"
               >
                 İptal
               </button>
               <button
-                onClick={() => { void deleteSession(sessionToDelete); setSessionToDelete(null) }}
+                onClick={handleDelete}
+                disabled={deleting}
                 className="rounded-full bg-danger px-4 py-2 text-sm font-medium text-danger-foreground transition hover:bg-danger/90"
               >
-                Sil
+                {deleting ? 'Siliniyor…' : 'Sil'}
               </button>
             </div>
-          </div>
-        </div>
+        </ModalDialog>
       )}
     </div>
   )

@@ -26,6 +26,8 @@ import { Toast } from './components/Toast'
 import { TimerTitleAndTraySync } from './components/TimerTitleAndTraySync'
 import { MiniPlayer } from './components/MiniPlayer'
 import { LazyContent } from './components/LazyContent'
+import { ModalDialog } from './components/ModalDialog'
+import { hasOpenDialog } from './lib/dialogStack'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import type { ModeConfig } from './types'
 import { getSupabase } from './lib/supabase'
@@ -408,12 +410,9 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
   /* ── keyboard shortcuts ── */
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.repeat || (e.target as HTMLElement).isContentEditable) return
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
-      if (e.code === 'Escape' && showSettings) {
-        setShowSettings(false)
-        return
-      }
+      if (e.defaultPrevented || e.repeat || hasOpenDialog()) return
+      const target = e.target
+      if (target instanceof Element && target.closest('input, textarea, select, button, a[href], [role="button"], [contenteditable="true"]')) return
       if (showSettings || showRecoveryModal || status === 'finished' || activeView !== 'timer') return
       if (e.code === settings.kısayollar.startStop) {
         e.preventDefault()
@@ -703,14 +702,15 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
         )}
 
         {/* Settings Modal */}
-        {showSettings && <LazyContent onClose={() => setShowSettings(false)} fallback={
-          <div role="status" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 text-text-primary">Ayarlar yükleniyor…</div>
-        }><SettingsModal onClose={() => setShowSettings(false)} /></LazyContent>}
+        {showSettings && <ModalDialog label="Ayarlar" onClose={() => setShowSettings(false)} className="flex w-full max-w-sm flex-col rounded-card border border-text-primary/10 bg-surface-800 shadow-2xl">
+          <LazyContent onClose={() => setShowSettings(false)} fallback={<div role="status" className="p-6 text-text-primary">Ayarlar yükleniyor…</div>}>
+            <SettingsModal onClose={() => setShowSettings(false)} />
+          </LazyContent>
+        </ModalDialog>}
 
         {/* Session Recovery Modal */}
         {showRecoveryModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-            <div role="dialog" aria-modal="true" aria-labelledby="recovery-title" className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-card border border-text-primary/10 bg-surface-800 p-6 shadow-2xl">
+          <ModalDialog label="Oturum Kurtarma" className="w-full max-w-md rounded-card border border-text-primary/10 bg-surface-800 p-6 shadow-2xl">
               <h3 id="recovery-title" className="font-display text-xl text-text-primary">Oturum Kurtarma</h3>
               <p className="mt-3 text-sm text-text-muted">
                 Son kaydedilen çalışma süreniz korundu. Kapalı kaldığı bilinmeyen süre ve bu ekranda bekleme çalışma süresine eklenmez. Sınav Saati modunda açılışa kadar sabit bitiş saati uygulanır.
@@ -736,11 +736,10 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
                   onClick={handleRecoveryDiscard}
                   className="w-full rounded-full border border-danger/50 bg-danger/10 px-5 py-2.5 text-sm font-semibold text-danger transition hover:bg-danger/20"
                 >
-                  Sil / Çöpe At
+                  Kaydetmeden Sil
                 </button>
               </div>
-            </div>
-          </div>
+          </ModalDialog>
         )}
 
         {/* Global Toast */}

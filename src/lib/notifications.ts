@@ -21,7 +21,6 @@ let pushInitialized = false
  */
 export const triggerVibration = async (pattern: number[] = [200, 100, 200, 100, 300]): Promise<void> => {
   try {
-    // @ts-ignore - Capacitor run-time dependency, build’te olmayabilir
     const { Capacitor } = await import('@capacitor/core')
     if (Capacitor?.isNativePlatform?.()) {
       const { Haptics } = await import('@capacitor/haptics')
@@ -51,8 +50,9 @@ export const triggerVibration = async (pattern: number[] = [200, 100, 200, 100, 
  */
 export const playNotificationSound = (frequency: number = 800, duration: number = 500): void => {
   try {
-    // @ts-ignore - webkitAudioContext for Safari compatibility
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextClass) return
+    const audioContext = new AudioContextClass()
     const oscillator = audioContext.createOscillator()
     const gainNode = audioContext.createGain()
 
@@ -67,6 +67,7 @@ export const playNotificationSound = (frequency: number = 800, duration: number 
 
     oscillator.start(audioContext.currentTime)
     oscillator.stop(audioContext.currentTime + duration / 1000)
+    oscillator.onended = () => { void audioContext.close().catch(() => {}) }
   } catch (error) {
     console.warn('Audio notification not available:', error)
   }
@@ -78,8 +79,9 @@ export const playNotificationSound = (frequency: number = 800, duration: number 
  */
 export const playSuccessSound = async (): Promise<void> => {
   try {
-    // @ts-ignore - webkitAudioContext for Safari compatibility
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextClass) return
+    const audioContext = new AudioContextClass()
     if (audioContext.state === 'suspended') {
       await audioContext.resume()
     }
@@ -100,6 +102,7 @@ export const playSuccessSound = async (): Promise<void> => {
       gain.gain.exponentialRampToValueAtTime(0.01, start + duration)
       osc.start(start)
       osc.stop(start + duration)
+      if (i === tones.length - 1) osc.onended = () => { void audioContext.close().catch(() => {}) }
     }
   } catch (error) {
     console.warn('Success sound not available:', error)

@@ -18,6 +18,8 @@ let win = null;
 let tray = null;
 let isMiniPlayer = false;
 let alwaysOnTopEnabled = false;
+let normalBounds = null;
+let normalWasMaximized = false;
 const NORMAL_SIZE = { width: 400, height: 750 };
 const MINI_SIZE = { width: 300, height: 200 };
 
@@ -174,27 +176,34 @@ function createTray() {
 
 function toggleMiniPlayer(enabled) {
   if (!win) return;
+  enabled = Boolean(enabled);
   if (enabled === isMiniPlayer) {
     sendToRenderer('mini-player-changed', enabled);
     return;
   }
 
-  const previousWindow = win;
-  const wasFocused = previousWindow.isFocused();
-
-  previousWindow.removeAllListeners('close');
-  previousWindow.destroy();
-
-  isMiniPlayer = enabled;
-  createWindow({ mini: enabled });
-
-  if (win) {
-    const targetSize = enabled ? MINI_SIZE : NORMAL_SIZE;
-    win.setSize(targetSize.width, targetSize.height);
-    win.center();
-    win.setAlwaysOnTop(enabled || alwaysOnTopEnabled);
-    win.show();
+  const wasFocused = win.isFocused();
+  // Pencereyi yeniden oluşturmak sayacı ve kaydedilmemiş formu yeniden
+  // yüklerdi. Aynı renderer ve başlık çubuğu korunarak yalnızca boyut değişir.
+  if (enabled) {
+    normalBounds = win.getNormalBounds();
+    normalWasMaximized = win.isMaximized();
+    if (normalWasMaximized) win.unmaximize();
+    win.setMinimumSize(MINI_SIZE.width, MINI_SIZE.height);
+    win.setSize(MINI_SIZE.width, MINI_SIZE.height);
+    win.setResizable(false);
+    win.setMaximizable(false);
+  } else {
+    win.setResizable(true);
+    win.setMaximizable(true);
+    win.setMinimumSize(360, 600);
+    if (normalBounds) win.setBounds(normalBounds);
+    else win.setSize(NORMAL_SIZE.width, NORMAL_SIZE.height);
+    if (normalWasMaximized) win.maximize();
   }
+  isMiniPlayer = enabled;
+  win.setAlwaysOnTop(enabled || alwaysOnTopEnabled);
+  win.show();
 
   refreshTrayMenu();
 

@@ -1,6 +1,6 @@
 # zamAn
 
-İlköğretim matematik öğretmenliği sınavına hazırlık için **deneme ve çalışma süre takip** uygulaması. Kronometre, zamanlayıcı, Pomodoro (60 dk ders / 15 dk mola) ve deneme sınavı modları. PWA + offline-first.
+Sınava hazırlık için **deneme ve çalışma süre takip** uygulaması. Kronometre, zamanlayıcı, 60/15 ders/mola, bölümlü deneme ve sabit bitiş saatli sınav simülasyonu olmak üzere beş mod. Web/PWA, Windows (Electron) ve Android (Capacitor) arayüzü ortak React kodunu kullanır.
 
 **Web, Windows masaüstü (.exe) ve Android (APK)** olarak kullanılabilir; indirilebilir uygulama üretilebilir.
 
@@ -8,13 +8,15 @@
 
 ## Özellikler
 
-- **Modlar:** Deneme sınavı (AGS 110 dk / ÖABT 90 dk), 60 dk ders / 15 dk mola, geri sayım, serbest kronometre
+- **Modlar:** Bölümlü deneme, Sınav Saati simülasyonu, 60 dk ders / 15 dk mola, geri sayım, serbest kronometre
 - **Seans takibi:** Süre, puan, ruh hali, not; IndexedDB ile kalıcı kayıt
 - **Ünvanlar ve motivasyon:** Puana göre ünvan, ileride açılacak hedefler
 - **İstatistikler:** Bugün / hafta / ay, seri gün, 5+ saatlik gün, günlük çalışma grafiği, rozetler
 - **Ayarlar:** Tema, ses, titreşim, isim, sınav tarihi, vurgu rengi, klavye kısayolları
-- **Senkron:** Dosyadan dışa/içe aktar; isteğe bağlı **online senkron** (Supabase ile isim/e-posta + şifreyle kayıt, buluta kaydet / buluttan çek)
-- **Responsive:** Masaüstü ve mobil uyumlu, dokunmatik dostu (min 44px hedefler)
+- **Senkron:** Hesaplara ayrılmış yerel depolar; sürümlü değişiklik kuyruğu, silme bilgisi ve korunan çakışmalar. JSON yedek aktarımı ayrı bir işlemdir.
+- **Kurtarma:** Kaydedilmemiş bitiş taslağı, not ve analiz yenilemede korunur; normal seanslarda kapalı kalınan bilinmeyen süre çalışmaya eklenmez.
+- **İstatistik:** Yeni kayıtların net çalışma aralıkları yerel gün ve saatlere dağıtılır. Aralığı bilinmeyen eski kayıtlar bitiş zamanına yazılır.
+- **Klavye:** Pencerelerde odak sınırı ve geri dönüş; sayfa kontrolleri üzerinde Space sayaç kısayolunu çalıştırmaz.
 
 ---
 
@@ -59,7 +61,7 @@ Sadece paketlenmiş dosyaları (kurulum olmadan) üretmek için:
 npm run win:dir
 ```
 
-> **Not (Windows):** “invalid icon file” hatası NSIS’in PNG kabul etmemesinden kaynaklanıyordu; kurulum/kaldırma ikonu kapatıldı, build tamamlanır. “Cannot create symbolic link” / winCodeSign hatası çıkarsa cache temizle: `Remove-Item -Recurse -Force "$env:LOCALAPPDATA\electron-builder\Cache\winCodeSign" -ErrorAction SilentlyContinue` sonra `npm run win` tekrar dene.
+Mini oynatıcı aynı pencereyi küçültür; sayaç ve açık taslak yeniden yüklenmez. Windows başlık çubuğu korunur. `electron/` dosyaları değiştiğinde yeni Windows paketi gerekir.
 
 ### 2. Android (APK)
 
@@ -98,14 +100,14 @@ npm run apk:build
 APK dosyası şurada oluşur:
 
 ```
-android/app/build/outputs/apk/release/app-release-unsigned.apk
+android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Dağıtım için imzalı APK almak istersen:
+`apk:build` ve `apk:debug` yerel içerikli debug APK üretir. Remote URL kullanan release için `npm run apk:release` kullanılır; dağıtım imzası ayrıca hazırlanmalıdır:
 
 1. `android/app/build.gradle` içinde `signingConfigs` tanımla (keystore ile).
 2. `buildTypes.release.signingConfig` ile bu config’i kullan.
-3. Tekrar `npm run apk:build` çalıştır.
+3. `npm run apk:release` çalıştır; `android/app/build/outputs/apk/release/` çıktısını kontrol et.
 
 Ayrıntı için [Android: Uygulamanızı imzalama](https://developer.android.com/studio/publish/app-signing) dokümantasyonuna bak.
 
@@ -121,14 +123,14 @@ npm run build
 
 ### 4. Online senkron (Hesap — isim / e-posta + şifre)
 
-Windows ve telefonda aynı verileri tutmak için **Supabase** ile kayıt/giriş kullanılır. Ayarlar'da "Hesap (online senkron)" bölümü **sadece** `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` tanımlıysa görünür.
+Windows ve telefonda aynı verileri tutmak için **Supabase** ile kayıt/giriş kullanılır. Ayarlar'da "Hesap ve eşitleme" bölümü **sadece** `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` tanımlıysa görünür.
 
 1. [Supabase](https://supabase.com/dashboard) üzerinde yeni proje oluştur.
 2. **Settings → API**'den **Project URL** ve **anon (public) key**'i kopyala.
 3. Proje kökünde `.env.local` dosyası oluştur (`VITE_SUPABASE_URL=...`, `VITE_SUPABASE_ANON_KEY=...`).
-4. Yeni kurulumda `database/supabase-v2-sessions.sql` ve ardından `database/supabase-v3-sync.sql` uygulanır. Mevcut projelerde yedek ve şema kontrolü dahil [geçiş sırasını](docs/ASAMA-4-SENKRONIZASYON.md) izle.
+4. Yeni kurulumda sırasıyla `database/supabase-v2-sessions.sql`, `database/supabase-v3-sync.sql` ve `supabase/migrations/20261026150258_session_work_intervals.sql` uygulanır. Mevcut canlı projede bu geçişler tamamlandı. Mevcut projelerde yedek ve şema kontrolü dahil [geçiş sırasını](docs/ASAMA-4-SENKRONIZASYON.md) izle.
 5. `npm run dev` veya `npm run build` ile uygulamayı çalıştır; Ayarlar'da "Hesap" bölümü çıkar.
-6. **Kayıt ol:** İsim, e-posta, şifre → **Giriş yap:** e-posta, şifre. Girişten sonra **Buluta kaydet** / **Buluttan çek** ile verileri senkron edebilirsin.
+6. **Kayıt ol:** İsim, e-posta, şifre → **Giriş yap:** e-posta, şifre. Ayarlar → **Hesap ve eşitleme** bölümündeki **Şimdi eşitle** iki yönlü çalışır. **Gönder** ve **Çek** tek yönlü işlemlerdir; bekleyen değişiklikler bağlantı geldiğinde de işlenir.
 
 Örnek env için `.env.example` dosyasına bak.
 
@@ -155,7 +157,8 @@ Windows ve telefonda aynı verileri tutmak için **Supabase** ile kayıt/giriş 
 | `npm run dev`    | Geliştirme sunucusu                        |
 | `npm run build`  | Web build (`dist/`)                        |
 | `npm run win`    | Windows kurulum .exe’si (`release/`)       |
-| `npm run apk:build` | Android release APK (`android/.../release/`) |
+| `npm run apk:build` | Yerel içerikli debug APK (`android/.../debug/`) |
+| `npm run apk:release` | Uzak URL kullanan release APK (`android/.../release/`) |
 | `npm run android`   | Android’de uygulamayı çalıştır / aç       |
 | `npm run preview`   | `dist/` için önizleme sunucusu            |
 
@@ -163,11 +166,13 @@ Windows ve telefonda aynı verileri tutmak için **Supabase** ile kayıt/giriş 
 
 ## Otomatik güncelleme (remote mod)
 
-Uygulama **remote URL** modunda çalışır. `git push` ile Vercel'e deploy yapınca tüm kullanıcılar (Windows, Android, PWA) **anında** güncelleme alır — yeni EXE/APK göndermene gerek yok.
+Paketlenmiş Electron uygulaması `app-config.cjs` içindeki URL'yi açar. Android yalnızca `CAPACITOR_REMOTE=1` ile eşitlenmiş/paketlenmişse uzak URL'yi kullanır; varsayılan debug APK yerel `dist/` içeriğini taşır.
 
 - `app-config.cjs` → `APP_URL` değişkenine Vercel URL'ini yaz
 - İlk dağıtım: `npm run win` (Windows) / `npm run apk:release` (Android)
-- Sonraki güncellemeler: `git push` → Vercel otomatik deploy → kullanıcılar bir sonraki açışta güncel sürümü alır
+- Uzak arayüz güncellemesi: Vercel'e başarılı yayın → tarayıcı/PWA'da güncelleme bildirimi kabulü veya sonraki yükleme. Açık ekran kendi başına hemen yeni kodu çalıştırmaz; eski service worker yeni sürümü bekletebilir.
+- `electron/`, preload, Android native kodu veya native bağımlılık değişikliği yeni EXE/APK gerektirir. Vercel yayını native dosyaları değiştirmez.
+- Yayın, kabul ve geri dönüş: [8. aşama kontrol listesi](docs/ASAMA-8-KULLANIM-VE-SURUM.md).
 
 ---
 
@@ -180,6 +185,8 @@ npm run test:unit:watch # Geliştirme sırasında izleme modu
 npm run test:data     # IndexedDB, yedek, kuyruk ve test izolasyonu
 npm run test:sync     # Yerel PostgreSQL motorunda migration ve cihaz senaryoları
 npm run test:rozetler # Sadece rozet hesaplaması
+npm run test:ui      # Pencere, işlem geri bildirimi ve Electron pencere geçişi
+npm run test:performance # Sayaç render/yazma ve liste ölçümleri
 npm run typecheck    # Uygulama, test yardımcıları ve test ayarları
 npm run lint         # ESLint (üretilmiş dosyalar hariç)
 ```
@@ -210,17 +217,12 @@ kullanır. Yeniden açılışta çalışma, sınav ve mola için uygulanan süre
 
 ---
 
-## Supabase kurulum (online senkron)
+## Senkron protokolü ve güncel mimari
 
-1. [supabase.com](https://supabase.com) → New Project oluştur
-2. Settings → API → **Project URL** ve **anon key** kopyala
-3. `.env.local` dosyası oluştur:
-   ```
-   VITE_SUPABASE_URL=https://xxxxxxxx.supabase.co
-   VITE_SUPABASE_ANON_KEY=eyJ...
-   ```
-4. Yeni kurulumda sırasıyla `database/supabase-v2-sessions.sql`, `database/supabase-v3-sync.sql` ve `supabase/migrations/20261026150258_session_work_intervals.sql` uygulanır. Mevcut projede önce şemayı kontrol et ve yedek al. Hedef canlı projede bu geçişler zaten uygulanmıştır; tekrar SQL çalıştırılması gerekmez. Ayrıntılar: [senkronizasyon](docs/ASAMA-4-SENKRONIZASYON.md), [takvim ve çalışma aralıkları](docs/ASAMA-6-TARIH-ISTATISTIK.md).
-5. Ayarlar'da "Hesap (online senkron)" bölümü görünür
+Kurulum yukarıdaki **Online senkron** bölümündedir. Güncel veri ve uygulama akışı:
+[Mimari](docs/ARCHITECTURE.md). Tarih ve çalışma aralıkları:
+[6. aşama](docs/ASAMA-6-TARIH-ISTATISTIK.md). Ölçümler:
+[7. aşama](docs/ASAMA-7-PERFORMANS.md).
 
 Yeni istemci sürümlü v3 RPC protokolünü gerektirir. Protokol eksikse bulut yazısı
 başlatılmaz; yerel kayıtlar saklanır ve güncelleme gereksinimi bildirilir.

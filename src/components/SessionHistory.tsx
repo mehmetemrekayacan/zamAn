@@ -4,6 +4,7 @@ import type { SessionSyncMap } from '../store/sessions'
 import { SyncStatusBadge } from './SyncStatusBadge'
 import { getSubjectLabel } from '../lib/utils'
 import { MODE_LABELS, MODE_EMOJIS } from '../lib/modeConfig'
+import { ModalDialog } from './ModalDialog'
 
 
 
@@ -46,19 +47,8 @@ function SessionDetailModal({ session, onClose }: SessionDetailModalProps) {
   const ekstraDk = ekstraSureSn > 0 ? Math.round(ekstraSureSn / 60) : null
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-      {/* Modal panel */}
-      <div
-        className="relative z-10 w-full max-w-[min(28rem,90vw)] overflow-hidden rounded-2xl
-                   border border-[var(--card-border)] bg-surface-800 p-6 shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
+    <ModalDialog label="Seans ayrıntıları" onClose={onClose} closeOnBackdrop
+      className="relative w-full max-w-[min(28rem,90vw)] rounded-2xl border border-[var(--card-border)] bg-surface-800 p-6 shadow-2xl">
         {/* Kapat butonu */}
         <button
           onClick={onClose}
@@ -141,8 +131,7 @@ function SessionDetailModal({ session, onClose }: SessionDetailModalProps) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </ModalDialog>
   )
 }
 
@@ -199,7 +188,13 @@ export const SessionHistory = memo(function SessionHistory({
                   role="button"
                   tabIndex={0}
                   onClick={() => setSelectedSession(session)}
-                  onKeyDown={e => e.key === 'Enter' && setSelectedSession(session)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setSelectedSession(session)
+                    }
+                  }}
                   className={`flex overflow-hidden cursor-pointer items-center gap-3 rounded-card-sm border
                              border-[var(--card-border)] bg-surface-900/40 px-4 py-3 transition-all
                              duration-300 hover:border-text-primary/10 hover:bg-surface-900/60

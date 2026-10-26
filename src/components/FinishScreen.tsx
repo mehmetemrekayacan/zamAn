@@ -284,7 +284,7 @@ export function FinishScreen({
             disabled={saving}
             className="rounded-full border border-text-primary/10 px-6 py-3 font-semibold text-text-primary hover:border-primary/60 active:scale-[0.98] transition"
           >
-            İptal
+            Kaydetmeden Sil
           </button>
         </div>
       </div>

@@ -128,6 +128,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       set({ sessions: nextSessions, syncStatusById: nextSyncMap })
     } catch (error) {
       console.error('Failed to delete session:', error)
+      throw error
     }
   },
 

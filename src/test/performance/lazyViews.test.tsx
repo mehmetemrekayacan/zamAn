@@ -40,7 +40,7 @@ it('istatistik, deneme ve ayarlar istekte yüklenir; gezinme ve kısayol engeli 
     await settleUntil(() => container.textContent!.includes('Henüz deneme seansı yok'))
     await act(async () => { button('Zamanlayıcı').click() })
     await act(async () => { container.querySelector<HTMLButtonElement>('button[title="Ayarlar"]')!.click() })
-    const settingsVisible = () => [...container.querySelectorAll('h2')].some(heading => heading.textContent === 'Ayarlar')
+    const settingsVisible = () => [...document.querySelectorAll('h2')].some(heading => heading.textContent === 'Ayarlar')
     await settleUntil(settingsVisible)
     await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', bubbles: true })) })
     expect(useTimerStore.getState().status).toBe('idle')

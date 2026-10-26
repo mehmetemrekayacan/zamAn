@@ -38,6 +38,9 @@ export const ModeSelector = memo(function ModeSelector({
         return (
           <button
             key={m.id}
+            type="button"
+            aria-pressed={active}
+            title={m.desc}
             onClick={() => onSelect(m.id)}
             className={`
               group flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium

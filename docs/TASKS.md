@@ -1,5 +1,9 @@
 # zamAn — Optimize / Düzenleme / Tamir Planı
 
+> Eski görev arşividir. 26 Ekim 2026 itibarıyla geçerli sıra ve durum
+> [YOL-HARITASI.md](YOL-HARITASI.md) ve [8. aşama](ASAMA-8-KULLANIM-VE-SURUM.md)
+> belgelerinde takip edilir.
+
 ## KRİTİK HATALAR
 
 ### 1. ~~`pomodoro` hayalet referansları → Build kırık~~ ✅ TAMAMLANDI

@@ -2,7 +2,7 @@
 
 26 Ekim 2026. Durum: Uygulama kodu ve canlı veritabanı geçişi tamamlandı.
 Yedek geri yükleme provası, canlı RPC/RLS kontrolleri ve REST erişim kontrolleri geçti.
-Vercel yayınını kullanıcı yapacak; yayın sonrası gerçek iki cihaz kabulü bekliyor.
+Vercel yayınını kullanıcı tamamladı; gerçek iki fiziksel cihaz kabulü ayrıca bekliyor.
 
 Hedef proje: `mplndquosywhqscahzyn`.
 

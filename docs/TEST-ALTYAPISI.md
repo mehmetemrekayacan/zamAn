@@ -10,6 +10,7 @@
 | `npm run test:unit` | Geriye uyumlu, tüm testleri çalıştıran eşdeğer komut |
 | `npm run test:unit:watch` | İzleme modu |
 | `npm run test:data` | Veri katmanı ve izolasyon testleri |
+| `npm run test:ui` | jsdom'da modal/işlem geri bildirimi ve VM'de Electron main geçişleri; gerçek tarayıcı/native uygulama başlatmaz |
 | `npm run test:performance` | Tek worker ile render/yazma, liste ve ortak hesap ölçümleri; React gezinme kontrolleri |
 | `npm run measure:bundle` | Üretim derlemesi + manifest üzerinden başlangıç JS ölçümü |
 | `npm run test:sync` | PGlite üzerinde SQL, eski veri geçişi ve iki cihaz protokolü |
@@ -175,3 +176,10 @@ sonrasında eski varsayılan saate dönüş, test sırasından bağımsızdır.
 Gerçek veri yedeği PGlite'a geri yüklendi; mevcut alanlar korundu ve günlük/saatlik
 toplamlar eşleşti. Canlı ek migration ve rollback edilen RPC testleri de başarılı.
 [6. aşama raporu](ASAMA-6-TARIH-ISTATISTIK.md) yayın/cihaz sınırlarını açıklar.
+
+26 Ekim 2026: 8. aşamada toplam **322 test / 34 dosya** başarılı. Önceki
+303 teste modal odak/klavye, işlem hatası/yeniden deneme, toast/güncelleme
+ve Electron pencere geçişi için 19 test eklendi. Genel ESLint artık hatasız.
+Web, Electron ve Android arayüz derlemeleri başarılıdır. VM/jsdom testleri
+gerçek platform kabulünün yerini almaz; [kabul listesi](ASAMA-8-KULLANIM-VE-SURUM.md)
+yayın ve fiziksel cihaz sınırlarını belirtir.

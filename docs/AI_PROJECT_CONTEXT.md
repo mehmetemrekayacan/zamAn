@@ -1,5 +1,11 @@
 # AI Project Context — zamAn
 
+> Arşiv uyarısı (26 Ekim 2026): Aşağıdaki Şubat özeti güncel çalışma
+> mimarisi değildir. Yeni değişikliklerde [güncel mimariyi](ARCHITECTURE.md),
+> [yol haritasını](YOL-HARITASI.md) ve [8. aşama durumunu](ASAMA-8-KULLANIM-VE-SURUM.md)
+> esas al. Özellikle beşinci mod, hesap kapsamları, v3 senkronizasyon,
+> çalışma aralıkları ve PWA onarımı bu eski özette eksiktir.
+
 > Last updated: 2026-02-27  
 > Purpose: Bu dosya, projeyi bir yapay zekânın hızlıca anlayıp katkı verebilmesi için yapılandırılmış teknik özet sunar.
 

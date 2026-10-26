@@ -2,6 +2,8 @@
 
 26 Ekim 2026. Kullanıcı 7. aşamanın manuel kontrollerinin başarılı olduğunu, ancak Vercel yayını sonrasında Firefox'ta `zustand-vendor-BuiM4fwn.js` için Service Worker yükleme hatası gördüğünü bildirdi.
 
+Sonraki durum: Kullanıcı düzeltmeyi yayımladı ve hatanın tekrarlanmadığını bildirdi. Aşağıdaki HTTP bulguları düzeltme öncesidir. Gerçek SW çevrimdışı/güncelleme kabulü [8. aşama listesinde](ASAMA-8-KULLANIM-VE-SURUM.md) ayrıca takip ediliyor.
+
 ## Doğrulanan bulgular
 
 Canlı siteye doğrudan HTTP istekleriyle yapılan kontrolde:

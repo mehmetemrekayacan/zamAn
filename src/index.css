@@ -82,6 +82,11 @@ body {
   outline-offset: 2px;
 }
 
+:is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary, #3b82f6);
+  outline-offset: 3px;
+}
+
 .touch-manipulation {
   touch-action: manipulation;
 }

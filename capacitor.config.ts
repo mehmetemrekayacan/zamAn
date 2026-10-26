@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-/** Remote mod: deploy sonrası tüm kullanıcılar anında güncelleme alır */
+/** Remote mod uzak arayüzü açar; native değişiklikler yeni APK gerektirir. */
 const USE_REMOTE = process.env.CAPACITOR_REMOTE === '1';
 const APP_URL = process.env.ZAMAN_APP_URL || 'https://zam-an.vercel.app';
 

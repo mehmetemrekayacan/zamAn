@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { TITLES } from '../lib/scoring'
+import { ModalDialog } from './ModalDialog'
 
 export interface TitlesModalProps {
   isOpen: boolean
@@ -19,23 +20,10 @@ export function TitlesModal({ isOpen, onClose, currentScore }: TitlesModalProps)
     return idx
   }, [safeScore])
 
-  useEffect(() => {
-    if (!isOpen) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isOpen, onClose])
-
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-card border border-text-primary/15 bg-surface-800 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <ModalDialog label="Tüm Ünvanlar" onClose={onClose} closeOnBackdrop className="flex w-full max-w-lg flex-col rounded-card border border-text-primary/15 bg-surface-800 shadow-2xl">
         <div className="flex items-center justify-between border-b border-text-primary/10 px-5 py-4">
           <div>
             <p className="section-label">Kariyer Yolu</p>
@@ -89,7 +77,6 @@ export function TitlesModal({ isOpen, onClose, currentScore }: TitlesModalProps)
             )
           })}
         </div>
-      </div>
-    </div>
+    </ModalDialog>
   )
 }
