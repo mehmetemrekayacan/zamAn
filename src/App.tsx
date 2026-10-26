@@ -445,7 +445,6 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
       monthMinutes: Math.round(stats.monthSeconds / 60), monthSessions: stats.monthSessions.length,
       avgScoreMonth: stats.avgScoreMonth, lastSessions, toplamKariyerPuan,
       unvan: getUnvan(toplamKariyerPuan), tahmin: getTahmin150Saat(stats.completed),
-      legacySessions: stats.legacySessions,
       rozetler: getRozetler({ gunluk5SaatGunSayisi, streak: stats.streak, toplamKariyerPuan, monthSeconds: stats.monthSeconds, sessions: stats.completed }),
     }
   }, [sessions, calendar])
@@ -579,7 +578,6 @@ function AccountApp({ isMiniPlayerMode }: { isMiniPlayerMode: boolean }) {
           <>
             {/* Hızlı istatistik çubuğu */}
             <QuickStatsBar stats={statsData} />
-            {summary.legacySessions > 0 && <p className="text-xs text-text-muted">Çalışma aralıkları bulunmayan eski kayıtlar bitiş gününe göre toplanır.</p>}
 
             {/* ════════  BÖLÜM 2 — TIMER HERO  ════════ */}
             <TimerHero

@@ -18,8 +18,15 @@ export function AnalyticsPage() {
         <p className="text-xs text-text-muted sm:text-sm">Çalışma verilerinin detaylı görünümü</p>
       </div>
 
-      <p className="text-xs text-text-muted">Süreler çalışılan güne; seans sayısı ve puanlar bitiş gününe göre hesaplanır.</p>
-      {legacyCount > 0 && <p className="text-xs text-text-muted">{legacyCount} eski kaydın çalışma aralıkları bulunmadığından süreleri bitiş gününe ve saatine yazılır. Yeni kayıtlar duraklamalar çıkarılarak gerçek çalışma aralıklarına dağıtılır.</p>}
+      <details>
+        <summary className="w-fit cursor-pointer rounded-md text-xs font-medium text-text-muted transition hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
+          <span aria-hidden="true">ⓘ </span>Veriler nasıl hesaplanıyor?
+        </summary>
+        <div className="mt-3 max-w-3xl space-y-2 border-l border-text-primary/10 pl-3 text-xs leading-relaxed text-text-muted">
+          <p>Süreler çalışılan güne; seans sayısı ve puanlar bitiş gününe göre hesaplanır. Yeni kayıtların süreleri, duraklamalar çıkarılarak gerçek çalışma aralıklarına dağıtılır.</p>
+          {legacyCount > 0 && <p>{legacyCount} eski kaydın çalışma aralıkları bulunmadığından süreleri bitiş gününe ve saatine yazılır.</p>}
+        </div>
+      </details>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="md:col-span-2">

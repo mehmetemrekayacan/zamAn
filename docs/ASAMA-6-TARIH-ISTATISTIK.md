@@ -34,8 +34,9 @@ Vercel yayınını ve önerilen manuel kontrolleri başarılı olarak bildirdi.
 
 Eski seansların süreleri ve puanları değiştirilmedi. Çalışmanın hangi aralıklarda
 yapıldığı bilinmiyorsa başlangıç, pause veya saat dağılımı tahmin edilmez;
-sürenin tamamı bilinen bitiş gününe/saatine yazılır. Bu sınırlama özetlerin altında
-ve istatistik ekranında açıklanır. Grafiklerin ve rozetlerin aynı ortak dağılımı
+sürenin tamamı bilinen bitiş gününe/saatine yazılır. Kullanıcının arayüz sadeleştirme
+isteğiyle bu sınırlama, istatistiklerde varsayılan kapalı “Veriler nasıl hesaplanıyor?”
+alanında açıklanır. Grafiklerin ve rozetlerin aynı ortak dağılımı
 kullanması, eski kayıtların artık kesin ölçülmüş hale geldiği anlamına gelmez.
 
 Güncellemeden önce başlamış aktif seans da aralık geçmişi yoksa bu kurala uyar.
